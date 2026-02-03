@@ -21,7 +21,5 @@ jobs:
           python -m pip install ruff
       - name: Ruff lint
         run: ruff check .
-      - name: Ruff format
-        run: ruff format .
       - name: Ruff format (check)
         run: ruff format --check .
