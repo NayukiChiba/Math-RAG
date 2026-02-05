@@ -1,0 +1,114 @@
+# Math-RAG 全局配置（TOML）
+
+[paths]
+# 目录路径均相对项目根目录
+processed_dir = "data/processed"
+model_output_json = "data/processed/ma_terms_model.json"
+
+[model]
+# OpenAI 兼容接口配置
+api_base = "https://api.deepseek.com/v1"
+model = "deepseek-chat"
+# 你的 .env 使用 API-KEY，这里保持一致
+api_key_env = "API-KEY"
+subject_label = "数学分析"
+seed_terms = ['集合', '映射/函数', '极限', '无穷小与无穷大', '连续性', 
+'一致连续', '导数', '微分', '高阶导数', '中值定理', '泰勒公式', 
+'不定积分', '定积分', '黎曼可积', '牛顿-莱布尼茨公式', '反常积分', 
+'数项级数', '绝对收敛与条件收敛', '函数项级数', '一致收敛', '幂级数', 
+'傅里叶级数', '多元函数', '偏导数', '全微分', '方向导数', '梯度', 
+'雅可比矩阵', '隐函数定理', '条件极值与拉格朗日乘数法', '重积分', 
+'曲线积分', '曲面积分', '格林公式', '高斯公式', '斯托克斯公式', 
+'上极限与下极限', '紧集', '连通集', '行列式', '矩阵', '矩阵的秩', 
+'逆矩阵', '初等变换', '线性方程组', '线性相关与线性无关', '向量组的秩', 
+'基与维数', '线性空间', '子空间', '线性映射', '像与核', 
+'特征值与特征向量', '相似矩阵', '对角化', '二次型', '标准形与规范形',
+ '正定二次型', '合同矩阵', '内积', '欧几里得空间', '正交性', 
+ '正交矩阵', '正交变换', '对称矩阵', '若尔当标准形', '最小多项式', 
+ '不变子空间', '直和分解', '随机试验', '样本空间', '随机事件', 
+ '概率', '条件概率', '独立性', '全概率公式', '贝叶斯公式', 
+ '随机变量', '分布函数', '概率密度函数', '离散型随机变量', 
+ '连续型随机变量', '数学期望', '方差', '标准差', '协方差', 
+ '相关系数', '矩', '常见分布：', '随机向量', '联合分布', 
+ '边缘分布', '条件分布', '大数定律', '中心极限定理', 
+ '特征函数', '矩母函数', '依概率收敛', '几乎必然收敛', 
+ '分布收敛', '马尔可夫链']
+max_tokens = 900
+temperature = 0.3
+top_p = 0.9
+max_retries = 2
+min_definition_chars = 40
+min_usage_chars = 20
+min_applications_chars = 20
+min_formula_count = 1
+# 请求控制
+endpoint = "/chat/completions"
+request_timeout = 60
+# rpm = 800
+# tpm = 40000
+retry_wait_seconds = 2
+clear_context_each_request = true
+# 流式输出
+stream = true
+# 起始索引（1-based）
+start_index = 1
+
+# 提示词模板（占位符：{{term}} {{subject_label}} {{example}} {{reason}} {{bad_json}}）
+prompt_system = '''
+你是数学术语编纂助手。请为指定术语生成标准化 JSON。必须严格输出 JSON 对象，不要输出多余解释。
+'''
+
+prompt_user = '''
+术语：{{term}}
+学科：{{subject_label}}
+要求：
+1) 输出字段必须包含：id, term, aliases, sense_id, subject, definitions, notation, formula, usage, applications, disambiguation, related_terms, search_keys, lang, confidence。
+2) definitions 至少包含 2 条（strict + alternative），必要时再补充 informal。
+3) 数学符号与公式必须使用 LaTeX。
+4) related_terms 至少 3 个。
+5) 仅输出 JSON 对象。
+6) 内容必须更具体，避免空泛表述。
+示例（格式参考，内容需针对当前术语生成）：
+{{example}}
+'''
+
+prompt_example = '''
+{
+  "id": "ma-柯西列",
+  "term": "柯西列",
+  "aliases": ["Cauchy 列"],
+  "sense_id": "1",
+  "subject": "数学分析",
+  "definitions": [
+    {
+      "type": "strict",
+      "text": "在度量空间 $(X,d)$ 中，序列 $\\{x_n\\}$ 称为柯西列，若对任意 $\\epsilon>0$，存在 $N$ 使得当 $m,n\\ge N$ 时，有 $d(x_m,x_n)<\\epsilon$。",
+      "conditions": "$(X,d)$ 为度量空间",
+      "notation": "$d(x_m,x_n)$"
+    }
+  ],
+  "notation": "$d(x_m,x_n)$",
+  "formula": ["\\\\forall\\\\epsilon>0\\\\,\\\\exists N\\\\,\\\\forall m,n\\\\ge N:\\\\,d(x_m,x_n)<\\\\epsilon"],
+  "usage": "用于刻画序列在度量空间中的内在收敛性，不依赖极限点是否存在。",
+  "applications": "用于证明完备性与收敛性等价性质；在函数空间中用于一致收敛的判别。",
+  "disambiguation": "不同于一般收敛，柯西列只要求后项彼此接近。",
+  "related_terms": ["完备性", "收敛", "度量空间"],
+  "search_keys": ["柯西列", "cauchy列", "cauchy"],
+  "lang": "zh",
+  "confidence": "medium"
+}
+'''
+
+prompt_repair_system = '''
+你是数学术语编纂助手。请修复并补全 JSON。必须严格输出 JSON 对象，不要输出多余解释。
+'''
+
+prompt_repair_user = '''
+术语：{{term}}
+学科：{{subject_label}}
+问题：{{reason}}
+请在保持结构完整的前提下补全内容，至少包含 1 条 strict 定义，并补齐公式、usage、applications、related_terms。
+仅输出修复后的 JSON 对象。
+当前 JSON：
+{{bad_json}}
+'''
