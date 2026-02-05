@@ -7,9 +7,11 @@ repos:
         language: python
         types: [python]
         additional_dependencies: [ruff]
+        exclude: \.toml$
       - id: ruff
         name: ruff (lint)
         entry: ruff check
         language: python
         types: [python]
         additional_dependencies: [ruff]
+        exclude: \.toml$
