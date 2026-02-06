@@ -32,6 +32,16 @@ import config
 # ============================================================
 
 
+def _load_toml(path):
+    """加载 TOML 配置文件"""
+    try:
+        import tomllib
+    except ModuleNotFoundError:
+        import tomli as tomllib
+    with open(path, "rb") as f:
+        return tomllib.load(f)
+
+
 def load_pipeline_config() -> dict:
     """
     加载流水线配置。
@@ -40,7 +50,9 @@ def load_pipeline_config() -> dict:
         配置字典
     """
     ocr_cfg = config.get_ocr_config()
-    toml_cfg = config.load_config()
+    toml_cfg = (
+        _load_toml(config.CONFIG_TOML) if Path(config.CONFIG_TOML).exists() else {}
+    )
     model_cfg = toml_cfg.get("model", {})
 
     return {
@@ -171,7 +183,9 @@ def _safe_filename(term: str) -> str:
 # ============================================================
 
 
-def process_book(pdf_path: Path, cfg: dict, client) -> dict:
+def process_book(
+    pdf_path: Path, cfg: dict, client, max_pages: int = 0
+) -> tuple[dict, bool]:
     """
     处理单本书：OCR → 术语提取 → JSON 生成。
 
@@ -179,9 +193,10 @@ def process_book(pdf_path: Path, cfg: dict, client) -> dict:
         pdf_path: PDF 文件路径
         cfg: 配置字典
         client: API 客户端
+        max_pages: 单次运行最大处理页数（0=不限制）
 
     Returns:
-        处理结果统计
+        (处理结果统计, 是否因达到页数限制而中断)
     """
     book_name = get_book_name_from_path(pdf_path)
     output_dir = get_output_dir_for_book(book_name)
@@ -189,6 +204,8 @@ def process_book(pdf_path: Path, cfg: dict, client) -> dict:
     print(f"\n{'=' * 60}")
     print(f"处理书籍: {book_name}")
     print(f"输出目录: {output_dir}")
+    if max_pages > 0:
+        print(f"单次最大处理页数: {max_pages}")
     print(f"{'=' * 60}")
 
     # 初始化术语映射
@@ -201,10 +218,14 @@ def process_book(pdf_path: Path, cfg: dict, client) -> dict:
     stats = {
         "book": book_name,
         "pages_processed": 0,
+        "pages_skipped": 0,
+        "pages_ocr_done": 0,  # 实际完成 OCR 的页数
         "terms_extracted": 0,
         "json_generated": 0,
         "errors": 0,
     }
+
+    reached_limit = False
 
     # 逐页处理
     for page_info in ensure_ocr(
@@ -217,11 +238,20 @@ def process_book(pdf_path: Path, cfg: dict, client) -> dict:
     ):
         stats["pages_processed"] += 1
 
+        # 如果是已存在的页面（已 OCR 过），跳过术语提取和 JSON 生成
+        if page_info.get("skipped"):
+            stats["pages_skipped"] += 1
+            print(f"  [页 {page_info['page_no'] + 1}] 已存在，跳过处理")
+            continue
+
         if page_info.get("error"):
             stats["errors"] += 1
             continue
 
-        # 处理单页
+        # 实际完成了一页 OCR
+        stats["pages_ocr_done"] += 1
+
+        # 处理单页（仅对新 OCR 的页面）
         results = process_page(
             page_info=page_info,
             book_name=book_name,
@@ -233,6 +263,12 @@ def process_book(pdf_path: Path, cfg: dict, client) -> dict:
 
         stats["json_generated"] += len(results)
 
+        # 检查是否达到页数限制
+        if max_pages > 0 and stats["pages_ocr_done"] >= max_pages:
+            print(f"\n达到单次运行页数上限 ({max_pages} 页)，保存进度并退出...")
+            reached_limit = True
+            break
+
     # 保存术语映射
     terms_map.save(terms_map_path)
     stats["terms_extracted"] = len(terms_map.get_terms())
@@ -242,11 +278,13 @@ def process_book(pdf_path: Path, cfg: dict, client) -> dict:
 
     print(f"\n书籍处理完成: {book_name}")
     print(f"  - 处理页数: {stats['pages_processed']}")
+    print(f"  - 跳过页数: {stats['pages_skipped']}")
+    print(f"  - 本次OCR: {stats['pages_ocr_done']}")
     print(f"  - 提取术语: {stats['terms_extracted']}")
     print(f"  - 生成 JSON: {stats['json_generated']}")
     print(f"  - 错误数: {stats['errors']}")
 
-    return stats
+    return stats, reached_limit
 
 
 def _merge_json_files(output_dir: Path):
@@ -283,6 +321,12 @@ def main():
     parser = argparse.ArgumentParser(description="Math-RAG 流水线处理")
     parser.add_argument("--pdf", type=str, help="指定单个 PDF 文件路径")
     parser.add_argument("--all", action="store_true", help="处理 raw 目录下所有 PDF")
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=0,
+        help="单次运行最大处理页数（0=不限制），用于内存管理",
+    )
     args = parser.parse_args()
 
     # 加载配置
@@ -319,28 +363,43 @@ def main():
 
     # 处理每本书
     all_stats = []
+    need_restart = False
     for pdf_path in pdf_files:
         if not pdf_path.exists():
             print(f"文件不存在: {pdf_path}")
             continue
 
-        stats = process_book(pdf_path, cfg, client)
+        stats, reached_limit = process_book(pdf_path, cfg, client, args.max_pages)
         all_stats.append(stats)
+
+        # 如果达到页数限制，退出循环
+        if reached_limit:
+            need_restart = True
+            break
 
     # 汇总统计
     print(f"\n{'=' * 60}")
     print("处理完成汇总")
     print(f"{'=' * 60}")
     total_pages = sum(s["pages_processed"] for s in all_stats)
+    total_skipped = sum(s["pages_skipped"] for s in all_stats)
+    total_ocr_done = sum(s["pages_ocr_done"] for s in all_stats)
     total_terms = sum(s["terms_extracted"] for s in all_stats)
     total_json = sum(s["json_generated"] for s in all_stats)
     total_errors = sum(s["errors"] for s in all_stats)
 
     print(f"  - 处理书籍: {len(all_stats)}")
     print(f"  - 总页数: {total_pages}")
+    print(f"  - 跳过页数: {total_skipped}")
+    print(f"  - 本次OCR: {total_ocr_done}")
     print(f"  - 总术语: {total_terms}")
     print(f"  - 总 JSON: {total_json}")
     print(f"  - 总错误: {total_errors}")
+
+    # 返回特殊退出码表示需要重启
+    if need_restart:
+        print("\n程序因达到页数限制退出，请重新运行以继续处理...")
+        return 2  # 特殊退出码，表示需要重启
 
     return 0
 

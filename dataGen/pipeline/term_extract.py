@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from .common import call_model, clean_term, is_valid_term
+from common import call_model, clean_term, is_valid_term
 
 # ============================================================
 # 术语提取提示词
