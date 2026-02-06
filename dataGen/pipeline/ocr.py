@@ -111,11 +111,17 @@ def ensure_ocr(
 
         try:
             # 执行 OCR
+            # pix2text 的 resized_shape 需要单一整数值，取元组的最大值
+            _resized = (
+                max(max_image_size)
+                if isinstance(max_image_size, (tuple, list))
+                else max_image_size
+            )
             doc = p2t.recognize_pdf(
                 str(pdf_path),
                 page_numbers=[page_no],
                 table_as_image=True,
-                resized_shape=max_image_size,
+                resized_shape=_resized,
             )
 
             # 获取 Markdown 内容
