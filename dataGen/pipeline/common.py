@@ -70,7 +70,7 @@ def load_env_value(env_name: str, root_dir: Path | None = None) -> str:
 
     # 尝试从 .env 文件读取
     if root_dir is None:
-        root_dir = config.PROJECT_ROOT
+        root_dir = Path(config.PROJECT_ROOT)
 
     env_file = root_dir / ".env"
     if env_file.exists():
