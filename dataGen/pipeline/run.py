@@ -15,17 +15,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-import config
-
-from .common import create_client, load_env_value
-from .json_gen import generate_json_for_term
-from .ocr import (
+from common import create_client, load_env_value
+from json_gen import generate_json_for_term
+from ocr import (
     collect_pdfs,
     ensure_ocr,
     get_book_name_from_path,
     get_output_dir_for_book,
 )
-from .term_extract import TermsMap, extract_terms_for_page
+from term_extract import TermsMap, extract_terms_for_page
+
+import config
 
 # ============================================================
 # 流水线配置

@@ -17,9 +17,15 @@ import config
 
 # 从配置文件加载 OCR 配置
 _ocr_cfg = config.get_ocr_config()
-PAGE_START = _ocr_cfg["page_start"]
-PAGE_END = _ocr_cfg["page_end"]
-OCR_MAX_IMAGE_SIZE = _ocr_cfg["max_image_size"]
+PAGE_START = 136
+PAGE_END = None
+# pix2text 的 resized_shape 需要单一整数值，取元组的最大值
+_max_image_size = _ocr_cfg["max_image_size"]
+OCR_MAX_IMAGE_SIZE = (
+    max(_max_image_size)
+    if isinstance(_max_image_size, (tuple, list))
+    else _max_image_size
+)
 
 # 目标 PDF 文件名（按你当前文件名）
 PDF_NAME = "数学分析(第5版) 上 (华东师范大学数学系).pdf"
