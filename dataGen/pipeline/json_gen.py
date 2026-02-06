@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from .common import call_model, extract_json_from_response
+from common import call_model, extract_json_from_response
 
 # ============================================================
 # JSON 生成提示词
