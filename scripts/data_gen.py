@@ -1,6 +1,7 @@
 """
 使用 OpenAI 兼容接口在线生成数学名词数据（JSON）。
 说明：不使用命令行参数，直接运行即可。
+配置项在 config.toml 的 [model] 部分。
 """
 
 import json
@@ -13,6 +14,8 @@ from pathlib import Path
 # 规范模块搜索路径，保证能定位项目根目录
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import config
 
 
 def _load_toml(path):
@@ -35,10 +38,14 @@ def _default_prompts():
         "prompt_user": (
             "术语：{{term}}\n"
             "学科：{{subject_label}}\n"
+            "来源：{{sources}}\n"
+            "上下文（来自 OCR）：\n"
+            "{{context}}\n"
             "要求：\n"
             "1) 输出字段必须包含：id, term, aliases, sense_id, subject, definitions, notation, formula, "
-            "usage, applications, disambiguation, related_terms, search_keys, lang, confidence。\n"
-            "2) definitions 至少包含 2 条（strict + alternative），必要时再补充 informal。\n"
+            "usage, applications, disambiguation, related_terms, sources, search_keys, lang, confidence。\n"
+            "2) definitions 至少包含 2 条（strict + alternative），必要时再补充 informal，"
+            "且每条定义包含 reference 字段。\n"
             "3) 数学符号与公式必须使用 LaTeX。\n"
             "4) related_terms 至少 3 个。\n"
             "5) 仅输出 JSON 对象。\n"
@@ -58,7 +65,8 @@ def _default_prompts():
             '      "type": "strict",\n'
             '      "text": "在度量空间 $(X,d)$ 中，序列 $\\{x_n\\}$ 称为柯西列，若对任意 $\\epsilon>0$，存在 $N$ 使得当 $m,n\\ge N$ 时，有 $d(x_m,x_n)<\\epsilon$。",\n'
             '      "conditions": "$(X,d)$ 为度量空间",\n'
-            '      "notation": "$d(x_m,x_n)$"\n'
+            '      "notation": "$d(x_m,x_n)$",\n'
+            '      "reference": "教材/讲义"\n'
             "    }\n"
             "  ],\n"
             '  "notation": "$d(x_m,x_n)$",\n'
@@ -67,6 +75,7 @@ def _default_prompts():
             '  "applications": "用于证明完备性与收敛性等价性质；在函数空间中用于一致收敛的判别。",\n'
             '  "disambiguation": "不同于一般收敛，柯西列只要求后项彼此接近。",\n'
             '  "related_terms": ["完备性", "收敛", "度量空间"],\n'
+            '  "sources": ["教材/讲义"],\n'
             '  "search_keys": ["柯西列", "cauchy列", "cauchy"],\n'
             '  "lang": "zh",\n'
             '  "confidence": "medium"\n'
@@ -80,8 +89,8 @@ def _default_prompts():
             "术语：{{term}}\n"
             "学科：{{subject_label}}\n"
             "问题：{{reason}}\n"
-            "请在保持结构完整的前提下补全内容，至少包含 1 条 strict 定义，"
-            "并补齐公式、usage、applications、related_terms。\n"
+            "请在保持结构完整的前提下补全内容，至少包含 1 条 strict 定义，并补齐公式、usage、applications、related_terms，"
+            "且给出 sources 和 definitions.reference。\n"
             "仅输出修复后的 JSON 对象。\n"
             "当前 JSON：\n"
             "{{bad_json}}\n"
@@ -91,21 +100,19 @@ def _default_prompts():
 
 def _load_config():
     """从 config.toml 读取配置。"""
-    root_dir = Path(__file__).resolve().parent.parent
-    config_path = root_dir / "config.toml"
-    data = _load_toml(str(config_path))
+    data = _load_toml(config.CONFIG_TOML)
     paths = data.get("paths", {})
     model_cfg = data.get("model", {})
 
     processed_dir = os.path.abspath(
-        os.path.join(root_dir, paths.get("processed_dir", ""))
+        os.path.join(config.PROJECT_ROOT, paths.get("processed_dir", ""))
     )
     output_json = os.path.abspath(
-        os.path.join(root_dir, paths.get("model_output_json", ""))
+        os.path.join(config.PROJECT_ROOT, paths.get("model_output_json", ""))
     )
 
     cfg = {
-        "root_dir": str(root_dir),
+        "root_dir": config.PROJECT_ROOT,
         "processed_dir": processed_dir,
         "output_json": output_json,
         "api_base": model_cfg.get("api_base", "").rstrip("/"),
@@ -117,6 +124,7 @@ def _load_config():
         "temperature": model_cfg.get("temperature", 0.3),
         "top_p": model_cfg.get("top_p", 0.9),
         "max_retries": model_cfg.get("max_retries", 2),
+        "max_attempts": model_cfg.get("max_attempts", 5),
         "min_definition_chars": model_cfg.get("min_definition_chars", 40),
         "min_usage_chars": model_cfg.get("min_usage_chars", 20),
         "min_applications_chars": model_cfg.get("min_applications_chars", 20),
@@ -135,6 +143,13 @@ def _load_config():
         "prompt_example": model_cfg.get("prompt_example", ""),
         "prompt_repair_system": model_cfg.get("prompt_repair_system", ""),
         "prompt_repair_user": model_cfg.get("prompt_repair_user", ""),
+        "ocr_context_path": model_cfg.get("ocr_context_path", ""),
+        "ocr_pages_dir": model_cfg.get("ocr_pages_dir", ""),
+        "ocr_terms_with_pages_path": model_cfg.get("ocr_terms_with_pages_path", ""),
+        "ocr_book_title": model_cfg.get("ocr_book_title", ""),
+        "ocr_source_label": model_cfg.get("ocr_source_label", ""),
+        "ocr_keywords": model_cfg.get("ocr_keywords", []),
+        "ocr_max_context_chars": model_cfg.get("ocr_max_context_chars", 800),
     }
 
     defaults = _default_prompts()
@@ -266,10 +281,14 @@ def _quality_check(record, cfg):
     if len([t for t in related_terms if isinstance(t, str) and t.strip()]) < 3:
         return False, "related_terms 过少"
 
+    sources = _ensure_list(record.get("sources"))
+    if not sources:
+        return False, "sources 为空"
+
     return True, ""
 
 
-def _normalize_record(record, term, model_id, subject_label):
+def _normalize_record(record, term, model_id, subject_label, sources):
     """补齐字段，确保符合 plan.md 规定的格式。"""
     record = record or {}
 
@@ -284,6 +303,7 @@ def _normalize_record(record, term, model_id, subject_label):
                 "text": f"{term} 是数学中的一个概念。",
                 "conditions": "",
                 "notation": "",
+                "reference": sources[0] if sources else "",
             }
         ]
 
@@ -297,6 +317,7 @@ def _normalize_record(record, term, model_id, subject_label):
                 "text": item.get("text") or "",
                 "conditions": item.get("conditions") or "",
                 "notation": item.get("notation") or "",
+                "reference": item.get("reference") or (sources[0] if sources else ""),
             }
         )
 
@@ -323,38 +344,47 @@ def _normalize_record(record, term, model_id, subject_label):
         "applications": record.get("applications") or "",
         "disambiguation": record.get("disambiguation") or "",
         "related_terms": _ensure_list(record.get("related_terms")),
+        "sources": sources,
         "search_keys": search_keys,
         "lang": record.get("lang") or "zh",
         "confidence": record.get("confidence") or "low",
     }
 
 
-def _build_prompt(cfg, term):
+def _build_prompt(cfg, term, context, sources):
     """从配置构造提示词。"""
     example = cfg["prompt_example"]
+    sources_text = "；".join(sources) if sources else ""
     system = _render_prompt(
         cfg["prompt_system"],
         term=term,
         subject_label=cfg["subject_label"],
         example=example,
+        context=context,
+        sources=sources_text,
     )
     user = _render_prompt(
         cfg["prompt_user"],
         term=term,
         subject_label=cfg["subject_label"],
         example=example,
+        context=context,
+        sources=sources_text,
     )
     return system, user
 
 
-def _build_repair_prompt(cfg, term, bad_json, reason):
+def _build_repair_prompt(cfg, term, bad_json, reason, context, sources):
     """从配置构造修复提示词。"""
+    sources_text = "；".join(sources) if sources else ""
     system = _render_prompt(
         cfg["prompt_repair_system"],
         term=term,
         subject_label=cfg["subject_label"],
         reason=reason,
         bad_json=bad_json,
+        context=context,
+        sources=sources_text,
     )
     user = _render_prompt(
         cfg["prompt_repair_user"],
@@ -362,6 +392,8 @@ def _build_repair_prompt(cfg, term, bad_json, reason):
         subject_label=cfg["subject_label"],
         reason=reason,
         bad_json=bad_json,
+        context=context,
+        sources=sources_text,
     )
     return system, user
 
@@ -422,6 +454,118 @@ def _call_model(cfg, api_key, messages):
     return "".join(parts)
 
 
+def _load_ocr_context(cfg):
+    """从 OCR 输出中提取上下文段落，按术语索引。"""
+    path = cfg["ocr_context_path"]
+    if not path:
+        return {}
+
+    full_path = os.path.join(cfg["root_dir"], path) if not os.path.isabs(path) else path
+    if not os.path.isfile(full_path):
+        return {}
+
+    with open(full_path, encoding="utf-8", errors="ignore") as f:
+        text = f.read()
+
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    keywords = cfg["ocr_keywords"] or []
+
+    context_by_term = {}
+    for p in paragraphs:
+        if keywords and not any(k in p for k in keywords):
+            continue
+        for term in cfg["seed_terms"]:
+            if term and term in p:
+                context_by_term.setdefault(term, []).append(p)
+    return context_by_term
+
+
+def _load_term_pages_map(cfg):
+    """读取术语-页码映射（JSON）。"""
+    path = cfg.get("ocr_terms_with_pages_path") or ""
+    if not path:
+        return {}
+    full_path = os.path.join(cfg["root_dir"], path) if not os.path.isabs(path) else path
+    if not os.path.isfile(full_path):
+        return {}
+    try:
+        with open(full_path, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    term_pages = {}
+    for k, v in data.items():
+        if not isinstance(k, str):
+            continue
+        if isinstance(v, list):
+            pages = [p for p in v if isinstance(p, int)]
+        else:
+            pages = []
+        if pages:
+            term_pages[k] = pages
+    return term_pages
+
+
+def _load_pages_context(cfg, pages):
+    """从分页 OCR 输出中读取上下文。"""
+    pages_dir = cfg.get("ocr_pages_dir") or ""
+    if not pages_dir or not pages:
+        return []
+
+    full_dir = (
+        os.path.join(cfg["root_dir"], pages_dir)
+        if not os.path.isabs(pages_dir)
+        else pages_dir
+    )
+    if not os.path.isdir(full_dir):
+        return []
+
+    contexts = []
+    for page in pages:
+        page_file = os.path.join(full_dir, f"page_{page:04d}.md")
+        if not os.path.isfile(page_file):
+            continue
+        try:
+            with open(page_file, encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+        except Exception:
+            continue
+        # 去掉页码标记
+        if content.startswith("<!-- page:"):
+            content = content.split("\n", 2)[-1].lstrip()
+        contexts.append(f"[第{page}页]\n{content.strip()}")
+    return contexts
+
+
+def _build_sources(cfg, pages):
+    """构造来源列表（书名 + 页码）。"""
+    sources = []
+    book_title = cfg.get("ocr_book_title") or ""
+    if book_title and pages:
+        for page in pages:
+            sources.append(f"{book_title} 第{page}页")
+    if sources:
+        return sources
+
+    if cfg.get("ocr_source_label"):
+        return [cfg["ocr_source_label"]]
+    if book_title:
+        return [book_title]
+    return ["未知来源"]
+
+
+def _pick_context(contexts, max_chars):
+    """合并上下文并限制长度。"""
+    if not contexts:
+        return ""
+    merged = "\n\n".join(contexts)
+    if len(merged) <= max_chars:
+        return merged
+    return merged[:max_chars] + "..."
+
+
 def main():
     cfg = _load_config()
     if not cfg["api_base"]:
@@ -453,6 +597,9 @@ def main():
         print("start_index 超出术语数量，已无可处理项。")
         return
     terms = terms[start_index - 1 :]
+
+    ocr_context_map = _load_ocr_context(cfg)
+    term_pages_map = _load_term_pages_map(cfg)
 
     success_terms = []
     failed_terms = []
@@ -486,12 +633,26 @@ def main():
             last_reason = ""
             ok = False
 
-            for attempt in range(cfg["max_retries"] + 1):
+            pages = term_pages_map.get(term, [])
+            sources = _build_sources(cfg, pages)
+
+            page_contexts = _load_pages_context(cfg, pages)
+            context = _pick_context(page_contexts, cfg["ocr_max_context_chars"])
+            if not context:
+                context = _pick_context(
+                    ocr_context_map.get(term, []), cfg["ocr_max_context_chars"]
+                )
+            if not context:
+                context = "未找到明确上下文，请基于通用知识补全。"
+
+            attempt = 0
+            max_attempts = cfg["max_attempts"]
+            while True:
                 if attempt == 0:
-                    system, user = _build_prompt(cfg, term)
+                    system, user = _build_prompt(cfg, term, context, sources)
                 else:
                     system, user = _build_repair_prompt(
-                        cfg, term, last_json, last_reason
+                        cfg, term, last_json, last_reason, context, sources
                     )
 
                 messages = [
@@ -500,6 +661,7 @@ def main():
                 ]
 
                 try:
+                    attempt += 1
                     now = time.time()
                     min_interval = 0.0
                     if cfg["rpm"] and cfg["rpm"] > 0:
@@ -522,6 +684,8 @@ def main():
                 except Exception as e:
                     err = str(e)
                     last_reason = f"请求失败：{err}"
+                    if not tqdm:
+                        print(f"请求失败，准备重试：{term}（第 {attempt} 次）")
                     if "HTTP 429" in err or "HTTP 503" in err:
                         time.sleep(max(cfg["retry_wait_seconds"], 10))
                     else:
@@ -535,17 +699,38 @@ def main():
                         record = json.loads(json_block)
                     except json.JSONDecodeError:
                         record = None
+                        last_reason = "JSON 解析失败"
+                        if not tqdm:
+                            print(f"JSON 解析失败，准备重试：{term}（第 {attempt} 次）")
+                        time.sleep(cfg["retry_wait_seconds"])
+                        continue
                 else:
                     record = None
                     last_json = gen_text
+                    last_reason = "未找到 JSON 对象"
+                    if not tqdm:
+                        print(f"未找到 JSON 对象，准备重试：{term}（第 {attempt} 次）")
+                    time.sleep(cfg["retry_wait_seconds"])
+                    continue
 
                 ok, reason = _quality_check(record, cfg)
                 if ok:
                     break
                 last_reason = reason
+                if not tqdm:
+                    print(
+                        f"质量未达标，准备重试：{term}（第 {attempt} 次，原因：{reason}）"
+                    )
                 time.sleep(cfg["retry_wait_seconds"])
+                if attempt >= max_attempts:
+                    break
+            if attempt >= max_attempts and not ok:
+                if not tqdm:
+                    print(f"已达到最大重试次数：{term}（{max_attempts} 次）")
 
-            item = _normalize_record(record, term, cfg["model"], cfg["subject_label"])
+            item = _normalize_record(
+                record, term, cfg["model"], cfg["subject_label"], sources
+            )
             if not first_item:
                 out_f.write(",\n")
             out_f.write(json.dumps(item, ensure_ascii=False, indent=2))
