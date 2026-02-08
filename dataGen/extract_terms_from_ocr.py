@@ -1,7 +1,11 @@
 """
-从 OCR 每页 Markdown 中抽取术语，并写入 config.toml 的 seed_terms。
-说明：不使用命令行参数，直接运行即可。
-策略：使用模型抽取术语，并记录术语所在页码。
+从 OCR 每页 Markdown 中抽取术语。
+
+使用方法：
+    python extract_terms_from_ocr.py                    # 按顺序处理所有已 OCR 的书
+    python extract_terms_from_ocr.py "书名"              # 只处理指定的书
+
+输出：每本书的 terms_all.json / terms_map.json 保存到对应的 ocr/<book_name>/ 目录。
 配置项在 config.toml 的 [ocr] 和 [model] 部分。
 """
 
@@ -23,13 +27,6 @@ _ocr_cfg = config.get_ocr_config()
 MAX_TERM_LEN = _ocr_cfg["max_term_len"]
 MAX_PAGE_CHARS = _ocr_cfg["max_page_chars"]
 
-# 书名与输出目录
-PDF_NAME = "数学分析(第5版) 上 (华东师范大学数学系).pdf"
-BOOK_DIR = os.path.join(config.OCR_DIR, os.path.splitext(PDF_NAME)[0])
-PAGES_DIR = os.path.join(BOOK_DIR, "pages")
-
-TERMS_OUT_PATH = os.path.join(config.PROCESSED_DIR, "terms_from_ocr.txt")
-TERMS_MAP_PATH = os.path.join(config.PROCESSED_DIR, "terms_from_ocr_map.json")
 CONFIG_PATH = config.CONFIG_TOML
 
 # 常见噪声词（非术语）
@@ -96,10 +93,7 @@ TERM_HINTS = [
 
 # 泛称与编号型定理过滤
 GENERIC_MATH_TITLES = {"定理", "引理", "命题", "推论"}
-NUMBERED_TITLE_PATTERN = re.compile(r"^(定理|引理|命题|推论)\\s*\\d+(?:\\.\\d+)*$")
-
-MAX_TERM_LEN = 16
-MAX_PAGE_CHARS = 1800
+NUMBERED_TITLE_PATTERN = re.compile(r"^(定理|引理|命题|推论)\s*\d+(?:\.\d+)*$")
 
 
 def _load_toml(path):
@@ -344,6 +338,7 @@ def _post_clean_terms(terms):
 
 
 def _replace_seed_terms(config_text, terms):
+    """将术语列表写回 config.toml 的 seed_terms 字段。"""
     lines = config_text.splitlines()
     out = []
     in_model = False
@@ -396,17 +391,31 @@ def _replace_seed_terms(config_text, terms):
     return "\n".join(out) + "\n"
 
 
-def _collect_page_files():
-    if not os.path.isdir(PAGES_DIR):
+def _collect_page_files(pages_dir):
+    """收集指定目录下的分页 MD 文件。"""
+    if not os.path.isdir(pages_dir):
         return []
     files = []
-    for name in os.listdir(PAGES_DIR):
+    for name in os.listdir(pages_dir):
         if not name.endswith(".md"):
             continue
         if not name.startswith("page_"):
             continue
         files.append(name)
     return sorted(files)
+
+
+def _collect_book_dirs():
+    """扫描 OCR 输出目录，返回按名称排序的书名列表（仅包含有 pages/ 的目录）。"""
+    if not os.path.isdir(config.OCR_DIR):
+        return []
+    books = []
+    for name in sorted(os.listdir(config.OCR_DIR)):
+        book_dir = os.path.join(config.OCR_DIR, name)
+        pages_dir = os.path.join(book_dir, "pages")
+        if os.path.isdir(pages_dir):
+            books.append(name)
+    return books
 
 
 def _parse_page_no(filename):
@@ -419,24 +428,34 @@ def _parse_page_no(filename):
         return None
 
 
-def main():
-    cfg = _load_config()
-    if not cfg["api_base"]:
-        print("config.toml 中未配置 model.api_base。")
-        return
-    if not cfg["model"]:
-        print("config.toml 中未配置 model.model。")
-        return
+def _extract_terms_for_book(book_name, cfg, api_key):
+    """
+    为单本书抽取术语。
 
-    api_key = _load_env_value(config.PROJECT_ROOT, cfg["api_key_env"])
-    if not api_key:
-        print("未找到 API Key，请检查 .env 或环境变量。")
-        return
+    Args:
+        book_name: 书名（OCR 目录名）
+        cfg: 模型配置
+        api_key: API 密钥
 
-    page_files = _collect_page_files()
+    Returns:
+        (术语列表, 术语-页码映射字典) 或 (None, None) 如果失败
+    """
+    book_dir = os.path.join(config.OCR_DIR, book_name)
+    pages_dir = os.path.join(book_dir, "pages")
+
+    # 输出路径（每本书独立）
+    terms_out_path = os.path.join(book_dir, "terms_all.json")
+    terms_map_path = os.path.join(book_dir, "terms_map.json")
+
+    page_files = _collect_page_files(pages_dir)
     if not page_files:
-        print("未找到分页 OCR 输出，请先运行 pix2text_ocr.py。")
-        return
+        print(f"  未找到分页 OCR 输出: {pages_dir}")
+        return None, None
+
+    print(f"\n{'=' * 60}")
+    print(f"抽取术语: {book_name}")
+    print(f"页数: {len(page_files)}")
+    print(f"{'=' * 60}")
 
     term_pages = {}
     last_request_at = 0.0
@@ -446,16 +465,18 @@ def main():
     except ImportError:
         tqdm = None
 
-    iterator = tqdm(page_files, desc="抽取术语") if tqdm else page_files
+    iterator = (
+        tqdm(page_files, desc=f"抽取术语({book_name[:15]})") if tqdm else page_files
+    )
 
     for idx, fname in enumerate(iterator, start=1):
         page_no = _parse_page_no(fname)
         if page_no is None:
             continue
         if not tqdm:
-            print(f"处理中：{idx}/{len(page_files)} 页码 {page_no}")
+            print(f"  处理中：{idx}/{len(page_files)} 页码 {page_no}")
 
-        path = os.path.join(PAGES_DIR, fname)
+        path = os.path.join(pages_dir, fname)
         text = _read_text(path)
         chunks = _split_into_chunks(text)
 
@@ -488,7 +509,7 @@ def main():
                 except Exception as e:
                     err = str(e)
                     if not tqdm:
-                        print(f"请求失败，准备重试（第 {attempt} 次）：{err}")
+                        print(f"  请求失败，准备重试（第 {attempt} 次）：{err}")
                     if "HTTP 429" in err or "HTTP 503" in err:
                         time.sleep(max(cfg["retry_wait_seconds"], 10))
                     else:
@@ -500,7 +521,7 @@ def main():
                 chunk_terms = _parse_terms_from_text(result_text)
                 if not chunk_terms:
                     if not tqdm:
-                        print(f"解析失败，准备重试（第 {attempt} 次）")
+                        print(f"  解析失败，准备重试（第 {attempt} 次）")
                     time.sleep(cfg["retry_wait_seconds"])
                     if attempt >= max_attempts:
                         break
@@ -514,31 +535,90 @@ def main():
             term_pages.setdefault(term, set()).add(page_no)
 
     if not term_pages:
-        print("未抽取到术语，请检查 OCR 输出质量或模型配置。")
-        return
+        print(f"  未抽取到术语: {book_name}")
+        return None, None
 
     # 生成术语列表与映射
     all_terms = sorted(term_pages.keys())
     term_pages_sorted = {k: sorted(v) for k, v in term_pages.items()}
 
-    os.makedirs(os.path.dirname(TERMS_OUT_PATH), exist_ok=True)
-    with open(TERMS_OUT_PATH, "w", encoding="utf-8") as f:
-        for term in all_terms:
-            pages = ",".join(str(p) for p in term_pages_sorted[term])
-            f.write(f"{term}\tpages={pages}\n")
+    # 保存到书目录下
+    with open(terms_out_path, "w", encoding="utf-8") as f:
+        json.dump(all_terms, f, ensure_ascii=False, indent=2)
 
-    with open(TERMS_MAP_PATH, "w", encoding="utf-8") as f:
+    with open(terms_map_path, "w", encoding="utf-8") as f:
         json.dump(term_pages_sorted, f, ensure_ascii=False, indent=2)
 
-    # 写回 config.toml
+    print(f"  抽取术语数量: {len(all_terms)}")
+    print(f"  术语文件: {terms_out_path}")
+    print(f"  页码映射: {terms_map_path}")
+
+    return all_terms, term_pages_sorted
+
+
+def main():
+    cfg = _load_config()
+    if not cfg["api_base"]:
+        print("config.toml 中未配置 model.api_base。")
+        return
+    if not cfg["model"]:
+        print("config.toml 中未配置 model.model。")
+        return
+
+    api_key = _load_env_value(config.PROJECT_ROOT, cfg["api_key_env"])
+    if not api_key:
+        print("未找到 API Key，请检查 .env 或环境变量。")
+        return
+
+    # 确定要处理的书目列表
+    if len(sys.argv) > 1:
+        # 指定了书名参数
+        book_name = sys.argv[1]
+        # 去掉可能的 .pdf 后缀
+        if book_name.lower().endswith(".pdf"):
+            book_name = book_name[:-4]
+        book_dir = os.path.join(config.OCR_DIR, book_name)
+        if not os.path.isdir(book_dir):
+            print(f"未找到 OCR 输出目录: {book_dir}")
+            return
+        book_list = [book_name]
+    else:
+        # 未指定，按顺序处理所有已 OCR 的书
+        book_list = _collect_book_dirs()
+        if not book_list:
+            print(f"OCR 目录下未找到已处理的书: {config.OCR_DIR}")
+            return
+        print(f"找到 {len(book_list)} 本已 OCR 的书:")
+        for b in book_list:
+            print(f"  - {b}")
+
+    # 汇总所有书的术语（用于写回 config.toml）
+    global_terms = []
+    total_books = 0
+
+    for book_name in book_list:
+        terms, _ = _extract_terms_for_book(book_name, cfg, api_key)
+        if terms:
+            global_terms.extend(terms)
+            total_books += 1
+
+    if not global_terms:
+        print("所有书均未抽取到术语。")
+        return
+
+    # 去重并排序
+    global_terms = sorted(set(global_terms))
+
+    # 写回 config.toml 的 seed_terms
     config_text = _read_text(CONFIG_PATH)
-    new_text = _replace_seed_terms(config_text, all_terms)
+    new_text = _replace_seed_terms(config_text, global_terms)
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         f.write(new_text)
 
-    print(f"抽取术语数量：{len(all_terms)}")
-    print(f"已写入：{TERMS_OUT_PATH}")
-    print(f"页码映射：{TERMS_MAP_PATH}")
+    print(f"\n{'=' * 60}")
+    print(f"全部完成: 处理 {total_books} 本书, 总术语 {len(global_terms)} 个")
+    print("已写回 config.toml seed_terms")
+    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":
