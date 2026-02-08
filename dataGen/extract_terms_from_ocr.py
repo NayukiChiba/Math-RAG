@@ -4,8 +4,9 @@
 使用方法：
     python extract_terms_from_ocr.py                    # 按顺序处理所有已 OCR 的书
     python extract_terms_from_ocr.py "书名"              # 只处理指定的书
+    python extract_terms_from_ocr.py "书名" 100          # 从第 100 页开始处理指定的书
 
-输出：每本书的 terms_all.json / terms_map.json 保存到对应的 ocr/<book_name>/ 目录。
+输出：每本书的 all.json / map.json 保存到 processed/terms/<book_name>/ 目录。
 配置项在 config.toml 的 [ocr] 和 [model] 部分。
 """
 
@@ -337,58 +338,15 @@ def _post_clean_terms(terms):
     return cleaned
 
 
-def _replace_seed_terms(config_text, terms):
-    """将术语列表写回 config.toml 的 seed_terms 字段。"""
-    lines = config_text.splitlines()
-    out = []
-    in_model = False
-    skipping = False
-    replaced = False
+def _flush_terms_to_disk(term_pages, terms_out_path, terms_map_path):
+    """将当前术语数据增量写入磁盘。每页处理完后调用，防止中断丢失进度。"""
+    all_terms = sorted(term_pages.keys())
+    term_pages_sorted = {k: sorted(v) for k, v in term_pages.items()}
 
-    seed_block = ["seed_terms = ["]
-    for t in terms:
-        seed_block.append(f'  "{t}",')
-    seed_block.append("]")
-
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("[model]"):
-            in_model = True
-            out.append(line)
-            continue
-        if (
-            in_model
-            and stripped.startswith("[")
-            and stripped.endswith("]")
-            and not stripped.startswith("[model]")
-        ):
-            in_model = False
-
-        if in_model and stripped.startswith("seed_terms"):
-            out.extend(seed_block)
-            replaced = True
-            if "]" not in line:
-                skipping = True
-            continue
-
-        if skipping:
-            if "]" in line:
-                skipping = False
-            continue
-
-        out.append(line)
-
-    if not replaced:
-        out2 = []
-        inserted = False
-        for line in out:
-            out2.append(line)
-            if not inserted and line.strip().startswith("[model]"):
-                out2.extend(seed_block)
-                inserted = True
-        out = out2
-
-    return "\n".join(out) + "\n"
+    with open(terms_out_path, "w", encoding="utf-8") as f:
+        json.dump(all_terms, f, ensure_ascii=False, indent=2)
+    with open(terms_map_path, "w", encoding="utf-8") as f:
+        json.dump(term_pages_sorted, f, ensure_ascii=False, indent=2)
 
 
 def _collect_page_files(pages_dir):
@@ -428,7 +386,7 @@ def _parse_page_no(filename):
         return None
 
 
-def _extract_terms_for_book(book_name, cfg, api_key):
+def _extract_terms_for_book(book_name, cfg, api_key, start_page=None):
     """
     为单本书抽取术语。
 
@@ -436,16 +394,20 @@ def _extract_terms_for_book(book_name, cfg, api_key):
         book_name: 书名（OCR 目录名）
         cfg: 模型配置
         api_key: API 密钥
+        start_page: 起始页码（可选），控制从第几页开始处理
 
     Returns:
         (术语列表, 术语-页码映射字典) 或 (None, None) 如果失败
     """
-    book_dir = os.path.join(config.OCR_DIR, book_name)
-    pages_dir = os.path.join(book_dir, "pages")
+    # OCR 分页输入路径
+    ocr_book_dir = os.path.join(config.OCR_DIR, book_name)
+    pages_dir = os.path.join(ocr_book_dir, "pages")
 
-    # 输出路径（每本书独立）
-    terms_out_path = os.path.join(book_dir, "terms_all.json")
-    terms_map_path = os.path.join(book_dir, "terms_map.json")
+    # 输出路径：processed/terms/{书名}/
+    terms_book_dir = os.path.join(config.TERMS_DIR, book_name)
+    os.makedirs(terms_book_dir, exist_ok=True)
+    terms_out_path = os.path.join(terms_book_dir, "all.json")
+    terms_map_path = os.path.join(terms_book_dir, "map.json")
 
     page_files = _collect_page_files(pages_dir)
     if not page_files:
@@ -455,9 +417,24 @@ def _extract_terms_for_book(book_name, cfg, api_key):
     print(f"\n{'=' * 60}")
     print(f"抽取术语: {book_name}")
     print(f"页数: {len(page_files)}")
+    if start_page is not None:
+        print(f"起始页: {start_page}")
     print(f"{'=' * 60}")
 
+    # 加载已有数据，支持断点续写
     term_pages = {}
+    if os.path.isfile(terms_map_path):
+        try:
+            with open(terms_map_path, encoding="utf-8") as f:
+                existing = json.load(f)
+            # 将已有页码列表还原为 set
+            for t, pages in existing.items():
+                term_pages[t] = set(pages)
+            print(f"  已加载已有术语 {len(term_pages)} 个，将在此基础上续写")
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"  加载已有术语文件失败，将从零开始: {e}")
+            term_pages = {}
+
     last_request_at = 0.0
 
     try:
@@ -473,6 +450,11 @@ def _extract_terms_for_book(book_name, cfg, api_key):
         page_no = _parse_page_no(fname)
         if page_no is None:
             continue
+
+        # 跳过起始页之前的页面
+        if start_page is not None and page_no < start_page:
+            continue
+
         if not tqdm:
             print(f"  处理中：{idx}/{len(page_files)} 页码 {page_no}")
 
@@ -534,20 +516,27 @@ def _extract_terms_for_book(book_name, cfg, api_key):
         for term in page_terms:
             term_pages.setdefault(term, set()).add(page_no)
 
+        # 打印本页抽取到的术语
+        if page_terms:
+            print(
+                f"  页码 {page_no} 抽取到 {len(page_terms)} 个术语: {', '.join(page_terms)}"
+            )
+        else:
+            print(f"  页码 {page_no} 未抽取到术语")
+
+        # 每处理完一页立即写入 JSON，防止中断丢失进度
+        if page_terms:
+            _flush_terms_to_disk(term_pages, terms_out_path, terms_map_path)
+
     if not term_pages:
         print(f"  未抽取到术语: {book_name}")
         return None, None
 
-    # 生成术语列表与映射
+    # 最终写入一次，确保数据完整
+    _flush_terms_to_disk(term_pages, terms_out_path, terms_map_path)
+
     all_terms = sorted(term_pages.keys())
     term_pages_sorted = {k: sorted(v) for k, v in term_pages.items()}
-
-    # 保存到书目录下
-    with open(terms_out_path, "w", encoding="utf-8") as f:
-        json.dump(all_terms, f, ensure_ascii=False, indent=2)
-
-    with open(terms_map_path, "w", encoding="utf-8") as f:
-        json.dump(term_pages_sorted, f, ensure_ascii=False, indent=2)
 
     print(f"  抽取术语数量: {len(all_terms)}")
     print(f"  术语文件: {terms_out_path}")
@@ -570,13 +559,23 @@ def main():
         print("未找到 API Key，请检查 .env 或环境变量。")
         return
 
-    # 确定要处理的书目列表
+    # 确定要处理的书目列表和起始页
+    start_page = None
     if len(sys.argv) > 1:
         # 指定了书名参数
         book_name = sys.argv[1]
         # 去掉可能的 .pdf 后缀
         if book_name.lower().endswith(".pdf"):
             book_name = book_name[:-4]
+
+        # 检查是否提供了起始页参数
+        if len(sys.argv) > 2:
+            try:
+                start_page = int(sys.argv[2])
+            except ValueError:
+                print(f"起始页参数无效: {sys.argv[2]}，必须是整数")
+                return
+
         book_dir = os.path.join(config.OCR_DIR, book_name)
         if not os.path.isdir(book_dir):
             print(f"未找到 OCR 输出目录: {book_dir}")
@@ -592,32 +591,19 @@ def main():
         for b in book_list:
             print(f"  - {b}")
 
-    # 汇总所有书的术语（用于写回 config.toml）
-    global_terms = []
     total_books = 0
+    total_terms = 0
 
     for book_name in book_list:
-        terms, _ = _extract_terms_for_book(book_name, cfg, api_key)
+        terms, _ = _extract_terms_for_book(
+            book_name, cfg, api_key, start_page=start_page
+        )
         if terms:
-            global_terms.extend(terms)
+            total_terms += len(terms)
             total_books += 1
 
-    if not global_terms:
-        print("所有书均未抽取到术语。")
-        return
-
-    # 去重并排序
-    global_terms = sorted(set(global_terms))
-
-    # 写回 config.toml 的 seed_terms
-    config_text = _read_text(CONFIG_PATH)
-    new_text = _replace_seed_terms(config_text, global_terms)
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        f.write(new_text)
-
     print(f"\n{'=' * 60}")
-    print(f"全部完成: 处理 {total_books} 本书, 总术语 {len(global_terms)} 个")
-    print("已写回 config.toml seed_terms")
+    print(f"全部完成: 处理 {total_books} 本书, 总术语 {total_terms} 个")
     print(f"{'=' * 60}")
 
 
