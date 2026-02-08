@@ -4,9 +4,9 @@
 使用方法：
     python data_gen.py                    # 按顺序处理所有已提取术语的书
     python data_gen.py "书名"              # 只处理指定的书
+    python data_gen.py "书名" 100    # 只处理第 100 页及之后首次出现的术语
 
-输出：每本书的 JSON 保存到 ocr/<book_name>/terms_json/ 下，
-      并合并到 ocr/<book_name>/terms_all.json。
+输出：每本书的术语 JSON 保存到 processed/chunk/<book_name>/ 下，每个术语一个独立 JSON 文件。
 配置项在 config.toml 的 [model] 部分。
 """
 
@@ -124,8 +124,6 @@ def _load_config():
         "api_base": model_cfg.get("api_base", "").rstrip("/"),
         "model": model_cfg.get("model", ""),
         "api_key_env": model_cfg.get("api_key_env", "API-KEY"),
-        "subject_label": model_cfg.get("subject_label", ""),
-        "seed_terms": model_cfg.get("seed_terms", []),
         "max_tokens": model_cfg.get("max_tokens", 900),
         "temperature": model_cfg.get("temperature", 0.3),
         "top_p": model_cfg.get("top_p", 0.9),
@@ -149,12 +147,6 @@ def _load_config():
         "prompt_example": model_cfg.get("prompt_example", ""),
         "prompt_repair_system": model_cfg.get("prompt_repair_system", ""),
         "prompt_repair_user": model_cfg.get("prompt_repair_user", ""),
-        "ocr_context_path": model_cfg.get("ocr_context_path", ""),
-        "ocr_pages_dir": model_cfg.get("ocr_pages_dir", ""),
-        "ocr_terms_with_pages_path": model_cfg.get("ocr_terms_with_pages_path", ""),
-        "ocr_book_title": model_cfg.get("ocr_book_title", ""),
-        "ocr_source_label": model_cfg.get("ocr_source_label", ""),
-        "ocr_keywords": model_cfg.get("ocr_keywords", []),
         "ocr_max_context_chars": model_cfg.get("ocr_max_context_chars", 800),
     }
 
@@ -219,6 +211,23 @@ def _render_prompt(template, **kwargs):
     for key, value in kwargs.items():
         text = text.replace(f"{{{{{key}}}}}", str(value))
     return text
+
+
+def _infer_subject_label(book_name):
+    """从书名目录名推断学科标签。
+
+    例如：
+        '数学分析(第5版)上(华东师范大学数学系)' → '数学分析'
+        '概率论与数理统计教程第三版(茆诗松)'   → '概率论与数理统计'
+        '高等代数(第五版)(王萼芳石生明)'       → '高等代数'
+    """
+    # 取第一个括号前的部分
+    name = re.split(r"[（(]", book_name, maxsplit=1)[0]
+    # 去掉版次信息（如 "第5版"、"第三版"）
+    name = re.sub(r"第.+?版", "", name)
+    # 去掉 "教程"、"上"、"下" 等后缀
+    name = re.sub(r"(教程|上|下)\s*$", "", name).strip()
+    return name or book_name
 
 
 def _build_id(term):
@@ -461,13 +470,13 @@ def _call_model(cfg, api_key, messages):
 
 
 def _collect_book_dirs():
-    """扫描 OCR 输出目录，返回有 terms_map.json 的书名列表（按名称排序）。"""
-    if not os.path.isdir(config.OCR_DIR):
+    """扫描术语目录，返回有 map.json 的书名列表（按名称排序）。"""
+    if not os.path.isdir(config.TERMS_DIR):
         return []
     books = []
-    for name in sorted(os.listdir(config.OCR_DIR)):
-        book_dir = os.path.join(config.OCR_DIR, name)
-        terms_map_path = os.path.join(book_dir, "terms_map.json")
+    for name in sorted(os.listdir(config.TERMS_DIR)):
+        terms_book_dir = os.path.join(config.TERMS_DIR, name)
+        terms_map_path = os.path.join(terms_book_dir, "map.json")
         if os.path.isfile(terms_map_path):
             books.append(name)
     return books
@@ -475,7 +484,7 @@ def _collect_book_dirs():
 
 def _load_term_pages_map_for_book(book_name):
     """读取指定书的术语-页码映射（JSON）。"""
-    terms_map_path = os.path.join(config.OCR_DIR, book_name, "terms_map.json")
+    terms_map_path = os.path.join(config.TERMS_DIR, book_name, "map.json")
     if not os.path.isfile(terms_map_path):
         return {}
     try:
@@ -500,9 +509,9 @@ def _load_term_pages_map_for_book(book_name):
 
 def _load_terms_for_book(book_name):
     """读取指定书的术语列表（保持顺序）。"""
-    terms_all_path = os.path.join(config.OCR_DIR, book_name, "terms_all.json")
+    terms_all_path = os.path.join(config.TERMS_DIR, book_name, "all.json")
     if not os.path.isfile(terms_all_path):
-        # 回退：从 terms_map.json 的 key 中获取
+        # 回退：从 map.json 的 key 中获取
         term_pages = _load_term_pages_map_for_book(book_name)
         return sorted(term_pages.keys())
     try:
@@ -567,7 +576,21 @@ def _safe_filename(term):
     return safe[:50]
 
 
-def _generate_for_book(book_name, cfg, api_key):
+def _filter_terms_by_start_page(terms, term_pages_map, start_page):
+    """根据起始页码过滤术语，只保留首次出现在 start_page 及之后的术语。"""
+    filtered = []
+    for term in terms:
+        pages = term_pages_map.get(term, [])
+        if not pages:
+            continue
+        # 术语首次出现的页码
+        first_page = min(pages)
+        if first_page >= start_page:
+            filtered.append(term)
+    return filtered
+
+
+def _generate_for_book(book_name, cfg, api_key, start_page=None):
     """
     为单本书的术语生成 JSON 数据。
 
@@ -575,10 +598,14 @@ def _generate_for_book(book_name, cfg, api_key):
         book_name: 书名（OCR 目录名）
         cfg: 模型配置
         api_key: API 密钥
+        start_page: 起始页码（可选），只处理首次出现在该页及之后的术语
 
     Returns:
         (成功数, 失败数)
     """
+    # 按书名自动推断学科标签（如 "数学分析"、"高等代数"）
+    cfg["subject_label"] = _infer_subject_label(book_name)
+
     terms = _load_terms_for_book(book_name)
     if not terms:
         print(f"  未找到术语: {book_name}")
@@ -586,29 +613,35 @@ def _generate_for_book(book_name, cfg, api_key):
 
     term_pages_map = _load_term_pages_map_for_book(book_name)
 
-    # 应用 start_index（仅当使用 config.toml 的 start_index）
-    try:
-        start_index = int(cfg["start_index"])
-    except (TypeError, ValueError):
-        start_index = 1
-    if start_index < 1:
-        start_index = 1
-    if start_index > len(terms):
-        print(f"  start_index 超出术语数量，已无可处理项: {book_name}")
-        return 0, 0
-    terms = terms[start_index - 1 :]
+    # 按起始页码过滤术语
+    if start_page is not None:
+        terms = _filter_terms_by_start_page(terms, term_pages_map, start_page)
+        if not terms:
+            print(f"  第 {start_page} 页及之后无术语: {book_name}")
+            return 0, 0
+    else:
+        # 使用 config.toml 的 start_index 做术语序号偏移
+        try:
+            start_index = int(cfg["start_index"])
+        except (TypeError, ValueError):
+            start_index = 1
+        if start_index < 1:
+            start_index = 1
+        if start_index > len(terms):
+            print(f"  start_index 超出术语数量，已无可处理项: {book_name}")
+            return 0, 0
+        terms = terms[start_index - 1 :]
 
-    book_dir = os.path.join(config.OCR_DIR, book_name)
-    json_dir = os.path.join(book_dir, "terms_json")
-    os.makedirs(json_dir, exist_ok=True)
-
-    # 合并输出文件
-    output_json = os.path.join(book_dir, "terms_all.json")
+    # 输出目录：processed/chunk/{书名}/
+    chunk_dir = os.path.join(config.CHUNK_DIR, book_name)
+    os.makedirs(chunk_dir, exist_ok=True)
 
     print(f"\n{'=' * 60}")
     print(f"生成 JSON: {book_name}")
+    if start_page is not None:
+        print(f"起始页码: {start_page}")
     print(f"术语数量: {len(terms)}")
-    print(f"输出目录: {json_dir}")
+    print(f"输出目录: {chunk_dir}")
     print(f"{'=' * 60}")
 
     success_terms = []
@@ -625,20 +658,16 @@ def _generate_for_book(book_name, cfg, api_key):
     current_term = None
     interrupted = False
 
-    # 收集所有生成结果
-    all_items = []
-
     try:
         for idx, term in enumerate(iterator, start=1):
             current_term = term
 
             # 检查是否已生成（跳过已有的单个 JSON）
-            term_json_path = os.path.join(json_dir, f"{_safe_filename(term)}.json")
+            term_json_path = os.path.join(chunk_dir, f"{_safe_filename(term)}.json")
             if os.path.isfile(term_json_path):
                 try:
                     with open(term_json_path, encoding="utf-8") as f:
-                        existing = json.load(f)
-                    all_items.append(existing)
+                        json.load(f)  # 验证文件完整性
                     success_terms.append(term)
                     continue
                 except Exception:
@@ -750,7 +779,6 @@ def _generate_for_book(book_name, cfg, api_key):
             item = _normalize_record(
                 record, term, cfg["model"], cfg["subject_label"], sources
             )
-            all_items.append(item)
 
             # 保存单个术语 JSON
             with open(term_json_path, "w", encoding="utf-8") as f:
@@ -771,12 +799,7 @@ def _generate_for_book(book_name, cfg, api_key):
         interrupted = True
         print(f"异常中断: {e}，当前词条: {current_term}")
 
-    # 合并所有 JSON 到 terms_all.json
-    if all_items:
-        with open(output_json, "w", encoding="utf-8") as f:
-            json.dump(all_items, f, ensure_ascii=False, indent=2)
-
-    print(f"  生成完成: {output_json}")
+    print(f"  生成完成: {chunk_dir}")
     print(f"  成功: {len(success_terms)}, 失败: {len(failed_terms)}")
     if failed_terms:
         print("  失败词条:")
@@ -802,22 +825,32 @@ def main():
         print("未找到 API Key，请检查 .env 或环境变量。")
         return
 
-    # 确定要处理的书目列表
+    # 确定要处理的书目列表和起始页码
+    start_page = None
     if len(sys.argv) > 1:
         # 指定了书名参数
         book_name = sys.argv[1]
         if book_name.lower().endswith(".pdf"):
             book_name = book_name[:-4]
-        book_dir = os.path.join(config.OCR_DIR, book_name)
-        if not os.path.isdir(book_dir):
-            print(f"未找到 OCR 输出目录: {book_dir}")
+
+        # 检查是否提供了起始页码参数
+        if len(sys.argv) > 2:
+            try:
+                start_page = int(sys.argv[2])
+            except ValueError:
+                print(f"起始页码参数无效: {sys.argv[2]}，必须是整数")
+                return
+
+        terms_book_dir = os.path.join(config.TERMS_DIR, book_name)
+        if not os.path.isdir(terms_book_dir):
+            print(f"未找到术语目录: {terms_book_dir}")
             return
         book_list = [book_name]
     else:
         # 未指定，按顺序处理所有有术语的书
         book_list = _collect_book_dirs()
         if not book_list:
-            print(f"OCR 目录下未找到已提取术语的书: {config.OCR_DIR}")
+            print(f"术语目录下未找到已提取术语的书: {config.TERMS_DIR}")
             return
         print(f"找到 {len(book_list)} 本有术语的书:")
         for b in book_list:
@@ -828,7 +861,9 @@ def main():
     total_failed = 0
 
     for book_name in book_list:
-        success, failed = _generate_for_book(book_name, cfg, api_key)
+        success, failed = _generate_for_book(
+            book_name, cfg, api_key, start_page=start_page
+        )
         total_success += success
         total_failed += failed
 
