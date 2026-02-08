@@ -41,6 +41,10 @@ def _get_processed_dir():
 RAW_DIR = os.path.join(PROJECT_ROOT, "data", "raw")
 PROCESSED_DIR = _get_processed_dir()
 OCR_DIR = os.path.join(PROCESSED_DIR, "ocr")
+# 术语列表与映射：processed/terms/{书名}/all.json, map.json
+TERMS_DIR = os.path.join(PROCESSED_DIR, "terms")
+# 术语定义数据（每个术语一个 JSON）：processed/chunk/{书名}/{term}.json
+CHUNK_DIR = os.path.join(PROCESSED_DIR, "chunk")
 
 
 def get_ocr_config():

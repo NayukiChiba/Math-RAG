@@ -4,6 +4,9 @@
 # 目录路径均相对项目根目录
 processed_dir = "data/processed"
 model_output_json = "data/processed/ma_terms_model.json"
+# OCR 分页输出：processed/ocr/{书名}/pages/
+# 术语列表/映射：processed/terms/{书名}/all.json, map.json
+# 术语定义数据：processed/chunk/{书名}/{term}.json
 
 [ocr]
 # OCR 页码范围（页码从 0 开始，-1 表示不限制）
@@ -27,66 +30,7 @@ api_base = "https://api.deepseek.com/v1"
 model = "deepseek-chat"
 # 你的 .env 使用 API-KEY，这里保持一致
 api_key_env = "API-KEY"
-subject_label = "数学分析"
-seed_terms = [
-  "复合函数",
-  "外函数",
-  "内函数",
-  "中间变量",
-  "复合运算",
-  "定义域",
-  "存在域",
-  "值域",
-  "反函数",
-  "自变量",
-  "因变量",
-  "函数",
-  "一一映射",
-  "逆映射",
-  "原象",
-  "确界定理",
-  "上确界",
-  "幂函数",
-  "指数函数",
-  "有理指数幂",
-  "无理指数幂",
-  "实指数幂",
-  "确界",
-  "唯一性",
-  "正数",
-  "无理数",
-  "有理数",
-  "非空数集",
-  "确界原理",
-  "初等函数",
-  "非初等函数",
-  "狄利克雷函数",
-  "黎曼函数",
-  "常量函数",
-  "对数函数",
-  "三角函数",
-  "正弦函数",
-  "余弦函数",
-  "正切函数",
-  "余切函数",
-  "反三角函数",
-  "反正弦函数",
-  "反余弦函数",
-  "反正切函数",
-  "反余切函数",
-  "下确界",
-  "分段函数",
-  "解析表示式",
-  "图像",
-  "等式",
-  "函数图像",
-  "函数等式",
-  "有界函数",
-  "上界",
-  "下界",
-  "无上界函数",
-  "界函数",
-]
+# subject_label 从书名自动推断，无需手动配置
 max_tokens = 900
 temperature = 0.3
 top_p = 0.9
@@ -107,10 +51,8 @@ clear_context_each_request = true
 stream = true
 # 起始索引（1-based）
 start_index = 1
-# OCR 分页来源配置
-ocr_book_title = "数学分析(第5版) 上 (华东师范大学数学系)"
-ocr_pages_dir = "data/processed/ocr/数学分析(第5版) 上 (华东师范大学数学系)/pages"
-ocr_terms_with_pages_path = "data/processed/terms_from_ocr_map.json"
+# 上下文最大字符数
+ocr_max_context_chars = 800
 
 # 提示词模板（占位符：{{term}} {{subject_label}} {{example}} {{reason}} {{bad_json}}）
 prompt_system = '''
