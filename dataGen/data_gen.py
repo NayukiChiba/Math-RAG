@@ -1,6 +1,12 @@
 """
 使用 OpenAI 兼容接口在线生成数学名词数据（JSON）。
-说明：不使用命令行参数，直接运行即可。
+
+使用方法：
+    python data_gen.py                    # 按顺序处理所有已提取术语的书
+    python data_gen.py "书名"              # 只处理指定的书
+
+输出：每本书的 JSON 保存到 ocr/<book_name>/terms_json/ 下，
+      并合并到 ocr/<book_name>/terms_all.json。
 配置项在 config.toml 的 [model] 部分。
 """
 
@@ -454,42 +460,26 @@ def _call_model(cfg, api_key, messages):
     return "".join(parts)
 
 
-def _load_ocr_context(cfg):
-    """从 OCR 输出中提取上下文段落，按术语索引。"""
-    path = cfg["ocr_context_path"]
-    if not path:
-        return {}
-
-    full_path = os.path.join(cfg["root_dir"], path) if not os.path.isabs(path) else path
-    if not os.path.isfile(full_path):
-        return {}
-
-    with open(full_path, encoding="utf-8", errors="ignore") as f:
-        text = f.read()
-
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
-    keywords = cfg["ocr_keywords"] or []
-
-    context_by_term = {}
-    for p in paragraphs:
-        if keywords and not any(k in p for k in keywords):
-            continue
-        for term in cfg["seed_terms"]:
-            if term and term in p:
-                context_by_term.setdefault(term, []).append(p)
-    return context_by_term
+def _collect_book_dirs():
+    """扫描 OCR 输出目录，返回有 terms_map.json 的书名列表（按名称排序）。"""
+    if not os.path.isdir(config.OCR_DIR):
+        return []
+    books = []
+    for name in sorted(os.listdir(config.OCR_DIR)):
+        book_dir = os.path.join(config.OCR_DIR, name)
+        terms_map_path = os.path.join(book_dir, "terms_map.json")
+        if os.path.isfile(terms_map_path):
+            books.append(name)
+    return books
 
 
-def _load_term_pages_map(cfg):
-    """读取术语-页码映射（JSON）。"""
-    path = cfg.get("ocr_terms_with_pages_path") or ""
-    if not path:
-        return {}
-    full_path = os.path.join(cfg["root_dir"], path) if not os.path.isabs(path) else path
-    if not os.path.isfile(full_path):
+def _load_term_pages_map_for_book(book_name):
+    """读取指定书的术语-页码映射（JSON）。"""
+    terms_map_path = os.path.join(config.OCR_DIR, book_name, "terms_map.json")
+    if not os.path.isfile(terms_map_path):
         return {}
     try:
-        with open(full_path, encoding="utf-8") as f:
+        with open(terms_map_path, encoding="utf-8") as f:
             data = json.load(f)
     except Exception:
         return {}
@@ -508,23 +498,32 @@ def _load_term_pages_map(cfg):
     return term_pages
 
 
-def _load_pages_context(cfg, pages):
-    """从分页 OCR 输出中读取上下文。"""
-    pages_dir = cfg.get("ocr_pages_dir") or ""
-    if not pages_dir or not pages:
+def _load_terms_for_book(book_name):
+    """读取指定书的术语列表（保持顺序）。"""
+    terms_all_path = os.path.join(config.OCR_DIR, book_name, "terms_all.json")
+    if not os.path.isfile(terms_all_path):
+        # 回退：从 terms_map.json 的 key 中获取
+        term_pages = _load_term_pages_map_for_book(book_name)
+        return sorted(term_pages.keys())
+    try:
+        with open(terms_all_path, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
         return []
+    if isinstance(data, list):
+        return [t for t in data if isinstance(t, str)]
+    return []
 
-    full_dir = (
-        os.path.join(cfg["root_dir"], pages_dir)
-        if not os.path.isabs(pages_dir)
-        else pages_dir
-    )
-    if not os.path.isdir(full_dir):
+
+def _load_pages_context_for_book(book_name, pages):
+    """从指定书的分页 OCR 输出中读取上下文。"""
+    pages_dir = os.path.join(config.OCR_DIR, book_name, "pages")
+    if not os.path.isdir(pages_dir) or not pages:
         return []
 
     contexts = []
     for page in pages:
-        page_file = os.path.join(full_dir, f"page_{page:04d}.md")
+        page_file = os.path.join(pages_dir, f"page_{page:04d}.md")
         if not os.path.isfile(page_file):
             continue
         try:
@@ -539,20 +538,16 @@ def _load_pages_context(cfg, pages):
     return contexts
 
 
-def _build_sources(cfg, pages):
+def _build_sources_for_book(book_name, pages):
     """构造来源列表（书名 + 页码）。"""
     sources = []
-    book_title = cfg.get("ocr_book_title") or ""
-    if book_title and pages:
+    if book_name and pages:
         for page in pages:
-            sources.append(f"{book_title} 第{page}页")
+            sources.append(f"{book_name} 第{page}页")
     if sources:
         return sources
-
-    if cfg.get("ocr_source_label"):
-        return [cfg["ocr_source_label"]]
-    if book_title:
-        return [book_title]
+    if book_name:
+        return [book_name]
     return ["未知来源"]
 
 
@@ -566,27 +561,32 @@ def _pick_context(contexts, max_chars):
     return merged[:max_chars] + "..."
 
 
-def main():
-    cfg = _load_config()
-    if not cfg["api_base"]:
-        print("config.toml 中未配置 model.api_base。")
-        return
-    if not cfg["model"]:
-        print("config.toml 中未配置 model.model。")
-        return
+def _safe_filename(term):
+    """将术语转换为安全的文件名。"""
+    safe = re.sub(r'[<>:"/\\|?*]', "_", term)
+    return safe[:50]
 
-    api_key = _load_env_value(cfg["root_dir"], cfg["api_key_env"])
-    if not api_key:
-        print("未找到 API Key，请检查 .env 或环境变量。")
-        return
 
-    os.makedirs(cfg["processed_dir"], exist_ok=True)
+def _generate_for_book(book_name, cfg, api_key):
+    """
+    为单本书的术语生成 JSON 数据。
 
-    terms = list(cfg["seed_terms"])
+    Args:
+        book_name: 书名（OCR 目录名）
+        cfg: 模型配置
+        api_key: API 密钥
+
+    Returns:
+        (成功数, 失败数)
+    """
+    terms = _load_terms_for_book(book_name)
     if not terms:
-        print("model.seed_terms 为空，请先在 config.toml 中填写种子术语。")
-        return
+        print(f"  未找到术语: {book_name}")
+        return 0, 0
 
+    term_pages_map = _load_term_pages_map_for_book(book_name)
+
+    # 应用 start_index（仅当使用 config.toml 的 start_index）
     try:
         start_index = int(cfg["start_index"])
     except (TypeError, ValueError):
@@ -594,39 +594,58 @@ def main():
     if start_index < 1:
         start_index = 1
     if start_index > len(terms):
-        print("start_index 超出术语数量，已无可处理项。")
-        return
+        print(f"  start_index 超出术语数量，已无可处理项: {book_name}")
+        return 0, 0
     terms = terms[start_index - 1 :]
 
-    ocr_context_map = _load_ocr_context(cfg)
-    term_pages_map = _load_term_pages_map(cfg)
+    book_dir = os.path.join(config.OCR_DIR, book_name)
+    json_dir = os.path.join(book_dir, "terms_json")
+    os.makedirs(json_dir, exist_ok=True)
+
+    # 合并输出文件
+    output_json = os.path.join(book_dir, "terms_all.json")
+
+    print(f"\n{'=' * 60}")
+    print(f"生成 JSON: {book_name}")
+    print(f"术语数量: {len(terms)}")
+    print(f"输出目录: {json_dir}")
+    print(f"{'=' * 60}")
 
     success_terms = []
     failed_terms = []
     failed_reasons = {}
-
-    first_item = True
-    output_dir = os.path.dirname(cfg["output_json"])
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
-    out_f = open(cfg["output_json"], "w", encoding="utf-8")
-    out_f.write("[\n")
 
     total = len(terms)
     try:
         from tqdm import tqdm
     except ImportError:
         tqdm = None
-    iterator = tqdm(terms, desc="生成术语") if tqdm else terms
+    iterator = tqdm(terms, desc=f"生成({book_name[:15]})") if tqdm else terms
     last_request_at = 0.0
     current_term = None
     interrupted = False
 
+    # 收集所有生成结果
+    all_items = []
+
     try:
         for idx, term in enumerate(iterator, start=1):
             current_term = term
+
+            # 检查是否已生成（跳过已有的单个 JSON）
+            term_json_path = os.path.join(json_dir, f"{_safe_filename(term)}.json")
+            if os.path.isfile(term_json_path):
+                try:
+                    with open(term_json_path, encoding="utf-8") as f:
+                        existing = json.load(f)
+                    all_items.append(existing)
+                    success_terms.append(term)
+                    continue
+                except Exception:
+                    pass  # 文件损坏，重新生成
+
             if not tqdm:
-                print(f"正在生成 {idx}/{total}：{term}")
+                print(f"  正在生成 {idx}/{total}: {term}")
 
             record = None
             last_json = ""
@@ -634,14 +653,10 @@ def main():
             ok = False
 
             pages = term_pages_map.get(term, [])
-            sources = _build_sources(cfg, pages)
+            sources = _build_sources_for_book(book_name, pages)
 
-            page_contexts = _load_pages_context(cfg, pages)
+            page_contexts = _load_pages_context_for_book(book_name, pages)
             context = _pick_context(page_contexts, cfg["ocr_max_context_chars"])
-            if not context:
-                context = _pick_context(
-                    ocr_context_map.get(term, []), cfg["ocr_max_context_chars"]
-                )
             if not context:
                 context = "未找到明确上下文，请基于通用知识补全。"
 
@@ -685,7 +700,7 @@ def main():
                     err = str(e)
                     last_reason = f"请求失败：{err}"
                     if not tqdm:
-                        print(f"请求失败，准备重试：{term}（第 {attempt} 次）")
+                        print(f"  请求失败，准备重试: {term}（第 {attempt} 次）")
                     if "HTTP 429" in err or "HTTP 503" in err:
                         time.sleep(max(cfg["retry_wait_seconds"], 10))
                     else:
@@ -701,7 +716,9 @@ def main():
                         record = None
                         last_reason = "JSON 解析失败"
                         if not tqdm:
-                            print(f"JSON 解析失败，准备重试：{term}（第 {attempt} 次）")
+                            print(
+                                f"  JSON 解析失败，准备重试: {term}（第 {attempt} 次）"
+                            )
                         time.sleep(cfg["retry_wait_seconds"])
                         continue
                 else:
@@ -709,7 +726,9 @@ def main():
                     last_json = gen_text
                     last_reason = "未找到 JSON 对象"
                     if not tqdm:
-                        print(f"未找到 JSON 对象，准备重试：{term}（第 {attempt} 次）")
+                        print(
+                            f"  未找到 JSON 对象，准备重试: {term}（第 {attempt} 次）"
+                        )
                     time.sleep(cfg["retry_wait_seconds"])
                     continue
 
@@ -719,23 +738,23 @@ def main():
                 last_reason = reason
                 if not tqdm:
                     print(
-                        f"质量未达标，准备重试：{term}（第 {attempt} 次，原因：{reason}）"
+                        f"  质量未达标，准备重试: {term}（第 {attempt} 次，原因: {reason}）"
                     )
                 time.sleep(cfg["retry_wait_seconds"])
                 if attempt >= max_attempts:
                     break
             if attempt >= max_attempts and not ok:
                 if not tqdm:
-                    print(f"已达到最大重试次数：{term}（{max_attempts} 次）")
+                    print(f"  已达到最大重试次数: {term}（{max_attempts} 次）")
 
             item = _normalize_record(
                 record, term, cfg["model"], cfg["subject_label"], sources
             )
-            if not first_item:
-                out_f.write(",\n")
-            out_f.write(json.dumps(item, ensure_ascii=False, indent=2))
-            out_f.flush()
-            first_item = False
+            all_items.append(item)
+
+            # 保存单个术语 JSON
+            with open(term_json_path, "w", encoding="utf-8") as f:
+                json.dump(item, f, ensure_ascii=False, indent=2)
 
             if ok:
                 success_terms.append(term)
@@ -744,26 +763,79 @@ def main():
                 failed_reasons[term] = last_reason or "质量未达标"
 
             if not tqdm:
-                print(f"完成 {idx}/{total}：{term}")
+                print(f"  完成 {idx}/{total}: {term}")
     except KeyboardInterrupt:
         interrupted = True
-        print(f"已中断，当前词条：{current_term}")
+        print(f"已中断，当前词条: {current_term}")
     except Exception as e:
         interrupted = True
-        print(f"异常中断：{e}，当前词条：{current_term}")
-    finally:
-        out_f.write("\n]\n")
-        out_f.close()
+        print(f"异常中断: {e}，当前词条: {current_term}")
 
-    print(f"生成完成：{cfg['output_json']}")
-    print(f"成功数量：{len(success_terms)}")
-    print(f"失败数量：{len(failed_terms)}")
+    # 合并所有 JSON 到 terms_all.json
+    if all_items:
+        with open(output_json, "w", encoding="utf-8") as f:
+            json.dump(all_items, f, ensure_ascii=False, indent=2)
+
+    print(f"  生成完成: {output_json}")
+    print(f"  成功: {len(success_terms)}, 失败: {len(failed_terms)}")
     if failed_terms:
-        print("失败词条：")
+        print("  失败词条:")
         for t in failed_terms:
-            print(f"- {t}（原因：{failed_reasons.get(t, '未知')}）")
+            print(f"    - {t}（原因: {failed_reasons.get(t, '未知')}）")
     if interrupted:
-        print(f"中断位置：{current_term}")
+        print(f"  中断位置: {current_term}")
+
+    return len(success_terms), len(failed_terms)
+
+
+def main():
+    cfg = _load_config()
+    if not cfg["api_base"]:
+        print("config.toml 中未配置 model.api_base。")
+        return
+    if not cfg["model"]:
+        print("config.toml 中未配置 model.model。")
+        return
+
+    api_key = _load_env_value(cfg["root_dir"], cfg["api_key_env"])
+    if not api_key:
+        print("未找到 API Key，请检查 .env 或环境变量。")
+        return
+
+    # 确定要处理的书目列表
+    if len(sys.argv) > 1:
+        # 指定了书名参数
+        book_name = sys.argv[1]
+        if book_name.lower().endswith(".pdf"):
+            book_name = book_name[:-4]
+        book_dir = os.path.join(config.OCR_DIR, book_name)
+        if not os.path.isdir(book_dir):
+            print(f"未找到 OCR 输出目录: {book_dir}")
+            return
+        book_list = [book_name]
+    else:
+        # 未指定，按顺序处理所有有术语的书
+        book_list = _collect_book_dirs()
+        if not book_list:
+            print(f"OCR 目录下未找到已提取术语的书: {config.OCR_DIR}")
+            return
+        print(f"找到 {len(book_list)} 本有术语的书:")
+        for b in book_list:
+            print(f"  - {b}")
+
+    # 按顺序处理每本书
+    total_success = 0
+    total_failed = 0
+
+    for book_name in book_list:
+        success, failed = _generate_for_book(book_name, cfg, api_key)
+        total_success += success
+        total_failed += failed
+
+    print(f"\n{'=' * 60}")
+    print(f"全部完成: 处理 {len(book_list)} 本书")
+    print(f"总成功: {total_success}, 总失败: {total_failed}")
+    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":
