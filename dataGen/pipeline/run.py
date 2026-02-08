@@ -12,8 +12,9 @@ import sys
 from pathlib import Path
 
 # 规范模块搜索路径
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))  # 项目根目录
 
 from common import create_client, load_env_value
 from json_gen import generate_json_for_term
