@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 # 规范模块搜索路径
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
