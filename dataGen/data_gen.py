@@ -430,43 +430,117 @@ def _call_model(cfg, api_key, messages):
         "max_tokens": cfg["max_tokens"],
         "stream": cfg["stream"],
     }
-    resp = requests.post(
-        url,
-        headers=headers,
-        json=payload,
-        timeout=cfg["request_timeout"],
-        stream=cfg["stream"],
-    )
+
+    # 发送请求，包含连接和读取超时
+    timeout_val = cfg.get("request_timeout", 60)
+    try:
+        resp = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=(10, timeout_val),  # (连接超时, 读取超时)
+            stream=cfg["stream"],
+        )
+    except requests.exceptions.Timeout:
+        raise RuntimeError("请求超时：连接或读取超时")
+    except requests.exceptions.ConnectionError as e:
+        raise RuntimeError(f"连接错误：{e}")
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"请求异常：{e}")
+
+    # 检查HTTP状态码
     if resp.status_code in (429, 503):
         raise RuntimeError(f"HTTP {resp.status_code}")
-    resp.raise_for_status()
+    try:
+        resp.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise RuntimeError(f"HTTP错误 {resp.status_code}：{e}")
 
+    # 非流式模式：直接解析JSON
     if not cfg["stream"]:
-        data = resp.json()
-        return data["choices"][0]["message"]["content"]
-
-    parts = []
-    for line in resp.iter_lines(decode_unicode=True):
-        if not line:
-            continue
-        if line.startswith("data:"):
-            data_str = line[len("data:") :].strip()
-        else:
-            data_str = line.strip()
-        if not data_str or data_str == "[DONE]":
-            continue
         try:
-            chunk = json.loads(data_str)
-        except json.JSONDecodeError:
-            continue
-        choices = chunk.get("choices") or []
-        if not choices:
-            continue
-        delta = choices[0].get("delta") or {}
-        content = delta.get("content")
-        if content:
-            parts.append(content)
-    return "".join(parts)
+            data = resp.json()
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"JSON解析失败：{e}，响应内容：{resp.text[:200]}")
+
+        # 验证响应结构
+        if not isinstance(data, dict):
+            raise RuntimeError(f"响应格式错误：期望dict，得到{type(data)}")
+        choices = data.get("choices")
+        if not choices or not isinstance(choices, list) or len(choices) == 0:
+            raise RuntimeError(f"响应缺少choices字段，完整响应：{data}")
+        message = choices[0].get("message")
+        if not message or not isinstance(message, dict):
+            raise RuntimeError(f"响应缺少message字段，完整响应：{data}")
+        content = message.get("content")
+        if content is None:
+            raise RuntimeError(f"响应缺少content字段，完整响应：{data}")
+        return content
+
+    # 流式模式：逐行解析
+    parts = []
+    line_count = 0
+    max_lines = 10000  # 防止无限循环
+
+    try:
+        for line in resp.iter_lines(decode_unicode=True):
+            line_count += 1
+            if line_count > max_lines:
+                raise RuntimeError(
+                    f"流式响应行数超过限制（{max_lines}行），可能存在异常"
+                )
+
+            if not line:
+                continue
+
+            # 提取data字段
+            if line.startswith("data:"):
+                data_str = line[len("data:") :].strip()
+            else:
+                data_str = line.strip()
+
+            # 跳过空行和结束标记
+            if not data_str or data_str == "[DONE]":
+                continue
+
+            # 解析JSON chunk
+            try:
+                chunk = json.loads(data_str)
+            except json.JSONDecodeError:
+                # 跳过无法解析的行
+                continue
+
+            # 提取内容
+            if not isinstance(chunk, dict):
+                continue
+            choices = chunk.get("choices")
+            if not choices or not isinstance(choices, list):
+                continue
+            if len(choices) == 0:
+                continue
+            delta = choices[0].get("delta")
+            if not delta or not isinstance(delta, dict):
+                continue
+            content = delta.get("content")
+            if content:
+                parts.append(content)
+    except requests.exceptions.ChunkedEncodingError as e:
+        # 流式传输中断，返回已接收的内容
+        if not parts:
+            raise RuntimeError(f"流式传输中断且无内容：{e}")
+        # 如果已有部分内容，则返回
+        pass
+    except Exception as e:
+        # 其他异常
+        if not parts:
+            raise RuntimeError(f"流式解析失败：{e}")
+        # 如果已有部分内容，则返回
+        pass
+
+    result = "".join(parts)
+    if not result:
+        raise RuntimeError("流式响应为空")
+    return result
 
 
 def _collect_book_dirs():
@@ -645,6 +719,7 @@ def _generate_for_book(book_name, cfg, api_key, start_page=None):
     print(f"{'=' * 60}")
 
     success_terms = []
+    skipped_terms = []  # 已存在且质量合格，直接跳过
     failed_terms = []
     failed_reasons = {}
 
@@ -662,19 +737,27 @@ def _generate_for_book(book_name, cfg, api_key, start_page=None):
         for idx, term in enumerate(iterator, start=1):
             current_term = term
 
-            # 检查是否已生成（跳过已有的单个 JSON）
+            # 检查是否已生成（跳过已有且质量合格的 JSON）
             term_json_path = os.path.join(chunk_dir, f"{_safe_filename(term)}.json")
             if os.path.isfile(term_json_path):
                 try:
                     with open(term_json_path, encoding="utf-8") as f:
-                        json.load(f)  # 验证文件完整性
-                    success_terms.append(term)
-                    continue
-                except Exception:
-                    pass  # 文件损坏，重新生成
-
-            if not tqdm:
-                print(f"  正在生成 {idx}/{total}: {term}")
+                        existing_record = json.load(f)
+                    # 对已有文件做质量检查，合格才跳过
+                    quality_ok, quality_reason = _quality_check(existing_record, cfg)
+                    if quality_ok:
+                        skipped_terms.append(term)
+                        print(f"  [跳过] {idx}/{total}: {term}（已有且质量合格）")
+                        continue
+                    # 质量不合格，重新生成
+                    print(
+                        f"  [重生成] {idx}/{total}: {term}（已有文件质量不合格: {quality_reason}）"
+                    )
+                except Exception as e:
+                    # 文件损坏，重新生成
+                    print(f"  [重生成] {idx}/{total}: {term}（已有文件损坏: {e}）")
+            else:
+                print(f"  [生成] {idx}/{total}: {term}")
 
             record = None
             last_json = ""
@@ -691,8 +774,10 @@ def _generate_for_book(book_name, cfg, api_key, start_page=None):
 
             attempt = 0
             max_attempts = cfg["max_attempts"]
-            while True:
-                if attempt == 0:
+            while attempt < max_attempts:
+                attempt += 1
+
+                if attempt == 1 or not last_json:
                     system, user = _build_prompt(cfg, term, context, sources)
                 else:
                     system, user = _build_repair_prompt(
@@ -704,94 +789,93 @@ def _generate_for_book(book_name, cfg, api_key, start_page=None):
                     {"role": "user", "content": user},
                 ]
 
+                # 限速控制
+                now = time.time()
+                min_interval = 0.0
+                if cfg["rpm"] and cfg["rpm"] > 0:
+                    min_interval = 60.0 / cfg["rpm"]
+                prompt_tokens = _estimate_tokens(system + user)
+                token_budget = prompt_tokens + cfg["max_tokens"]
+                if cfg["tpm"] and cfg["tpm"] > 0:
+                    min_interval_tpm = 60.0 * token_budget / cfg["tpm"]
+                else:
+                    min_interval_tpm = 0.0
+                min_interval = max(min_interval, min_interval_tpm)
+                sleep_for = min_interval - (now - last_request_at)
+                if sleep_for > 0:
+                    time.sleep(sleep_for)
+
+                # 调用模型
                 try:
-                    attempt += 1
-                    now = time.time()
-                    min_interval = 0.0
-                    if cfg["rpm"] and cfg["rpm"] > 0:
-                        min_interval = 60.0 / cfg["rpm"]
-
-                    prompt_tokens = _estimate_tokens(system + user)
-                    token_budget = prompt_tokens + cfg["max_tokens"]
-                    if cfg["tpm"] and cfg["tpm"] > 0:
-                        min_interval_tpm = 60.0 * token_budget / cfg["tpm"]
-                    else:
-                        min_interval_tpm = 0.0
-
-                    min_interval = max(min_interval, min_interval_tpm)
-                    sleep_for = min_interval - (now - last_request_at)
-                    if sleep_for > 0:
-                        time.sleep(sleep_for)
-
                     gen_text = _call_model(cfg, api_key, messages)
                     last_request_at = time.time()
                 except Exception as e:
                     err = str(e)
                     last_reason = f"请求失败：{err}"
-                    if not tqdm:
-                        print(f"  请求失败，准备重试: {term}（第 {attempt} 次）")
+                    print(
+                        f"    [请求失败] {term}（第 {attempt}/{max_attempts} 次）: {err}"
+                    )
                     if "HTTP 429" in err or "HTTP 503" in err:
                         time.sleep(max(cfg["retry_wait_seconds"], 10))
                     else:
                         time.sleep(cfg["retry_wait_seconds"])
                     continue
 
+                # 提取 JSON
                 json_block = _extract_json_block(gen_text)
-                if json_block:
-                    last_json = json_block
-                    try:
-                        record = json.loads(json_block)
-                    except json.JSONDecodeError:
-                        record = None
-                        last_reason = "JSON 解析失败"
-                        if not tqdm:
-                            print(
-                                f"  JSON 解析失败，准备重试: {term}（第 {attempt} 次）"
-                            )
-                        time.sleep(cfg["retry_wait_seconds"])
-                        continue
-                else:
-                    record = None
+                if not json_block:
                     last_json = gen_text
                     last_reason = "未找到 JSON 对象"
-                    if not tqdm:
-                        print(
-                            f"  未找到 JSON 对象，准备重试: {term}（第 {attempt} 次）"
-                        )
+                    print(
+                        f"    [重试] {term}（第 {attempt}/{max_attempts} 次）: 未找到 JSON 对象"
+                    )
                     time.sleep(cfg["retry_wait_seconds"])
                     continue
 
+                last_json = json_block
+                try:
+                    record = json.loads(json_block)
+                except json.JSONDecodeError:
+                    record = None
+                    last_reason = "JSON 解析失败"
+                    print(
+                        f"    [重试] {term}（第 {attempt}/{max_attempts} 次）: JSON 解析失败"
+                    )
+                    time.sleep(cfg["retry_wait_seconds"])
+                    continue
+
+                # 质量检查
                 ok, reason = _quality_check(record, cfg)
                 if ok:
+                    print(f"    [质量通过] {term}（第 {attempt} 次尝试）")
                     break
                 last_reason = reason
-                if not tqdm:
-                    print(
-                        f"  质量未达标，准备重试: {term}（第 {attempt} 次，原因: {reason}）"
-                    )
+                print(f"    [重试] {term}（第 {attempt}/{max_attempts} 次）: {reason}")
                 time.sleep(cfg["retry_wait_seconds"])
-                if attempt >= max_attempts:
-                    break
-            if attempt >= max_attempts and not ok:
-                if not tqdm:
-                    print(f"  已达到最大重试次数: {term}（{max_attempts} 次）")
 
-            item = _normalize_record(
-                record, term, cfg["model"], cfg["subject_label"], sources
-            )
+            if not ok:
+                print(
+                    f"  [失败] {term}: 达到最大重试 {max_attempts} 次（{last_reason}）"
+                )
 
-            # 保存单个术语 JSON
-            with open(term_json_path, "w", encoding="utf-8") as f:
-                json.dump(item, f, ensure_ascii=False, indent=2)
-
+            # 质量合格才保存，不合格不写文件（下次运行会重新生成）
             if ok:
+                item = _normalize_record(
+                    record, term, cfg["model"], cfg["subject_label"], sources
+                )
+                with open(term_json_path, "w", encoding="utf-8") as f:
+                    json.dump(item, f, ensure_ascii=False, indent=2)
                 success_terms.append(term)
+                print(f"  [成功] {idx}/{total}: {term} -> {term_json_path}")
             else:
+                # 质量不合格，不保存文件；如果之前有残留的不合格文件，也删掉
+                if os.path.isfile(term_json_path):
+                    os.remove(term_json_path)
                 failed_terms.append(term)
                 failed_reasons[term] = last_reason or "质量未达标"
-
-            if not tqdm:
-                print(f"  完成 {idx}/{total}: {term}")
+                print(
+                    f"  [未保存] {idx}/{total}: {term}（质量不合格: {last_reason}，下次运行将重试）"
+                )
     except KeyboardInterrupt:
         interrupted = True
         print(f"已中断，当前词条: {current_term}")
@@ -800,7 +884,9 @@ def _generate_for_book(book_name, cfg, api_key, start_page=None):
         print(f"异常中断: {e}，当前词条: {current_term}")
 
     print(f"  生成完成: {chunk_dir}")
-    print(f"  成功: {len(success_terms)}, 失败: {len(failed_terms)}")
+    print(
+        f"  跳过（已有且合格）: {len(skipped_terms)}, 新生成成功: {len(success_terms)}, 失败: {len(failed_terms)}"
+    )
     if failed_terms:
         print("  失败词条:")
         for t in failed_terms:
@@ -808,7 +894,7 @@ def _generate_for_book(book_name, cfg, api_key, start_page=None):
     if interrupted:
         print(f"  中断位置: {current_term}")
 
-    return len(success_terms), len(failed_terms)
+    return len(skipped_terms) + len(success_terms), len(failed_terms)
 
 
 def main():
@@ -869,7 +955,7 @@ def main():
 
     print(f"\n{'=' * 60}")
     print(f"全部完成: 处理 {len(book_list)} 本书")
-    print(f"总成功: {total_success}, 总失败: {total_failed}")
+    print(f"总成功（含跳过）: {total_success}, 总失败: {total_failed}")
     print(f"{'=' * 60}")
 
 
