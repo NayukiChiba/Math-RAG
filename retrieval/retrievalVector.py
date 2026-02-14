@@ -36,14 +36,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
 
+# 全局变量：GPU 可用性
+USE_GPU = False
+NUM_GPUS = 0
+
 try:
     import faiss
 
-    # 检测 GPU 是否可用
-    if hasattr(faiss, "get_num_gpus") and faiss.get_num_gpus() > 0:
-        print(f"🎮 检测到 {faiss.get_num_gpus()} 个 GPU，将使用 GPU 加速")
+    # 尝试检测 GPU（faiss-gpu 才有此方法）
+    if hasattr(faiss, "get_num_gpus"):
+        try:
+            NUM_GPUS = faiss.get_num_gpus()
+            if NUM_GPUS > 0:
+                USE_GPU = True
+                print(f"🎮 检测到 {NUM_GPUS} 个 GPU，将使用 GPU 加速")
+            else:
+                print("💻 使用 CPU 模式（未检测到 GPU）")
+        except Exception:
+            print("💻 使用 CPU 模式（GPU 初始化失败）")
     else:
-        print("💻 使用 CPU 模式")
+        print("💻 使用 CPU 模式（faiss-cpu 版本）")
 except ImportError:
     print("❌ 缺少依赖库 faiss")
     print("请安装:")
@@ -146,10 +158,22 @@ class VectorRetriever:
 
         # 构建 FAISS 索引（使用内积，因为向量已标准化，等价于余弦相似度）
         dimension = self.embeddings.shape[1]
-        self.index = faiss.IndexFlatIP(dimension)  # Inner Product (余弦相似度)
+        cpuIndex = faiss.IndexFlatIP(dimension)  # Inner Product (余弦相似度)
+
+        # 如果有 GPU，将索引迁移到 GPU
+        if USE_GPU:
+            res = faiss.StandardGpuResources()  # 使用默认 GPU 资源
+            self.index = faiss.index_cpu_to_gpu(res, 0, cpuIndex)  # 迁移到 GPU 0
+            print(f"🎮 索引已迁移到 GPU")
+        else:
+            self.index = cpuIndex
+
         self.index.add(self.embeddings)
 
-        print(f"✅ 索引构建完成（{self.index.ntotal} 条文档，维度: {dimension}）")
+        deviceType = "GPU" if USE_GPU else "CPU"
+        print(
+            f"✅ 索引构建完成（{self.index.ntotal} 条文档，维度: {dimension}，设备: {deviceType}）"
+        )
 
     def saveIndex(self) -> None:
         """保存索引和嵌入到文件"""
@@ -160,7 +184,9 @@ class VectorRetriever:
         # 保存 FAISS 索引
         if self.indexFile:
             print(f"💾 保存 FAISS 索引: {self.indexFile}")
-            os.makedirs(os.path.dirname(self.indexFile), exist_ok=True)
+            dirname = os.path.dirname(self.indexFile)
+            if dirname:  # 只有当目录名非空时才创建目录
+                os.makedirs(dirname, exist_ok=True)
 
             # 保存索引和元数据
             metadata = {
@@ -171,8 +197,12 @@ class VectorRetriever:
                 "numDocs": len(self.corpus),
             }
 
-            # FAISS 索引保存
-            faiss.write_index(self.index, self.indexFile)
+            # FAISS 索引保存（GPU 索引需要先转回 CPU）
+            if USE_GPU:
+                cpuIndex = faiss.index_gpu_to_cpu(self.index)
+                faiss.write_index(cpuIndex, self.indexFile)
+            else:
+                faiss.write_index(self.index, self.indexFile)
 
             # 元数据保存
             metadataFile = self.indexFile + ".meta.json"
@@ -184,7 +214,9 @@ class VectorRetriever:
         # 保存嵌入向量
         if self.embeddingFile:
             print(f"💾 保存嵌入向量: {self.embeddingFile}")
-            os.makedirs(os.path.dirname(self.embeddingFile), exist_ok=True)
+            dirname = os.path.dirname(self.embeddingFile)
+            if dirname:  # 只有当目录名非空时才创建目录
+                os.makedirs(dirname, exist_ok=True)
 
             # 保存嵌入和语料
             np.savez_compressed(
@@ -243,7 +275,15 @@ class VectorRetriever:
                 return False
 
             # 加载 FAISS 索引
-            self.index = faiss.read_index(self.indexFile)
+            cpuIndex = faiss.read_index(self.indexFile)
+
+            # 如果有 GPU，将索引迁移到 GPU
+            if USE_GPU:
+                res = faiss.StandardGpuResources()
+                self.index = faiss.index_cpu_to_gpu(res, 0, cpuIndex)
+                print("🎮 索引已迁移到 GPU")
+            else:
+                self.index = cpuIndex
 
             # 加载嵌入和语料
             if self.embeddingFile and os.path.exists(self.embeddingFile):
