@@ -37,8 +37,8 @@ top_p = 0.9
 max_retries = 2
 max_attempts = 5
 min_definition_chars = 40
-min_usage_chars = 20
-min_applications_chars = 20
+min_usage_chars = 10
+min_applications_chars = 5
 min_formula_count = 1
 # 请求控制
 endpoint = "/chat/completions"

@@ -94,11 +94,17 @@ def _default_prompts():
         "prompt_repair_user": (
             "术语：{{term}}\n"
             "学科：{{subject_label}}\n"
-            "问题：{{reason}}\n"
-            "请在保持结构完整的前提下补全内容，至少包含 1 条 strict 定义，并补齐公式、usage、applications、related_terms，"
-            "且给出 sources 和 definitions.reference。\n"
-            "仅输出修复后的 JSON 对象。\n"
-            "当前 JSON：\n"
+            "**上次生成失败原因**：{{reason}}\n\n"
+            "请根据上述错误原因，修复以下 JSON 的问题：\n"
+            "- 如果缺少必需字段，请补齐\n"
+            "- 如果内容过短或不符合要求，请扩充\n"
+            "- 至少包含 1 条 strict 定义和 1 条 alternative 定义\n"
+            "- 补齐公式（formula 字段至少 1 个 LaTeX 公式）\n"
+            "- 补齐 usage、applications（各至少 20 字符）\n"
+            "- 补齐 related_terms（至少 3 个）\n"
+            "- 给出 sources 和 definitions[].reference\n\n"
+            "仅输出修复后的完整 JSON 对象，不要输出解释。\n\n"
+            "当前 JSON（需要修复）：\n"
             "{{bad_json}}\n"
         ),
     }
