@@ -217,6 +217,11 @@ prompt
 
 # data
 data/
+# 例外：评测数据集需要版本控制
+!data/evaluation/
+!data/evaluation/*.jsonl
+!data/evaluation/*.md
+
 .tmp
 tmp/
 
