@@ -13,13 +13,13 @@
     python dataStat/chunkStatistics.py
 """
 
+import json
 import os
 import sys
-import json
-from pathlib import Path
-from collections import defaultdict, Counter
-from typing import Dict, List, Any, Tuple
 import warnings
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Any
 
 # 路径调整：添加项目根目录到 sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -32,8 +32,6 @@ try:
 
     matplotlib.use("Agg")  # 非交互式后端
     import matplotlib.pyplot as plt
-    import matplotlib.font_manager as fm
-    from matplotlib import rcParams
     import numpy as np
 
     HAS_MATPLOTLIB = True
@@ -57,17 +55,17 @@ if HAS_MATPLOTLIB:
     plt.rcParams["figure.figsize"] = (12, 8)
 
 
-def loadJsonFile(filepath: str) -> Dict[str, Any]:
+def loadJsonFile(filepath: str) -> dict[str, Any]:
     """加载 JSON 文件"""
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"❌ 加载文件失败: {filepath}, 错误: {e}")
         return None
 
 
-def calculateFieldStats(data: Dict[str, Any], fieldName: str, fieldStats: Dict) -> None:
+def calculateFieldStats(data: dict[str, Any], fieldName: str, fieldStats: dict) -> None:
     """计算单个字段的统计信息"""
     if fieldName in data and data[fieldName]:
         fieldStats["present"] += 1
@@ -88,7 +86,7 @@ def calculateFieldStats(data: Dict[str, Any], fieldName: str, fieldStats: Dict) 
         fieldStats["missing"] += 1
 
 
-def analyzeDefinitions(definitions: List[Dict]) -> Dict:
+def analyzeDefinitions(definitions: list[dict]) -> dict:
     """分析 definitions 字段的详细信息"""
     if not definitions:
         return {}
@@ -117,7 +115,7 @@ def analyzeDefinitions(definitions: List[Dict]) -> Dict:
     return stats
 
 
-def buildStatistics(chunkDir: str) -> Dict[str, Any]:
+def buildStatistics(chunkDir: str) -> dict[str, Any]:
     """构建完整的统计信息"""
 
     # 统计结果结构
@@ -251,8 +249,8 @@ def buildStatistics(chunkDir: str) -> Dict[str, Any]:
 
 
 def calculatePercentiles(
-    values: List[float], percentiles: List[int] = [25, 50, 75, 90, 95, 99]
-) -> Dict:
+    values: list[float], percentiles: list[int] = [25, 50, 75, 90, 95, 99]
+) -> dict:
     """计算百分位数"""
     if not values:
         return {}
@@ -275,7 +273,7 @@ def calculatePercentiles(
     return result
 
 
-def formatStatistics(stats: Dict[str, Any]) -> Dict[str, Any]:
+def formatStatistics(stats: dict[str, Any]) -> dict[str, Any]:
     """格式化统计结果，使其更易读"""
 
     formatted = {
@@ -351,7 +349,7 @@ def formatStatistics(stats: Dict[str, Any]) -> Dict[str, Any]:
     return formatted
 
 
-def createVisualization(stats: Dict[str, Any], outputDir: str) -> None:
+def createVisualization(stats: dict[str, Any], outputDir: str) -> None:
     """生成可视化图表"""
     if not HAS_MATPLOTLIB:
         print("⚠️  跳过可视化：matplotlib 未安装")
@@ -384,7 +382,7 @@ def createVisualization(stats: Dict[str, Any], outputDir: str) -> None:
     print(f"✅ 可视化图表已保存到: {vizDir}")
 
 
-def createBookDistributionChart(stats: Dict[str, Any], outputDir: str) -> None:
+def createBookDistributionChart(stats: dict[str, Any], outputDir: str) -> None:
     """书籍术语分布柱状图"""
     try:
         fig, ax = plt.subplots(figsize=(12, 6))
@@ -432,7 +430,7 @@ def createBookDistributionChart(stats: Dict[str, Any], outputDir: str) -> None:
         print(f"  ✗ 书籍术语分布图生成失败: {e}")
 
 
-def createSubjectDistributionChart(stats: Dict[str, Any], outputDir: str) -> None:
+def createSubjectDistributionChart(stats: dict[str, Any], outputDir: str) -> None:
     """学科分布饼图"""
     try:
         fig, ax = plt.subplots(figsize=(10, 8))
@@ -472,7 +470,7 @@ def createSubjectDistributionChart(stats: Dict[str, Any], outputDir: str) -> Non
         print(f"  ✗ 学科分布图生成失败: {e}")
 
 
-def createFieldCoverageChart(stats: Dict[str, Any], outputDir: str) -> None:
+def createFieldCoverageChart(stats: dict[str, Any], outputDir: str) -> None:
     """字段覆盖率横向柱状图"""
     try:
         fig, ax = plt.subplots(figsize=(12, 8))
@@ -545,7 +543,7 @@ def createFieldCoverageChart(stats: Dict[str, Any], outputDir: str) -> None:
         print(f"  ✗ 字段覆盖率图生成失败: {e}")
 
 
-def createTermLengthDistribution(stats: Dict[str, Any], outputDir: str) -> None:
+def createTermLengthDistribution(stats: dict[str, Any], outputDir: str) -> None:
     """术语长度分布直方图"""
     try:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
@@ -611,7 +609,7 @@ def createTermLengthDistribution(stats: Dict[str, Any], outputDir: str) -> None:
         print(f"  ✗ 长度分布图生成失败: {e}")
 
 
-def createDefinitionTypeChart(stats: Dict[str, Any], outputDir: str) -> None:
+def createDefinitionTypeChart(stats: dict[str, Any], outputDir: str) -> None:
     """定义类型分布图"""
     try:
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -651,7 +649,7 @@ def createDefinitionTypeChart(stats: Dict[str, Any], outputDir: str) -> None:
         print(f"  ✗ 定义类型分布图生成失败: {e}")
 
 
-def createComprehensiveDashboard(stats: Dict[str, Any], outputDir: str) -> None:
+def createComprehensiveDashboard(stats: dict[str, Any], outputDir: str) -> None:
     """综合统计面板"""
     try:
         fig = plt.figure(figsize=(20, 12))
@@ -802,18 +800,18 @@ def main():
     print("\n" + "=" * 70)
     print(" " * 25 + "✅ 统计完成！")
     print("=" * 70)
-    print(f"\n📊 总体统计:")
+    print("\n📊 总体统计:")
     print(f"  • 总文件数: {formattedStats['summary']['totalFiles']:,}")
     print(f"  • 有效文件: {formattedStats['summary']['validFiles']:,}")
     print(f"  • 术语总数: {formattedStats['summary']['totalTerms']:,}")
 
-    print(f"\n📖 各书籍术语数量:")
+    print("\n📖 各书籍术语数量:")
     for book, bookStats in sorted(
         formattedStats["byBook"].items(), key=lambda x: x[1]["count"], reverse=True
     ):
         print(f"  • {book}: {bookStats['count']} 个")
 
-    print(f"\n📚 学科分布:")
+    print("\n📚 学科分布:")
     for subject, count in sorted(
         formattedStats["bySubject"].items(), key=lambda x: x[1], reverse=True
     ):
@@ -822,7 +820,7 @@ def main():
 
     print(f"\n🔄 重复术语: {formattedStats['duplicates']['count']} 个")
 
-    print(f"\n💡 输出文件:")
+    print("\n💡 输出文件:")
     print(f"  • 统计报告: {outputFile}")
     if HAS_MATPLOTLIB:
         print(f"  • 可视化图表: {os.path.join(statsDir, 'visualizations')}")
