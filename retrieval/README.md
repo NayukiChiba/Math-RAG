@@ -10,7 +10,7 @@ retrieval/
 ├── buildCorpus.py        # 构建检索语料
 ├── retrievalBM25.py      # BM25 检索基线
 ├── retrievalVector.py    # 向量检索基线
-├── hybridRetrieval.py    # 混合检索（待实现）
+├── retrievalHybrid.py    # 混合检索
 └── README.md             # 本文档
 ```
 
@@ -183,12 +183,93 @@ python retrieval/retrievalVector.py --batch-size 64 --rebuild-index
 
 ---
 
-### 4. hybridRetrieval.py - 混合检索（待实现）
+### 4. retrievalHybrid.py - 混合检索
 
 **功能**：
-- 融合 BM25 和向量检索结果
-- 归一化和加权策略
-- TopK 结果输出
+- 结合 BM25 和向量检索的优势
+- 支持多种归一化策略（min-max、z-score）
+- 支持多种融合策略（加权融合、RRF）
+- 可配置权重参数
+
+**融合策略**：
+- **加权融合（Weighted）**：对归一化后的分数进行加权求和
+  - 支持 min-max 和 z-score 归一化
+  - 可配置 BM25 和向量权重（alpha, beta）
+- **RRF（Reciprocal Rank Fusion）**：基于排名的融合
+  - 公式：`RRF(d) = Σ 1/(k + rank(d))`
+  - 参数 k 默认为 60
+
+**使用方法**：
+```bash
+# 加权融合（默认）
+python retrieval/retrievalHybrid.py --query "泰勒展开" --topk 10
+
+# 指定权重
+python retrieval/retrievalHybrid.py --query "泰勒展开" --alpha 0.7 --beta 0.3
+
+# 使用 z-score 归一化
+python retrieval/retrievalHybrid.py --query "泰勒展开" --normalization zscore
+
+# 使用 RRF 融合
+python retrieval/retrievalHybrid.py --query "泰勒展开" --strategy rrf
+
+# 批量查询
+python retrieval/retrievalHybrid.py --query-file queries.txt --output results.json
+```
+
+**输入**：
+- BM25 索引：`data/processed/retrieval/bm25_index.pkl`
+- 向量索引：`data/processed/retrieval/vector_index.faiss`
+- 向量嵌入：`data/processed/retrieval/vector_embeddings.npz`
+
+**输出**：
+- 混合检索结果（JSON 格式）
+- 包含融合分数和各方法的原始分数/排名
+
+**输出格式示例**（Weighted）：
+```json
+{
+  "泰勒展开": [
+    {
+      "rank": 1,
+      "doc_id": "ma-泰勒级数",
+      "term": "泰勒级数",
+      "subject": "数学分析",
+      "score": 0.8523,
+      "bm25_score": 0.7845,
+      "vector_score": 0.9201,
+      "source": "数学分析(第5版)下",
+      "page": 4
+    }
+  ]
+}
+```
+
+**输出格式示例**（RRF）：
+```json
+{
+  "泰勒展开": [
+    {
+      "rank": 1,
+      "doc_id": "ma-泰勒级数",
+      "term": "泰勒级数",
+      "subject": "数学分析",
+      "score": 0.0328,
+      "bm25_rank": 1,
+      "vector_rank": 2,
+      "source": "数学分析(第5版)下",
+      "page": 4
+    }
+  ]
+}
+```
+
+**特性**：
+- ✅ 自动初始化 BM25 和向量检索器
+- ✅ 索引不存在时自动构建
+- ✅ 支持单查询和批量查询
+- ✅ 可配置融合策略和参数
+- ✅ 输出包含详细的分数/排名信息
 
 ---
 
@@ -213,7 +294,7 @@ data/processed/retrieval/      (输出：检索语料)
     ├── vector_index.faiss.meta.json  (索引元数据)
     └── vector_embeddings.npz  (嵌入向量)
          ↓
-    [retrievalBM25.py / retrievalVector.py]
+    [retrievalBM25.py / retrievalVector.py / retrievalHybrid.py]
          ↓
 outputs/retrieval/             (检索结果)
     ├── bm25_results.json
@@ -264,7 +345,7 @@ Get-Content data/processed/retrieval/corpus.jsonl -TotalCount 3
 - [x] Task 2: 构建检索语料（`retrieval/buildCorpus.py`）
 - [x] Task 3: BM25 检索基线（`retrieval/retrievalBM25.py`）
 - [x] Task 4: 向量检索基线（`retrieval/retrievalVector.py`）
-- [ ] Task 5: 混合检索
+- [x] Task 5: 混合检索（`retrieval/retrievalHybrid.py`）
 - [ ] Task 6: 评测框架
 
 ---
