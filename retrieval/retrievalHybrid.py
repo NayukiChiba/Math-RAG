@@ -228,12 +228,17 @@ class HybridRetriever:
         # 收集所有唯一的 doc_id
         allDocIds = set(bm25RankMap.keys()) | set(vectorRankMap.keys())
 
-        # 计算 RRF 分数
+        # 计算 RRF 分数（标准 RRF：仅对有排名的结果求和，未命中时贡献为 0）
         rrfScores = {}
         for docId in allDocIds:
-            bm25Rank = bm25RankMap.get(docId, len(bm25Results) + 1)
-            vectorRank = vectorRankMap.get(docId, len(vectorResults) + 1)
-            rrfScores[docId] = 1.0 / (k + bm25Rank) + 1.0 / (k + vectorRank)
+            rrfScore = 0.0
+            # BM25 贡献（如果存在）
+            if docId in bm25RankMap:
+                rrfScore += 1.0 / (k + bm25RankMap[docId])
+            # 向量检索贡献（如果存在）
+            if docId in vectorRankMap:
+                rrfScore += 1.0 / (k + vectorRankMap[docId])
+            rrfScores[docId] = rrfScore
 
         # 排序并构建结果
         sortedDocIds = sorted(
