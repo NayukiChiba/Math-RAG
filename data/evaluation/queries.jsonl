@@ -33,4 +33,73 @@
 {"query": "方差", "relevant_terms": ["方差", "方差公式", "方差的性质"], "subject": "概率论"}
 {"query": "协方差", "relevant_terms": ["协方差", "协方差矩阵", "相关系数"], "subject": "概率论"}
 {"query": "独立性", "relevant_terms": ["独立的随机变量序列", "独立同分布的随机变量序列"], "subject": "概率论"}
-
+{"query": "一致连续性定理", "relevant_terms": ["一致连续性定理", "康托尔定理", "Cantor定理", "闭区间上连续函数的一致连续性定理", "一致连续", "函数项级数的一致收敛", "连续"], "subject": "数学分析"}
+{"query": "二阶导数", "relevant_terms": ["二阶导数", "二阶导", "二阶微商", "一阶导数"], "subject": "数学分析"}
+{"query": "平面点集", "relevant_terms": ["平面点集", "二维点集", "R^2的子集", "邻域"], "subject": "数学分析"}
+{"query": "映射", "relevant_terms": ["映射", "函数", "对应", "变换", "复合映射", "逆映射"], "subject": "数学分析"}
+{"query": "求导运算", "relevant_terms": ["求导运算", "微分运算", "取导数", "求导数", "隐函数求导", "参数方程求导", "微分"], "subject": "数学分析"}
+{"query": "上确界", "relevant_terms": ["上确界", "最小上界", "supremum", "sup", "下确界"], "subject": "数学分析"}
+{"query": "坐标轴", "relevant_terms": ["坐标轴", "坐标轴线", "数轴", "轴", "坐标系", "坐标", "原点"], "subject": "数学分析"}
+{"query": "开域", "relevant_terms": ["开域", "连通开集", "区域（在某些上下文中）", "开集"], "subject": "数学分析"}
+{"query": "组合数学", "relevant_terms": ["组合数学", "组合学", "组合论", "组合", "组合恒等式", "二项式定理"], "subject": "数学分析"}
+{"query": "聚点", "relevant_terms": ["聚点", "极限点", "accumulation point", "cluster point", "内点"], "subject": "数学分析"}
+{"query": "锥面", "relevant_terms": ["锥面", "圆锥面", "二次锥面", "二次曲面"], "subject": "数学分析"}
+{"query": "三阶导数", "relevant_terms": ["三阶导数", "三阶导", "三阶微商", "三阶导函数", "一阶导数"], "subject": "数学分析"}
+{"query": "几何意义", "relevant_terms": ["几何意义", "几何解释", "几何直观", "数形结合"], "subject": "数学分析"}
+{"query": "区间套方法", "relevant_terms": ["区间套方法", "区间套定理证明法", "区间套技巧", "区间套定理", "闭区间套定理", "实数完备性"], "subject": "数学分析"}
+{"query": "导数定义", "relevant_terms": ["导数定义", "导数", "微商", "变化率", "左导数", "右导数", "微分"], "subject": "数学分析"}
+{"query": "映射", "relevant_terms": ["映射", "函数", "对应", "变换", "复合映射", "定义域"], "subject": "数学分析"}
+{"query": "梯形法", "relevant_terms": ["梯形法", "梯形公式", "梯形求积法", "梯形法则", "辛普森法"], "subject": "数学分析"}
+{"query": "牛顿-莱布尼茨公式", "relevant_terms": ["牛顿-莱布尼茨公式", "牛顿茨公式", "微积分基本定理", "Newton-Leibniz formula", "原函数"], "subject": "数学分析"}
+{"query": "聚点", "relevant_terms": ["聚点", "极限点", "accumulation point", "cluster point", "内点"], "subject": "数学分析"}
+{"query": "逆映射", "relevant_terms": ["逆映射", "反函数", "逆函数", "inverse mapping", "双射"], "subject": "数学分析"}
+{"query": "M判别法", "relevant_terms": ["M判别法", "魏尔斯特拉斯判别法", "优级数判别法", "Weierstrass判别法", "一致收敛"], "subject": "数学分析"}
+{"query": "n元函数", "relevant_terms": ["n元函数", "多元函数", "多变量函数", "二元函数"], "subject": "数学分析"}
+{"query": "不动点原理", "relevant_terms": ["不动点原理", "不动点定理", "压缩映射原理", "Banach不动点定理", "Brouwer不动点定理", "Schauder不动点定理", "完备度量空间"], "subject": "数学分析"}
+{"query": "内点", "relevant_terms": ["内点", "interior point", "内部"], "subject": "数学分析"}
+{"query": "多元函数", "relevant_terms": ["多元函数", "多变量函数", "n元函数", "多元函数极限", "多元函数连续性", "一元函数"], "subject": "数学分析"}
+{"query": "拓扑学", "relevant_terms": ["拓扑学", "拓扑", "点集拓扑", "一般拓扑学", "开集"], "subject": "数学分析"}
+{"query": "曲顶柱体", "relevant_terms": ["曲顶柱体", "曲顶柱", "曲顶柱面体", "曲顶柱体的体积", "二重积分"], "subject": "数学分析"}
+{"query": "外函数", "relevant_terms": ["外函数", "外层函数", "复合函数"], "subject": "数学分析"}
+{"query": "拉格朗日定理", "relevant_terms": ["拉格朗日定理", "拉格朗日中值定理", "微分中值定理", "有限增量定理", "罗尔定理"], "subject": "数学分析"}
+{"query": "法平面", "relevant_terms": ["法平面", "normal plane", "切线"], "subject": "数学分析"}
+{"query": "导数定理", "relevant_terms": ["导数定理", "微分基本定理", "导数运算法则", "导数定义", "基本初等函数导数公式", "微分"], "subject": "数学分析"}
+{"query": "单值函数", "relevant_terms": ["单值函数", "函数", "映射", "定义域"], "subject": "数学分析"}
+{"query": "公式法", "relevant_terms": ["公式法", "解析法", "解析表示法", "定义域"], "subject": "数学分析"}
+{"query": "线性子空间", "relevant_terms": ["线性子空间", "向量子空间", "子空间", "线性空间", "线性变换", "基"], "subject": "高等代数"}
+{"query": "映射", "relevant_terms": ["映射", "函数", "变换", "对应", "线性映射", "复合映射"], "subject": "高等代数"}
+{"query": "矩阵的秩", "relevant_terms": ["矩阵的秩", "秩", "矩阵秩", "rank of a matrix", "满秩矩阵", "奇异矩阵", "行空间"], "subject": "高等代数"}
+{"query": "二维线性空间", "relevant_terms": ["二维线性空间", "2维线性空间", "二维向量空间", "线性空间"], "subject": "高等代数"}
+{"query": "向量组", "relevant_terms": ["向量组", "向量集合", "向量系", "向量组的秩", "向量组的等价", "线性组合"], "subject": "高等代数"}
+{"query": "欧氏空间", "relevant_terms": ["欧氏空间", "欧几里得空间", "Euclidean space", "内积空间"], "subject": "高等代数"}
+{"query": "相似不变量", "relevant_terms": ["相似不变量", "相似不变式", "相似矩阵", "特征多项式"], "subject": "高等代数"}
+{"query": "非退化对称双线性函数", "relevant_terms": ["非退化对称双线性函数", "非退化对称双线性型", "非退化对称双线性形式", "对称双线性函数"], "subject": "高等代数"}
+{"query": "3×3矩阵", "relevant_terms": ["3×3矩阵", "三阶矩阵", "3阶矩阵", "3x3矩阵", "矩阵"], "subject": "高等代数"}
+{"query": "n维线性空间", "relevant_terms": ["n维线性空间", "有限维线性空间", "n维向量空间", "线性空间"], "subject": "高等代数"}
+{"query": "s×n矩阵", "relevant_terms": ["s×n矩阵", "s行n列矩阵", "s by n矩阵", "矩阵"], "subject": "高等代数"}
+{"query": "不变子空间", "relevant_terms": ["不变子空间", "稳定子空间", "线性变换"], "subject": "高等代数"}
+{"query": "二次曲线", "relevant_terms": ["二次曲线", "圆锥曲线", "二次曲线方程", "二次型", "退化二次曲线", "矩阵"], "subject": "高等代数"}
+{"query": "双射", "relevant_terms": ["双射", "一一对应", "一一映射", "双射映射", "单射"], "subject": "高等代数"}
+{"query": "对角化", "relevant_terms": ["对角化", "矩阵对角化", "线性变换对角化", "对角矩阵", "正交对角化", "特征值"], "subject": "高等代数"}
+{"query": "标准分解", "relevant_terms": ["标准分解", "典型分解", "不可约分解", "不可约多项式"], "subject": "高等代数"}
+{"query": "初等行变换", "relevant_terms": ["初等行变换", "行初等变换", "矩阵行变换", "初等矩阵", "行等价"], "subject": "高等代数"}
+{"query": "正规矩阵", "relevant_terms": ["正规矩阵", "Normal Matrix", "酉矩阵"], "subject": "高等代数"}
+{"query": "n重根", "relevant_terms": ["n重根", "重根", "多重根", "重零点", "单根"], "subject": "高等代数"}
+{"query": "第二类错误", "relevant_terms": ["第二类错误", "Type II error", "纳伪错误", "β错误", "第一类错误"], "subject": "概率论"}
+{"query": "势函数", "relevant_terms": ["势函数", "功效函数", "power function", "假设检验"], "subject": "概率论"}
+{"query": "参数估计", "relevant_terms": ["参数估计", "参数的点估计", "参数的区间估计", "参数推断", "点估计"], "subject": "概率论"}
+{"query": "正态概率图", "relevant_terms": ["正态概率图", "正态概率纸", "Q-Q图", "分位数-分位数图", "正态性检验"], "subject": "概率论"}
+{"query": "随机变量序列的极限分布", "relevant_terms": ["随机变量序列的极限分布", "极限分布", "依分布收敛的极限", "依分布收敛"], "subject": "概率论"}
+{"query": "分子自由度", "relevant_terms": ["分子自由度", "自由度分子", "自由度 (分子)", "分母自由度"], "subject": "概率论"}
+{"query": "容量", "relevant_terms": ["容量", "检验的容量", "检验的势", "检验的功效", "显著性水平"], "subject": "概率论"}
+{"query": "抽样分布", "relevant_terms": ["抽样分布", "样本统计量的分布", "统计量的分布", "统计量"], "subject": "概率论"}
+{"query": "数理统计", "relevant_terms": ["数理统计", "统计推断", "统计方法", "概率论"], "subject": "概率论"}
+{"query": "统计学", "relevant_terms": ["统计学", "统计推断", "数理统计", "统计量", "概率论"], "subject": "概率论"}
+{"query": "停时", "relevant_terms": ["停时", "停时时间", "停时变量", "滤子"], "subject": "概率论"}
+{"query": "多元分析", "relevant_terms": ["多元分析", "多元统计分析", "多变量分析", "多元正态分布", "协方差矩阵"], "subject": "概率论"}
+{"query": "总体k阶矩", "relevant_terms": ["总体k阶矩", "总体k阶原点矩", "总体矩", "样本k阶矩"], "subject": "概率论"}
+{"query": "显著性水平", "relevant_terms": ["显著性水平", "检验水平", "第一类错误概率", "α水平", "第一类错误"], "subject": "概率论"}
+{"query": "积分限", "relevant_terms": ["积分限", "积分上下限", "积分区间端点", "多重积分", "概率密度函数"], "subject": "概率论"}
+{"query": "实值函数", "relevant_terms": ["实值函数", "实函数", "随机变量"], "subject": "概率论"}
+{"query": "斜率", "relevant_terms": ["斜率", "回归系数", "直线斜率", "截距"], "subject": "概率论"}
+{"query": "散度", "relevant_terms": ["散度", "Divergence", "Kullback-Leibler散度", "KL散度", "Jensen-Shannon散度", "f-散度", "熵"], "subject": "概率论"}
