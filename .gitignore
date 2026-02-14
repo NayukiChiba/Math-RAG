@@ -219,3 +219,5 @@ prompt
 data/
 .tmp
 tmp/
+
+outputs/
