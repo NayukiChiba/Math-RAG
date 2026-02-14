@@ -125,10 +125,15 @@ class BM25Retriever:
         # 确保目录存在
         os.makedirs(os.path.dirname(self.indexFile), exist_ok=True)
 
+        # 获取语料文件的修改时间，用于后续校验
+        corpusModTime = os.path.getmtime(self.corpusFile)
+
         indexData = {
             "bm25": self.bm25,
             "corpus": self.corpus,
             "tokenizedCorpus": self.tokenizedCorpus,
+            "corpusModTime": corpusModTime,
+            "corpusFile": self.corpusFile,
         }
 
         with open(self.indexFile, "wb") as f:
@@ -146,11 +151,28 @@ class BM25Retriever:
         if self.indexFile is None or not os.path.exists(self.indexFile):
             return False
 
+        # 校验语料文件是否存在
+        if not os.path.exists(self.corpusFile):
+            print(f"⚠️  语料文件不存在: {self.corpusFile}")
+            return False
+
         print(f"📂 加载索引: {self.indexFile}")
 
         try:
             with open(self.indexFile, "rb") as f:
                 indexData = pickle.load(f)
+
+            # 校验语料文件是否已变更
+            currentCorpusModTime = os.path.getmtime(self.corpusFile)
+            savedCorpusModTime = indexData.get("corpusModTime")
+
+            if savedCorpusModTime is None:
+                print("⚠️  索引中缺少语料时间戳，建议重建索引")
+                return False
+
+            if abs(currentCorpusModTime - savedCorpusModTime) > 1:  # 允许1秒误差
+                print("⚠️  语料文件已更新，索引已过期，需要重建")
+                return False
 
             self.bm25 = indexData["bm25"]
             self.corpus = indexData["corpus"]
@@ -251,6 +273,9 @@ def saveResults(results: dict[str, list[dict[str, Any]]], outputFile: str) -> No
         results: 查询结果字典
         outputFile: 输出文件路径
     """
+    # 确保输出目录存在
+    os.makedirs(os.path.dirname(outputFile), exist_ok=True)
+
     with open(outputFile, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
     print(f"💾 结果已保存: {outputFile}")
