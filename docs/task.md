@@ -10,16 +10,20 @@
 ## 本阶段任务（按顺序，含实现细节）
 
 ### 任务1：数据核验与统计
-**状态**：`todo`  
+**状态**：`completed` ✅  
 **输入**：`data/processed/chunk/**.json`  
-**输出**：`outputs/reports/chunk_stats.json`  
-**脚本**：`scripts/build_chunk_stats.py`  
+**输出**：
+- `data/stats/chunkStatistics.json`（统计报告）
+- `data/stats/visualizations/*.png`（可视化图表）
+
+**脚本**：`dataStat/chunkStatistics.py`  
 **验收标准**：
-- 字段缺失率统计（按字段类型）
-- 长度分布统计（term、definitions、formula等）
-- 学科覆盖统计（数学分析、高等代数、概率论）
-- 术语总数与书籍分布
-- 输出 JSON 格式规范，可读性高
+- ✅ 字段缺失率统计（按字段类型）
+- ✅ 长度分布统计（term、definitions、formula等）
+- ✅ 学科覆盖统计（数学分析、高等代数、概率论）
+- ✅ 术语总数与书籍分布
+- ✅ 输出 JSON 格式规范，可读性高
+- ✅ 可视化图表生成（6张高清图表）
 
 **依赖**：无
 
