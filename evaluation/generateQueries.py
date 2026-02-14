@@ -62,13 +62,15 @@ def loadAllTerms(chunkDir: str) -> list[dict[str, Any]]:
     terms = []
 
     print("📚 加载术语库...")
-    for bookName in os.listdir(chunkDir):
+    # 排序保证加载顺序固定，确保可复现性
+    for bookName in sorted(os.listdir(chunkDir)):
         bookPath = os.path.join(chunkDir, bookName)
 
         if not os.path.isdir(bookPath):
             continue
 
-        jsonFiles = [f for f in os.listdir(bookPath) if f.endswith(".json")]
+        # 排序保证文件加载顺序固定
+        jsonFiles = sorted([f for f in os.listdir(bookPath) if f.endswith(".json")])
         for jsonFile in jsonFiles:
             filepath = os.path.join(bookPath, jsonFile)
             data = loadJsonFile(filepath)
@@ -251,14 +253,16 @@ def mergeQueries(
     优先保留人工标注的数据
     """
     # 使用 query 作为唯一键
-    existingQueries = {q["query"]: q for q in existing}
+    seenQueries = {q["query"]: q for q in existing}
 
-    merged = list(existingQueries.values())
+    merged = list(seenQueries.values())
     newCount = 0
 
+    # 遍历生成的查询，去重（包括内部重复）
     for gq in generated:
-        if gq["query"] not in existingQueries:
+        if gq["query"] not in seenQueries:
             merged.append(gq)
+            seenQueries[gq["query"]] = gq  # 更新已见集合，避免内部重复
             newCount += 1
 
     print("\n📊 合并结果:")
