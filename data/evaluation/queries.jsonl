@@ -1,0 +1,36 @@
+{"query": "函数连续性", "relevant_terms": ["函数连续性", "函数在点连续", "函数在区间上的连续性"], "subject": "数学分析"}
+{"query": "收敛数列", "relevant_terms": ["收敛数列", "收敛数列的保号性", "收敛点列"], "subject": "数学分析"}
+{"query": "一致连续", "relevant_terms": ["一致连续", "一致连续性", "一致连续性定理"], "subject": "数学分析"}
+{"query": "达布定理", "relevant_terms": ["达布定理"], "subject": "数学分析"}
+{"query": "黎曼积分", "relevant_terms": ["黎曼积分", "黎曼和", "黎曼函数"], "subject": "数学分析"}
+{"query": "洛必达", "relevant_terms": ["0/0型极限"], "subject": "数学分析"}
+{"query": "柯西中值定理", "relevant_terms": ["柯西中值定理", "柯西定理", "柯西条件"], "subject": "数学分析"}
+{"query": "泰勒公式", "relevant_terms": ["泰勒公式", "泰勒展开式", "泰勒级数"], "subject": "数学分析"}
+{"query": "傅里叶级数", "relevant_terms": ["傅里叶级数", "傅里叶系数"], "subject": "数学分析"}
+{"query": "格林公式", "relevant_terms": ["格林公式"], "subject": "数学分析"}
+{"query": "高斯公式", "relevant_terms": ["高斯公式"], "subject": "数学分析"}
+{"query": "斯托克斯公式", "relevant_terms": ["斯托克斯公式"], "subject": "数学分析"}
+{"query": "拉格朗日中值定理", "relevant_terms": ["拉格朗日中值定理", "拉格朗日余项"], "subject": "数学分析"}
+{"query": "导数", "relevant_terms": ["导数", "导数的定义", "导数的几何意义"], "subject": "数学分析"}
+{"query": "不定积分", "relevant_terms": ["不定积分", "不定积分公式", "不定积分法"], "subject": "数学分析"}
+{"query": "二重积分", "relevant_terms": ["二重积分", "累次积分", "极坐标下的二重积分"], "subject": "数学分析"}
+{"query": "曲线的曲率", "relevant_terms": ["曲率", "曲率圆", "曲率半径"], "subject": "数学分析"}
+{"query": "幂级数", "relevant_terms": ["幂级数", "幂级数收敛半径", "收敛区域"], "subject": "数学分析"}
+{"query": "绝对收敛", "relevant_terms": ["绝对收敛", "条件收敛"], "subject": "数学分析"}
+{"query": "偏导数", "relevant_terms": ["偏导数", "高阶偏导数", "混合偏导数"], "subject": "数学分析"}
+{"query": "行列式", "relevant_terms": ["行列式", "矩阵的行列式因子", "系数行列式"], "subject": "高等代数"}
+{"query": "矩阵", "relevant_terms": ["矩阵", "单位矩阵", "对角矩阵"], "subject": "高等代数"}
+{"query": "线性方程组", "relevant_terms": ["线性方程组", "齐次线性方程组", "非齐次线性方程组"], "subject": "高等代数"}
+{"query": "向量空间", "relevant_terms": ["n维向量空间", "n 维向量空间"], "subject": "高等代数"}
+{"query": "线性变换", "relevant_terms": ["线性变换", "线性算子", "线性映射"], "subject": "高等代数"}
+{"query": "特征值", "relevant_terms": ["特征值", "特征向量", "特征多项式"], "subject": "高等代数"}
+{"query": "正交矩阵", "relevant_terms": ["正交矩阵", "正交变换", "正交向量组"], "subject": "高等代数"}
+{"query": "随机事件", "relevant_terms": ["随机事件", "随机试验"], "subject": "概率论"}
+{"query": "概率分布", "relevant_terms": ["概率分布", "分布函数", "分布列"], "subject": "概率论"}
+{"query": "正态分布", "relevant_terms": ["正态分布函数", "标准正态分布函数", "正态分布概率密度函数"], "subject": "概率论"}
+{"query": "大数定律", "relevant_terms": ["大数定律", "辛钦大数定律"], "subject": "概率论"}
+{"query": "数学期望", "relevant_terms": ["数学期望", "期望", "期望值"], "subject": "概率论"}
+{"query": "方差", "relevant_terms": ["方差", "方差公式", "方差的性质"], "subject": "概率论"}
+{"query": "协方差", "relevant_terms": ["协方差", "协方差矩阵", "相关系数"], "subject": "概率论"}
+{"query": "独立性", "relevant_terms": ["独立的随机变量序列", "独立同分布的随机变量序列"], "subject": "概率论"}
+

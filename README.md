@@ -30,18 +30,31 @@ Math-RAG/
 ├── dataStat/              # 数据统计模块
 │   ├── chunkStatistics.py  # 术语数据统计与可视化
 │   └── README.md         # 模块使用说明
+├── retrieval/             # 检索模块
+│   ├── buildCorpus.py    # 构建检索语料
+│   ├── retrievalBM25.py  # BM25 检索
+│   ├── retrievalVector.py  # 向量检索
+│   ├── retrievalHybrid.py  # 混合检索
+│   └── README.md         # 模块使用说明
+├── evaluation/            # 评测模块
+│   ├── evalRetrieval.py  # 检索评测
+│   └── README.md         # 模块使用说明
 ├── data/                  # 数据目录
 │   ├── raw/              # 原始 PDF 教材
 │   ├── processed/        # 处理后数据
 │   │   ├── ocr/         # OCR 结果
 │   │   ├── terms/       # 术语映射
-│   │   └── chunk/       # 术语级 JSON
+│   │   ├── chunk/       # 术语级 JSON
+│   │   └── retrieval/   # 检索语料与索引
+│   ├── evaluation/       # 评测数据集
+│   │   └── queries.jsonl  # 评测查询
 │   └── stats/           # 统计报告与可视化
 ├── docs/                 # 文档
 │   ├── plan.md          # 项目规划
 │   └── task.md          # 当前任务计划
 └── outputs/             # 实验输出
-    └── reports/         # 实验报告
+    ├── reports/         # 评测报告
+    └── bm25/            # BM25 索引
 ```
 
 ## 快速开始
@@ -77,6 +90,36 @@ python dataStat/chunkStatistics.py
 # - data/stats/visualizations/*.png
 ```
 
+### 4. 构建检索系统
+
+```bash
+# 构建检索语料
+python retrieval/buildCorpus.py
+
+# BM25 检索（自动构建索引）
+python retrieval/retrievalBM25.py --query "泰勒公式" --topk 5
+
+# 向量检索（需要安装 faiss 和 sentence-transformers）
+python retrieval/retrievalVector.py --query "泰勒公式" --topk 5
+
+# 混合检索
+python retrieval/retrievalHybrid.py --query "泰勒公式" --topk 5 --strategy rrf
+```
+
+### 5. 运行评测
+
+```bash
+# 评测 BM25（无需额外依赖）
+python evaluation/evalRetrieval.py --methods bm25
+
+# 评测所有方法（需要 faiss 和 sentence-transformers）
+python evaluation/evalRetrieval.py --visualize
+
+# 输出：
+# - outputs/reports/retrieval_metrics.json
+# - outputs/reports/retrieval_comparison.png（可选）
+```
+
 ## 主要模块
 
 ### dataGen - 数据生成
@@ -104,18 +147,56 @@ python dataStat/chunkStatistics.py
 
 **详见**：[dataStat/README.md](dataStat/README.md)
 
+### retrieval - 检索模块
+
+实现多种检索方法用于术语相似度匹配。
+
+**功能**：
+- **语料构建**：从 chunk JSON 生成检索语料（corpus.jsonl）
+- **BM25 检索**：基于词频的稀疏检索（rank-bm25）
+- **向量检索**：基于语义的密集检索（sentence-transformers + FAISS）
+- **混合检索**：加权融合 + RRF（Reciprocal Rank Fusion）
+
+**使用示例**：
+```bash
+python retrieval/retrievalBM25.py --query "泰勒公式" --topk 5
+python retrieval/retrievalHybrid.py --query "泰勒公式" --strategy rrf
+```
+
+**详见**：[retrieval/README.md](retrieval/README.md)
+
+### evaluation - 评测模块
+
+评估不同检索方法的性能，生成对比报告。
+
+**评测指标**：
+- Recall@K（K=1,3,5,10）：召回率
+- MRR：Mean Reciprocal Rank
+- nDCG@K：Normalized Discounted Cumulative Gain
+- MAP：Mean Average Precision
+
+**评测数据集**：35 条手工标注查询（data/evaluation/queries.jsonl）
+
+**使用示例**：
+```bash
+python evaluation/evalRetrieval.py --methods bm25 vector hybrid-rrf --visualize
+```
+
+**详见**：[evaluation/README.md](evaluation/README.md)
+
 ## 当前进度
 
 - ✅ Plan-1：任务定义与评测标准
 - ✅ Plan-3：教材 OCR + LLM 构建数学名词数据
   - 已处理 4 本教材，生成 3,102 个术语
-- 🔄 Plan-2：数据准备（进行中）
+- ✅ Plan-2：数据准备与检索系统
   - ✅ Task-1：数据核验与统计
-  - ⏸️ Task-2：构建检索语料
-  - ⏸️ Task-3：BM25 基线检索
-  - ⏸️ Task-4：向量检索基线
-  - ⏸️ Task-5：混合检索
-  - ⏸️ Task-6：评测集与指标
+  - ✅ Task-2：构建检索语料（3,102 条文档）
+  - ✅ Task-3：BM25 基线检索
+  - ✅ Task-4：向量检索基线（FAISS + Sentence Transformers）
+  - ✅ Task-5：混合检索（加权融合 + RRF）
+  - ✅ Task-6：评测集与指标（35 条查询，4 种指标）
+- 🔄 Plan-4：RAG 系统集成（待开始）
 
 **详见**：[docs/plan.md](docs/plan.md) 和 [docs/task.md](docs/task.md)
 
@@ -163,4 +244,12 @@ pre-commit run -a
 - 平均每术语：3.0 个定义
 - 字段覆盖率：核心字段 95%+ 覆盖率
 
-**详细统计**：查看 `data/stats/chunkStatistics.json` 和可视化图表
+**检索系统指标**（BM25 基线，35 条查询）：
+- Recall@10：45.24%
+- MRR：0.3225
+- nDCG@10：0.3754
+- 平均查询时间：3.8ms
+
+**详细统计**：
+- 数据质量：`data/stats/chunkStatistics.json` + 可视化图表
+- 检索评测：`outputs/reports/retrieval_metrics.json`
