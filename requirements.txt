@@ -5,3 +5,4 @@ pypdf
 Requests
 tomli
 tqdm
+tqdm
