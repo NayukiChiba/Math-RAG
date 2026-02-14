@@ -504,13 +504,22 @@ def main():
     retrievers = {}
     corpusPath = os.path.join(config.PROCESSED_DIR, "retrieval", "corpus.jsonl")
 
+    # 定义索引文件路径（P2 修复：避免重复构建索引）
+    bm25IndexFile = os.path.join(config.PROCESSED_DIR, "retrieval", "bm25_index.pkl")
+    vectorIndexFile = os.path.join(
+        config.PROCESSED_DIR, "retrieval", "vector_index.faiss"
+    )
+    vectorEmbeddingFile = os.path.join(
+        config.PROCESSED_DIR, "retrieval", "vector_embeddings.npz"
+    )
+
     for method in args.methods:
         print(f"\n🔄 初始化检索器: {method.upper()}")
         try:
             if method == "bm25":
                 from retrieval.retrievalBM25 import BM25Retriever
 
-                retriever = BM25Retriever(corpusPath)
+                retriever = BM25Retriever(corpusPath, bm25IndexFile)
                 # 尝试加载索引，如果不存在则构建
                 if not retriever.loadIndex():
                     print("  索引不存在，开始构建...")
@@ -520,7 +529,11 @@ def main():
             elif method == "vector":
                 from retrieval.retrievalVector import VectorRetriever
 
-                retriever = VectorRetriever(corpusPath)
+                retriever = VectorRetriever(
+                    corpusPath,
+                    indexFile=vectorIndexFile,
+                    embeddingFile=vectorEmbeddingFile,
+                )
                 # 尝试加载索引，如果不存在则构建
                 if not retriever.loadIndex():
                     print("  索引不存在，开始构建...")
@@ -530,16 +543,29 @@ def main():
             elif method == "hybrid-weighted":
                 from retrieval.retrievalHybrid import HybridRetriever
 
-                retriever = HybridRetriever(corpusPath)
+                # P1-1 修复：HybridRetriever 需要完整的索引文件路径参数
+                retriever = HybridRetriever(
+                    corpusPath,
+                    bm25IndexFile=bm25IndexFile,
+                    vectorIndexFile=vectorIndexFile,
+                    vectorEmbeddingFile=vectorEmbeddingFile,
+                )
                 # Hybrid 会自动初始化子检索器
                 retrievers["Hybrid-Weighted"] = retriever
             elif method == "hybrid-rrf":
                 from retrieval.retrievalHybrid import HybridRetriever
 
-                retriever = HybridRetriever(corpusPath)
+                # P1-1 修复：HybridRetriever 需要完整的索引文件路径参数
+                retriever = HybridRetriever(
+                    corpusPath,
+                    bm25IndexFile=bm25IndexFile,
+                    vectorIndexFile=vectorIndexFile,
+                    vectorEmbeddingFile=vectorEmbeddingFile,
+                )
                 # Hybrid 会自动初始化子检索器
                 retrievers["Hybrid-RRF"] = retriever
-        except ImportError as e:
+        except (ImportError, SystemExit) as e:
+            # P1-2 修复：捕获 SystemExit，避免进程退出（如 faiss 缺失时）
             print(f"❌ 初始化失败（缺少依赖）: {e}")
             print(f"💡 提示: 请检查 {method.upper()} 所需的依赖库是否已安装")
         except Exception as e:
