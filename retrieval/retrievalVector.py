@@ -164,7 +164,7 @@ class VectorRetriever:
         if USE_GPU:
             res = faiss.StandardGpuResources()  # 使用默认 GPU 资源
             self.index = faiss.index_cpu_to_gpu(res, 0, cpuIndex)  # 迁移到 GPU 0
-            print(f"🎮 索引已迁移到 GPU")
+            print("🎮 索引已迁移到 GPU")
         else:
             self.index = cpuIndex
 
