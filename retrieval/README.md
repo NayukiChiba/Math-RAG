@@ -8,8 +8,8 @@
 retrieval/
 ├── __init__.py           # 模块初始化
 ├── buildCorpus.py        # 构建检索语料
-├── retrievalBM25.py      # BM25 检索基线（待实现）
-├── retrievalVec.py       # 向量检索基线（待实现）
+├── retrievalBM25.py      # BM25 检索基线
+├── retrievalVector.py    # 向量检索基线
 ├── hybridRetrieval.py    # 混合检索（待实现）
 └── README.md             # 本文档
 ```
@@ -111,16 +111,75 @@ python retrieval/retrievalBM25.py --rebuild-index
 
 ---
 
-### 3. retrievalVec.py - 向量检索基线（待实现）
+### 3. retrievalVector.py - 向量检索基线
 
 **功能**：
-- 构建向量索引
-- FAISS 加速检索
+- 构建向量索引（FAISS）
+- 使用 Sentence Transformers 进行文本嵌入
+- 单查询检索
+- 批量查询
 - TopK 结果输出
+- 索引和嵌入保存加载
 
 **依赖**：
 - `sentence-transformers`
 - `faiss-cpu`
+
+**推荐模型**：
+- `paraphrase-multilingual-MiniLM-L12-v2`（多语言，384 维）
+- `moka-ai/m3e-base`（中文优化，768 维）
+
+**使用方法**：
+```bash
+# 单次查询
+python retrieval/retrievalVector.py --query "泰勒展开" --topk 10
+
+# 批量查询
+python retrieval/retrievalVector.py --query-file queries.txt --output results.json
+
+# 重新构建索引
+python retrieval/retrievalVector.py --rebuild-index
+
+# 指定模型
+python retrieval/retrievalVector.py --model moka-ai/m3e-base --query "泰勒展开"
+
+# 指定批次大小
+python retrieval/retrievalVector.py --batch-size 64 --rebuild-index
+```
+
+**输入**：
+- 语料文件：`data/processed/retrieval/corpus.jsonl`
+- 查询字符串或查询文件
+
+**输出**：
+- FAISS 索引：`data/processed/retrieval/vector_index.faiss`
+- 索引元数据：`data/processed/retrieval/vector_index.faiss.meta.json`
+- 嵌入向量：`data/processed/retrieval/vector_embeddings.npz`
+- 查询结果：JSON 格式，包含 rank、doc_id、term、subject、score、source、page
+
+**输出格式示例**：
+```json
+{
+  "泰勒展开": [
+    {
+      "rank": 1,
+      "doc_id": "ma-泰勒级数",
+      "term": "泰勒级数",
+      "subject": "数学分析",
+      "score": 0.8756,
+      "source": "数学分析(第5版)下(华东师范大学数学系)",
+      "page": 134
+    }
+  ]
+}
+```
+
+**特性**：
+- ✅ 余弦相似度搜索（向量标准化 + FAISS IndexFlatIP）
+- ✅ 批量嵌入计算（可配置批次大小）
+- ✅ 自动时间戳验证（语料更新后自动重建）
+- ✅ 模型一致性检查
+- ✅ 进度条显示
 
 ---
 
@@ -149,13 +208,16 @@ data/processed/chunk/          (输入：术语 JSON)
          ↓
 data/processed/retrieval/      (输出：检索语料)
     ├── corpus.jsonl           (JSONL 格式语料)
-    └── ...
+    ├── bm25_index.pkl         (BM25 索引)
+    ├── vector_index.faiss     (FAISS 向量索引)
+    ├── vector_index.faiss.meta.json  (索引元数据)
+    └── vector_embeddings.npz  (嵌入向量)
          ↓
-    [retrievalBM25.py / retrievalVec.py]
+    [retrievalBM25.py / retrievalVector.py]
          ↓
 outputs/retrieval/             (检索结果)
     ├── bm25_results.json
-    ├── vec_results.json
+    ├── vector_results.json
     └── hybrid_results.json
 ```
 
@@ -201,7 +263,7 @@ Get-Content data/processed/retrieval/corpus.jsonl -TotalCount 3
 - [x] Task 1: 数据核验与统计（`dataStat/chunkStatistics.py`）
 - [x] Task 2: 构建检索语料（`retrieval/buildCorpus.py`）
 - [x] Task 3: BM25 检索基线（`retrieval/retrievalBM25.py`）
-- [ ] Task 4: 向量检索基线
+- [x] Task 4: 向量检索基线（`retrieval/retrievalVector.py`）
 - [ ] Task 5: 混合检索
 - [ ] Task 6: 评测框架
 
