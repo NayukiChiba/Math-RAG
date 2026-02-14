@@ -60,16 +60,54 @@ python -m retrieval.buildCorpus
 
 ---
 
-### 2. retrievalBM25.py - BM25 检索基线（待实现）
+### 2. retrievalBM25.py - BM25 检索基线
 
 **功能**：
 - 构建 BM25 索引
 - 单查询检索
 - 批量查询
 - TopK 结果输出
+- 索引保存和加载
 
 **依赖**：
 - `rank-bm25`
+
+**使用方法**：
+```bash
+# 单次查询
+python retrieval/retrievalBM25.py --query "泰勒展开" --topk 10
+
+# 批量查询
+python retrieval/retrievalBM25.py --query-file queries.txt --output results.json
+
+# 重新构建索引
+python retrieval/retrievalBM25.py --rebuild-index
+```
+
+**输入**：
+- 语料文件：`data/processed/retrieval/corpus.jsonl`
+- 查询字符串或查询文件
+
+**输出**：
+- 索引文件：`data/processed/retrieval/bm25_index.pkl`（自动保存和加载）
+- 查询结果：JSON 格式，包含 rank、doc_id、term、subject、score、source、page
+
+**输出格式示例**：
+```json
+{
+  "泰勒展开": [
+    {
+      "rank": 1,
+      "doc_id": "ma-积分余项",
+      "term": "积分余项",
+      "subject": "数学分析",
+      "score": 19.9007,
+      "source": "数学分析(第5版)下(华东师范大学数学系)",
+      "page": 57
+    }
+  ]
+}
+```
 
 ---
 
@@ -162,7 +200,7 @@ Get-Content data/processed/retrieval/corpus.jsonl -TotalCount 3
 
 - [x] Task 1: 数据核验与统计（`dataStat/chunkStatistics.py`）
 - [x] Task 2: 构建检索语料（`retrieval/buildCorpus.py`）
-- [ ] Task 3: BM25 检索基线
+- [x] Task 3: BM25 检索基线（`retrieval/retrievalBM25.py`）
 - [ ] Task 4: 向量检索基线
 - [ ] Task 5: 混合检索
 - [ ] Task 6: 评测框架
