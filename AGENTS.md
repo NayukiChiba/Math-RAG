@@ -110,88 +110,48 @@
 
 提交信息**使用中文**，**英文前缀（type）**。
 
-## 1. 基本格式
+## 提交格式
+<type>(<scope>): <subject>
 
-```
-<type>(<scope>): <中文简要标题>
+<body>
 
-<详细变更说明>
-```
+<footer>
 
-- 标题行：不超过 72 字符，动词开头
-- 正文：详细说明做了什么、为什么、改了哪些文件
-- 注意：提交正文应为真实换行，避免把 `\n` 写成字面量
-  - PowerShell 推荐：`git commit --amend -m "标题" -m "- 变更点1" -m "- 变更点2"`
-  - 或使用提交信息文件：`git commit --amend -F .git/commitmsg.txt`
+## Type类型规范
+- feat: 新功能
+- fix: 修复bug
+- docs: 文档变更
+- style: 代码格式(不影响代码运行)
+- refactor: 重构(既非新增功能，也非修复bug)
+- perf: 性能优化
+- test: 测试相关
+- build: 构建系统或外部依赖变更
+- ci: CI配置变更
+- chore: 其他不修改src或test的变更
+- revert: 回退之前的提交
 
-## 2. 类型（type）
+## 编写要求
+1. **Header**:
+   - type: 必需，从上述类型中选择
+   - scope: 可选，表示影响范围，使用英文小写
+   - subject: 必需，使用中文简洁描述，不超过50字，动词开头，首字母小写，结尾不加句号
 
-| 类型       | 含义                     |
-|------------|--------------------------|
-| `feat`     | 新增功能或模块           |
-| `fix`      | 修复 bug                 |
-| `refactor` | 代码重构（不改变行为）   |
-| `perf`     | 性能优化                 |
-| `test`     | 测试相关                 |
-| `docs`     | 文档更新                 |
-| `chore`    | 构建、配置、依赖等       |
-| `style`    | 格式调整（不影响逻辑）   |
+2. **Body** (可选):
+   - 使用中文详细说明改动内容
+   - 说明为什么做这个改动
+   - 每行不超过72字符
 
-## 3. scope（可选）
+3. **Footer** (可选):
+   - 关闭Issue: close #123
+   - 破坏性变更: BREAKING CHANGE: 说明内容
 
-标明影响的模块：`retriever`、`reranker`、`generator`、`config`、`eval`、`data` 等。
+## 输出格式
+请提供两个版本：
+1. 简单版本（仅Header）
+2. 完整版本（包含Body和Footer，如适用）
 
-## 4. 标题要求
-
-- ✅ 中文、简洁、动词开头
-- ❌ 禁止："修改代码"、"一些调整"、"更新"、纯英文
-
-## 5. 正文要求
-
-正文应包含：
-- 具体改了什么（哪些文件、哪些逻辑）
-
-用 `-` 列表清晰列出变更点即可。
-
-## 6. 示例
-
-```
-feat(retriever): 添加 FAISS 向量检索模块
-
-- 新增 src/retriever/faiss_index.py，实现向量索引的构建与查询逻辑
-- 新增 src/retriever/embedder.py，封装文本向量化流程
-- 更新 config/retriever.yaml，添加 FAISS 相关配置项（index_type、embedding_model）
-- 使用 FAISS 的 IndexFlatIP 作为基础索引，embedding 采用 all-MiniLM-L6-v2
-```
-
-```
-fix(reranker): 修复空结果时的异常处理
-
-- 修改 src/reranker/cross_encoder.py 第 45-52 行，添加空结果检查分支
-- 当检索返回空列表时，直接返回空列表而非抛出 IndexError
-```
-
-```
-docs: 更新实验复现说明
-
-- 补充 README 中的数据集下载链接和 MD5 校验方法
-- 添加环境变量配置说明（OPENAI_API_KEY、HF_TOKEN 等）
-- 明确默认配置文件路径为 config/default.yaml
-```
-
-```
-refactor(config): 统一配置文件加载逻辑
-
-- 新增 src/utils/config_loader.py，实现统一的配置加载入口
-- 移除 retriever、reranker、generator 各模块中分散的配置读取代码
-- ConfigLoader 采用单例模式，支持 YAML 配置和环境变量覆盖
-```
-
-## 7. 基本原则
-
-- 每次提交聚焦单一变更
-- 说清楚做了什么
-- 避免空正文或无意义描述
+当前文件改动：[描述你的改动]
+涉及的功能模块：[可选]
 
 ---
 
