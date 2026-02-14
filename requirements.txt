@@ -1,8 +1,10 @@
+faiss
 matplotlib
 numpy
 pix2text
 pypdf
 rank_bm25
 Requests
+sentence_transformers
 tomli
 tqdm
