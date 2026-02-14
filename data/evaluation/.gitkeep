@@ -1,0 +1,19 @@
+# 评测数据集目录
+
+## 文件说明
+
+- `queries.jsonl` - 快速验证集（105条），用于开发调试
+- `queries_full.jsonl` - 完整评测集（3102条），用于论文实验
+- `README.md` - 数据集详细说明
+
+## 生成方式
+
+使用 `evaluation/generateQueries.py` 生成：
+
+```bash
+# 快速验证集（保留人工标注）
+python evaluation/generateQueries.py
+
+# 完整评测集
+python evaluation/generateQueries.py --all --no-merge --output data/evaluation/queries_full.jsonl
+```
