@@ -1,11 +1,11 @@
 faiss
 matplotlib
 numpy
+openai
 pix2text
 pypdf
 rank_bm25
 Requests
 sentence_transformers
 tomli
-tqdm
 tqdm
