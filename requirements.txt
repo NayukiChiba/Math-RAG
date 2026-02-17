@@ -9,3 +9,4 @@ Requests
 sentence_transformers
 tomli
 tqdm
+tqdm
