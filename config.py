@@ -96,7 +96,7 @@ def get_ocr_config():
 
 
 def _getQwenModelDir() -> str:
-    """从 config.toml 读取 Qwen 模型目录，默认为项目根目录下的 Qwen-model/"""
+    """从 config.toml 读取 Qwen 模型目录，默认为项目上级目录下的 Qwen-model（与 Math-RAG 同级）"""
     defaultDir = os.path.join(PROJECT_ROOT, "..", "Qwen-model")
 
     if not os.path.isfile(CONFIG_TOML):
