@@ -1,4 +1,5 @@
 faiss
+gradio
 Jinja2
 matplotlib
 numpy
@@ -9,5 +10,6 @@ rank_bm25
 Requests
 sentence_transformers
 tomli
+torch
 tqdm
-tqdm
+transformers
