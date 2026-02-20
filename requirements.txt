@@ -1,4 +1,5 @@
 faiss
+Jinja2
 matplotlib
 numpy
 openai

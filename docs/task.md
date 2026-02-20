@@ -1,11 +1,11 @@
-# Math-RAG 当下计划（2026-02-14）
+# Math-RAG 当下计划（2026-02-20）
 
 ## 目标
-- 以已完成的术语 JSON 切分为起点，落地“可跑通、可复现”的检索基线与评测流程
+- 落地 RAG 生成层与端到端评测，支撑论文实验章节
 
 ## 当前状态
-- 已完成：`data/processed/chunk/<书名>/<术语>.json` 术语级切分
-- 进行中：检索语料构建与检索基线准备
+- ✅ 已完成：数据层（OCR、切分、语料构建）、检索层（BM25、向量、混合）、检索评测
+- 🔄 进行中：RAG 生成层（Task-7~9）、生成评测与对比实验（Task-10~11）
 
 ## 本阶段任务（按顺序，含实现细节）
 
@@ -30,156 +30,219 @@
 ---
 
 ### 任务2：构建检索语料
-**状态**：`todo`  
+**状态**：`completed` ✅  
 **输入**：`data/processed/chunk/**.json`  
 **输出**：`data/processed/retrieval/corpus.jsonl`  
-**脚本**：`scripts/build_corpus.py`  
-**拼接规则**：
-- 按 `term → aliases → definitions.text → formula → usage → applications → disambiguation → related_terms` 顺序
-- 用换行分隔各个部分
-- 缺失字段跳过，不输出空行
-- LaTeX 公式保持原样
+**脚本**：`retrieval/buildCorpus.py`  
 
 **验收标准**：
-- 每行包含必需字段：`doc_id`、`term`、`subject`、`text`、`source`、`page`
-- JSONL 格式正确，每行可独立解析
-- 文本拼接符合规则，无多余空白
-- 与 chunk JSON 数量一致
+- ✅ 每行包含必需字段：`doc_id`、`term`、`subject`、`text`、`source`、`page`
+- ✅ JSONL 格式正确，每行可独立解析
+- ✅ 文本拼接符合规则，无多余空白
+- ✅ 与 chunk JSON 数量一致
 
-**依赖**：任务1（可选，建议先完成数据核验）
+**依赖**：任务1
 
 ---
 
 ### 任务3：BM25 基线检索
-**状态**：`todo`  
+**状态**：`completed` ✅  
 **输入**：`data/processed/retrieval/corpus.jsonl`  
 **依赖库**：`rank-bm25`  
 **输出**：
 - BM25 索引文件（pickle 格式）
 - TopK 查询结果（JSON）
-**脚本**：`scripts/retrieval_bm25.py`  
+
+**脚本**：`retrieval/retrievalBM25.py`  
 
 **验收标准**：
-- 脚本可对任意 query 输出 TopK（默认 K=10）
-- 支持批量查询（从文件读取）
-- 输出包含：doc_id、term、score、rank
-- 索引可保存和加载，避免重复构建
+- ✅ 脚本可对任意 query 输出 TopK（默认 K=10）
+- ✅ 支持批量查询（从文件读取）
+- ✅ 输出包含：doc_id、term、score、rank
+- ✅ 索引可保存和加载，避免重复构建
 
 **依赖**：任务2
 
 ---
 
 ### 任务4：向量检索基线
-**状态**：`todo`  
+**状态**：`completed` ✅  
 **输入**：`data/processed/retrieval/corpus.jsonl`  
 **依赖库**：`sentence-transformers`、`faiss-cpu`  
-**模型**：推荐使用 `paraphrase-multilingual-MiniLM-L12-v2` 或 `moka-ai/m3e-base`  
+**模型**：`moka-ai/m3e-base`  
 **输出**：
 - FAISS 索引文件（.index）
 - 向量嵌入文件（.npy）
 - TopK 查询结果（JSON）
-**脚本**：`scripts/retrieval_vec.py`  
+
+**脚本**：`retrieval/retrievalVector.py`  
 
 **验收标准**：
-- 脚本可对任意 query 输出 TopK（默认 K=10）
-- 支持批量查询
-- 索引构建可配置（维度、距离度量）
-- 查询速度满足需求（<1s per query）
+- ✅ 脚本可对任意 query 输出 TopK（默认 K=10）
+- ✅ 支持批量查询
+- ✅ 索引构建可配置（维度、距离度量）
+- ✅ 支持 GPU 加速，CPU fallback 正常
 
 **依赖**：任务2
 
 ---
 
 ### 任务5：混合检索
-**状态**：`todo`  
+**状态**：`completed` ✅  
 **输入**：
 - BM25 检索结果
 - 向量检索结果
-**策略**：
-- 归一化分数：min-max 或 z-score
-- 加权融合：默认 alpha=0.5（BM25），beta=0.5（向量）
-- 支持可配置权重
-**输出**：
-- 混合 TopK 结果（JSON）
-**脚本**：`scripts/retrieval_hybrid.py`  
+
+**策略**：RRF（Reciprocal Rank Fusion）+ 加权融合（alpha/beta 可配置）  
+**输出**：混合 TopK 结果（JSON）  
+**脚本**：`retrieval/retrievalHybrid.py`  
 
 **验收标准**：
-- 脚本输出混合 TopK
-- 支持权重配置（命令行参数或配置文件）
-- 输出格式与单一检索方法一致
-- 融合策略可扩展（支持RRF等其他方法）
+- ✅ 脚本输出混合 TopK
+- ✅ 支持权重配置（命令行参数或配置文件）
+- ✅ 输出格式与单一检索方法一致
+- ✅ 融合策略可扩展（支持 RRF、加权线性融合）
 
 **依赖**：任务3、任务4
 
 ---
 
 ### 任务6：评测集与指标
-**状态**：`todo`  
-**输入**：
-- 手工标注数据：`data/evaluation/queries.jsonl`
-  - 格式：`{"query": "一致收敛", "relevant_terms": ["一致收敛", "逐点收敛"], "subject": "数学分析"}`
-  - 建议 50-100 条查询
+**状态**：`completed` ✅  
+**输入**：`data/evaluation/queries.jsonl`（支持全量生成、比例采样、固定数量三种模式）  
 **输出**：`outputs/reports/retrieval_metrics.json`  
 **指标**：
-- Recall@K（K=1,3,5,10）
-- MRR（Mean Reciprocal Rank）
-- nDCG@K（K=3,5,10）
-- MAP（Mean Average Precision）
-**脚本**：`scripts/eval_retrieval.py`  
+- ✅ Recall@K（K=1,3,5,10）
+- ✅ MRR（Mean Reciprocal Rank）
+- ✅ nDCG@K（K=3,5,10）
+- ✅ MAP（Mean Average Precision）
+
+**脚本**：`evaluation/evalRetrieval.py`、`evaluation/generateQueries.py`  
 
 **验收标准**：
-- 固定格式输出，结果可复现
-- 支持对比多种检索方法（BM25、向量、混合）
-- 输出包含详细指标和统计信息
-- 生成对比图表（可选）
+- ✅ 固定格式输出，结果可复现
+- ✅ 支持对比多种检索方法（BM25、向量、混合）
+- ✅ 评测查询自动生成脚本，支持多种采样模式
+- ✅ 输出包含详细指标和统计信息
 
 **依赖**：任务3、任务4、任务5
 
-## 产出物
+---
+
+### 任务7：RAG 提示模板设计
+**状态**：`completed` ✅ （Issue #23）  
+**输入**：检索结果（TopK 术语与定义）、用户查询  
+**输出**：`generation/promptTemplates.py`  
+
+**验收标准**：
+- ✅ 基础模板：system + user prompt，含检索上下文拼接
+- ✅ 支持多条检索结果按 rank 排序拼接，控制总长度（MAX_CONTEXT_CHARS=2000）
+- ✅ LaTeX 公式保持原样，来源字段（source、page）格式化为【书名 第X页】
+- ✅ f-string 实现（buildPrompt/buildMessages）+ Jinja2 模板常量及 buildPromptJinja2()
+- ✅ 空检索结果时退化为直接问答，不崩溃
+- ✅ config.toml 新增 [generation] 节，config.py 新增 getGenerationConfig() 和 QWEN_MODEL_DIR
+
+**依赖**：任务5、任务6
+
+---
+
+### 任务8：Qwen2.5-Math-1.5B 本地推理集成
+**状态**：`todo` （Issue #24）  
+**输入**：本地模型路径（`Qwen-model/`，由 `config.QWEN_MODEL_DIR` 管理）  
+**输出**：`generation/qwenInference.py`  
+
+**验收标准**：
+- [ ] 支持从本地路径加载模型（`transformers.AutoModelForCausalLM`）
+- [ ] 封装 `generate(prompt, max_new_tokens)` 接口，支持单条和批量推理
+- [ ] 支持 GPU 加速（`device_map="auto"`），CPU fallback 正常工作
+- [ ] 推理参数可通过 `config.toml` 配置（temperature、top_p、max_new_tokens）
+
+**依赖**：任务7
+
+---
+
+### 任务9：端到端 RAG 问答流程
+**状态**：`todo` （Issue #25）  
+**输入**：用户查询、检索索引、Qwen 推理接口、提示模板  
+**输出**：
+- `generation/ragPipeline.py`
+- `outputs/rag_results.jsonl`
+
+**验收标准**：
+- [ ] 单条查询：输入问题 → 输出含来源的结构化回答（定义 + 公式 + 出处）
+- [ ] 批量查询：从文件读取，输出 JSONL 结果文件
+- [ ] 检索策略可切换（BM25 / 向量 / 混合），通过参数指定
+- [ ] 输出字段：`query`、`retrieved_terms`、`answer`、`sources`、`latency`
+- [ ] 检索为空时不崩溃，给出提示
+
+**依赖**：任务7、任务8
+
+---
+
+### 任务10：生成质量评估
+**状态**：`todo` （Issue #26）  
+**输入**：`outputs/rag_results.jsonl`、`data/evaluation/queries.jsonl`  
+**输出**：`outputs/reports/generation_metrics.json`  
+**指标**：
+- [ ] 术语命中率（回答包含目标相关术语）
+- [ ] 来源引用率（书名/页码正确引用）
+- [ ] 回答非空率
+- [ ] （可选）BLEU / ROUGE
+
+**脚本**：`evaluation/evalGeneration.py`  
+**依赖**：任务9
+
+---
+
+### 任务11：对比实验：RAG vs 无检索
+**状态**：`todo` （Issue #27）  
+**实验组**：
+
+| 实验组 | 检索策略 | RAG |
+|--------|----------|-----|
+| baseline-norag | 无 | ❌ |
+| baseline-bm25 | BM25 | ✅ |
+| baseline-vector | 向量检索 | ✅ |
+| exp-hybrid | 混合检索（主实验） | ✅ |
+
+**输出**：
+- `outputs/reports/comparison_results.json`
+- `outputs/reports/comparison_chart.png`（对比柱状图）
+- `scripts/runExperiments.py`（一键运行所有实验组）
+
+**验收标准**：
+- [ ] 所有实验组使用相同测试集和模型，保证可比性
+- [ ] 输出汇总表格（Markdown 格式），可直接入论文
+- [ ] 实验配置通过 `config.toml` 管理，结果可复现
+- [ ] 随机种子固定
+
+**依赖**：任务9、任务10
+
+---
+
+## 已完成产出物
 - `data/processed/retrieval/corpus.jsonl` - 检索语料库
-- `scripts/` - 数据处理、检索、评测脚本
-  - `build_chunk_stats.py` - 数据统计
-  - `build_corpus.py` - 语料构建
-  - `retrieval_bm25.py` - BM25 检索
-  - `retrieval_vec.py` - 向量检索
-  - `retrieval_hybrid.py` - 混合检索
-  - `eval_retrieval.py` - 检索评测
-- `outputs/` - 配置与实验记录
-  - `reports/` - 统计报告与评测结果
-  - `indexes/` - 检索索引文件（BM25、FAISS）
-  - `logs/` - 运行日志
+- `data/stats/` - 数据统计报告与可视化
+- `data/evaluation/queries.jsonl` - 评测查询集
+- `retrieval/buildCorpus.py` - 语料构建
+- `retrieval/retrievalBM25.py` - BM25 检索
+- `retrieval/retrievalVector.py` - 向量检索
+- `retrieval/retrievalHybrid.py` - 混合检索
+- `evaluation/evalRetrieval.py` - 检索评测
+- `evaluation/generateQueries.py` - 评测查询生成
+- `outputs/reports/` - 检索评测结果
+- `generation/promptTemplates.py` - RAG 提示模板（f-string + Jinja2）
 
-## 目录结构建议
-根据当前阶段需求，建议创建以下目录：
-```
-Math-RAG/
-├── data/
-│   ├── raw/                    # 原始 PDF
-│   ├── processed/
-│   │   ├── ocr/                # OCR 输出
-│   │   ├── terms/              # 术语提取结果
-│   │   ├── chunk/              # 术语 JSON 切分
-│   │   └── retrieval/          # 检索语料（新增）
-│   └── evaluation/             # 评测数据（新增）
-│       └── queries.jsonl       # 标注查询集
-├── scripts/                    # 脚本目录（新增）
-│   ├── build_chunk_stats.py
-│   ├── build_corpus.py
-│   ├── retrieval_bm25.py
-│   ├── retrieval_vec.py
-│   ├── retrieval_hybrid.py
-│   └── eval_retrieval.py
-├── outputs/                    # 输出目录（新增）
-│   ├── reports/
-│   ├── indexes/
-│   └── logs/
-├── dataGen/                    # 数据生成脚本（已有）
-└── docs/                       # 文档（已有）
-```
+## 待完成产出物
+- `generation/qwenInference.py` - Qwen 推理封装
+- `generation/ragPipeline.py` - 端到端流程
+- `evaluation/evalGeneration.py` - 生成评测脚本
+- `scripts/runExperiments.py` - 对比实验入口
+- `outputs/rag_results.jsonl` - RAG 问答结果
+- `outputs/reports/generation_metrics.json` - 生成评测报告
+- `outputs/reports/comparison_results.json` - 对比实验报告
 
-## 依赖变更（仅记录，实施时再改）
-可能新增依赖：`rank-bm25`、`sentence-transformers`、`faiss-cpu`
-
-## 风险与验证
-- 术语 JSON 字段不一致需要先做字段映射
-- 检索噪声可能影响小模型生成质量，先验证 BM25 与向量检索质量
+## 风险与注意事项
+- Qwen2.5-Math-1.5B 上下文窗口有限（约 4096 token），提示长度需严格控制
+- 无检索 baseline 需固定随机种子，保证可对比性
+- 若无 GPU，1.5B 模型在 CPU 下推理较慢，建议先小批量验证
