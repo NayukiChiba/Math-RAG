@@ -118,3 +118,20 @@ definitions 中每条定义必须包含 reference 字段。
 当前 JSON：
 {{bad_json}}
 '''
+
+[generation]
+# RAG 生成层配置
+
+# 上下文总最大字符数
+# 1.5B 模型约 2000 token，中文平均约 1.5 char/token，预留 prompt 开销
+max_context_chars = 2000
+
+# 单条术语文本最大字符数，避免一条术语挤占整个上下文
+max_chars_per_term = 800
+
+# Qwen 推理参数（Task-8 使用）
+temperature = 0.1
+top_p = 0.9
+max_new_tokens = 512
+# 本地模型目录（相对项目根目录）
+qwen_model_dir = "Qwen-model"
