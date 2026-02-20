@@ -120,14 +120,14 @@
 - 目标：明确“数学名词”范围、检索目标与评测指标
 - 输出：统一的任务定义与评测口径
 
-### 任务2：数据准备（🔄 进行中）
+### 任务2：数据准备（✅ 已完成）
 - 目标：构建可复现的检索语料与黄金集
 - 输入：OCR 教材产出的术语与定义数据
 - 输出：统一语料与黄金集
 - 子任务：
   - ✅ 数据核验与统计（dataStat/chunkStatistics.py）
-  - ⏳ 构建检索语料（待实现）
-  - ⏳ 黄金测试集构建（待实现）
+  - ✅ 构建检索语料（retrieval/buildCorpus.py → data/processed/retrieval/corpus.jsonl）
+  - ✅ 评测查询集构建（evaluation/generateQueries.py → data/evaluation/queries.jsonl）
 
 ### 任务3：教材 OCR + LLM 构建数学名词数据（✅ 已完成）
 - 目标：遍历 `data/raw/` 下的 PDF 教材，OCR 后生成数学相关术语与结构化 JSON
@@ -152,33 +152,33 @@
   python scripts/ocr_to_json_all.py
   ```
 
-### 任务4：检索层构建（⏳ 未开始）
+### 任务4：检索层构建（✅ 已完成）
 - 目标：实现多种检索策略，支持可插拔切换
 - 子任务：
-  - [ ] BM25 稀疏检索基线
-  - [ ] 向量检索（sentence-transformers + FAISS）
-  - [ ] 混合检索（稀疏 + 向量融合）
-  - [ ] 统一检索接口设计
-- 输入：`data/processed/chunk/`（主）与 `data/processed/ocr/terms_json_all.json`（可选）
-- 输出：`src/retrieval/` 检索模块
+  - ✅ BM25 稀疏检索基线（retrieval/retrievalBM25.py）
+  - ✅ 向量检索（sentence-transformers + FAISS，retrieval/retrievalVector.py）
+  - ✅ 混合检索（RRF 策略，retrieval/retrievalHybrid.py）
+  - ✅ 统一检索接口设计（retrieval/__init__.py）
+- 输入：`data/processed/retrieval/corpus.jsonl`
+- 输出：`retrieval/` 检索模块，索引文件保存至 `outputs/`
 
-### 任务5：RAG 生成层（⏳ 未开始）
+### 任务5：RAG 生成层（🔄 进行中）
 - 目标：集成 Qwen2.5-Math 模型，实现检索增强生成
 - 子任务：
-  - [ ] 提示模板设计（定义、公式、来源引用）
-  - [ ] Qwen2.5-Math-1.5B 本地推理集成
-  - [ ] 检索结果拼接策略
-  - [ ] 端到端问答流程
-- 输出：`src/generation/` 生成模块
+  - [ ] 提示模板设计（Task-7 #23）
+  - [ ] Qwen2.5-Math-1.5B 本地推理集成（Task-8 #24）
+  - [ ] 端到端问答流程（Task-9 #25）
+  - [ ] （可选）Qwen2.5-Math-7B 对比实验
+- 输出：`generation/` 生成模块
 
-### 任务6：评测体系（⏳ 未开始）
+### 任务6：评测体系（🔄 进行中）
 - 目标：构建可复现的评测流程
 - 子任务：
-  - [ ] 黄金测试集构建
-  - [ ] 检索指标实现（Recall@K, MRR, nDCG）
-  - [ ] 生成质量评估
-  - [ ] 对比实验（RAG vs 无检索）
-- 输出：`src/evaluation/` 评测模块
+  - ✅ 检索指标实现（Recall@K, MRR, nDCG，evaluation/evalRetrieval.py）
+  - ✅ 评测查询集自动生成（evaluation/generateQueries.py）
+  - [ ] 生成质量评估（Task-10 #26）
+  - [ ] 对比实验（RAG vs 无检索，Task-11 #27）
+- 输出：`evaluation/` 评测模块，结果保存至 `outputs/reports/`
 
 ---
 
@@ -226,10 +226,10 @@
 
 ## 里程碑建议（可调整）
 
-- M1：数据集与黄金集完成
-- M2：检索基线完成
-- M3：RAG 生成完成
-- M4：评测体系完成
+- ✅ M1：数据集与黄金集完成
+- ✅ M2：检索基线完成（BM25 + 向量 + 混合，含检索评测）
+- 🔄 M3：RAG 生成完成（Task-7~9，进行中）
+- 🔄 M4：评测体系完成（Task-10~11，进行中）
 - M5：论文完成（如有 7B 结果则补充对比）
 
 ## 风险与注意事项

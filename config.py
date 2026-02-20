@@ -93,3 +93,68 @@ def get_ocr_config():
     )
 
     return result
+
+
+def _getQwenModelDir() -> str:
+    """从 config.toml 读取 Qwen 模型目录，默认为项目上级目录下的 Qwen-model（与 Math-RAG 同级）"""
+    defaultDir = os.path.join(PROJECT_ROOT, "..", "Qwen-model")
+
+    if not os.path.isfile(CONFIG_TOML):
+        return os.path.abspath(defaultDir)
+
+    try:
+        data = _load_toml(CONFIG_TOML)
+    except Exception:
+        return os.path.abspath(defaultDir)
+
+    gen_cfg = data.get("generation", {})
+    qwenDir = gen_cfg.get("qwen_model_dir", "").strip()
+
+    if not qwenDir:
+        return os.path.abspath(defaultDir)
+
+    if os.path.isabs(qwenDir):
+        return os.path.abspath(qwenDir)
+    return os.path.abspath(os.path.join(PROJECT_ROOT, qwenDir))
+
+
+# Qwen 模型本地路径
+QWEN_MODEL_DIR = _getQwenModelDir()
+
+
+def getGenerationConfig() -> dict:
+    """
+    获取生成层相关配置
+
+    Returns:
+        dict，包含 max_context_chars、max_chars_per_term、temperature、
+        top_p、max_new_tokens 等字段
+    """
+    defaults = {
+        "max_context_chars": 2000,
+        "max_chars_per_term": 800,
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "max_new_tokens": 512,
+    }
+
+    if not os.path.isfile(CONFIG_TOML):
+        return defaults
+
+    try:
+        data = _load_toml(CONFIG_TOML)
+    except Exception:
+        return defaults
+
+    gen_cfg = data.get("generation", {})
+    return {
+        "max_context_chars": gen_cfg.get(
+            "max_context_chars", defaults["max_context_chars"]
+        ),
+        "max_chars_per_term": gen_cfg.get(
+            "max_chars_per_term", defaults["max_chars_per_term"]
+        ),
+        "temperature": gen_cfg.get("temperature", defaults["temperature"]),
+        "top_p": gen_cfg.get("top_p", defaults["top_p"]),
+        "max_new_tokens": gen_cfg.get("max_new_tokens", defaults["max_new_tokens"]),
+    }
