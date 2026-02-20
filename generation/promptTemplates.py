@@ -44,40 +44,8 @@ import config
 
 # ---- 配置加载 ----
 
-
-def _loadGenerationConfig() -> dict[str, Any]:
-    """
-    从 config.toml 加载 [generation] 配置，缺失时使用默认值
-
-    Returns:
-        生成配置字典
-    """
-    defaults = {
-        "max_context_chars": 2000,
-        "max_chars_per_term": 800,
-    }
-
-    if not os.path.isfile(config.CONFIG_TOML):
-        return defaults
-
-    try:
-        # 复用 config.py 中的 _load_toml
-        data = config._load_toml(config.CONFIG_TOML)
-    except Exception:
-        return defaults
-
-    gen_cfg = data.get("generation", {})
-    return {
-        "max_context_chars": gen_cfg.get(
-            "max_context_chars", defaults["max_context_chars"]
-        ),
-        "max_chars_per_term": gen_cfg.get(
-            "max_chars_per_term", defaults["max_chars_per_term"]
-        ),
-    }
-
-
-_GEN_CFG = _loadGenerationConfig()
+# 通过公共 API 获取生成配置，保持与 config.getGenerationConfig 的单一真值来源
+_GEN_CFG: dict[str, Any] = config.getGenerationConfig()
 
 # 上下文总最大字符数（1.5B 模型约 2000 token，中文约 1.5 char/token，预留 prompt 开销）
 MAX_CONTEXT_CHARS: int = _GEN_CFG["max_context_chars"]
@@ -129,7 +97,10 @@ JINJA2_USER_TEMPLATE_NO_CONTEXT = """\
 # ---- 核心函数 ----
 
 
-def formatTermContext(item: dict[str, Any]) -> str:
+def formatTermContext(
+    item: dict[str, Any],
+    maxCharsPerTerm: int = MAX_CHARS_PER_TERM,
+) -> str:
     """
     将单条检索结果格式化为上下文文本块
 
@@ -140,6 +111,7 @@ def formatTermContext(item: dict[str, Any]) -> str:
             - text (str, 可选): 术语完整文本（由 buildCorpus 生成）
             - source (str, 可选): 来源书名
             - page (int, 可选): 页码
+        maxCharsPerTerm: 单条术语文本的最大字符数（默认 MAX_CHARS_PER_TERM）
 
     Returns:
         格式化后的文本块字符串
@@ -168,8 +140,8 @@ def formatTermContext(item: dict[str, Any]) -> str:
     # 追加术语文本内容
     if text:
         # 截断超长文本，避免单条挤占整个上下文
-        if len(text) > MAX_CHARS_PER_TERM:
-            truncatedText = text[:MAX_CHARS_PER_TERM] + "…（已截断）"
+        if len(text) > maxCharsPerTerm:
+            truncatedText = text[:maxCharsPerTerm] + "…（已截断）"
         else:
             truncatedText = text
         lines.append(truncatedText)
@@ -178,23 +150,29 @@ def formatTermContext(item: dict[str, Any]) -> str:
 
 
 def buildContext(
-    retrievalResults: list[dict[str, Any]],
+    retrievalResults: list[dict[str, Any]] | None,
     maxChars: int = MAX_CONTEXT_CHARS,
+    maxCharsPerTerm: int = MAX_CHARS_PER_TERM,
 ) -> tuple[str, list[dict[str, Any]]]:
     """
     从检索结果列表构建上下文字符串
 
     按 rank 升序拼接（rank 越小越优先），超出 maxChars 时停止追加。
+    检索失败传入 None 时退化为空上下文（后续由 buildPrompt 处理为直接问答）。
 
     Args:
-        retrievalResults: 检索结果列表
+        retrievalResults: 检索结果列表；传入 None 时视为空列表
         maxChars: 上下文最大字符数（默认 MAX_CONTEXT_CHARS）
+        maxCharsPerTerm: 单条术语文本的最大字符数（默认 MAX_CHARS_PER_TERM）
 
     Returns:
         (contextStr, usedResults)
         - contextStr: 拼接后的上下文字符串
         - usedResults: 实际纳入上下文的检索结果列表
     """
+    # 检索失败时退化为空列表，保证后续逻辑正常执行
+    retrievalResults = retrievalResults or []
+
     # 按 rank 排序，rank 缺失时排在最后
     sortedResults = sorted(retrievalResults, key=lambda r: r.get("rank", 9999))
 
@@ -206,7 +184,7 @@ def buildContext(
     totalChars = 0
 
     for item in sortedResults:
-        block = formatTermContext(item)
+        block = formatTermContext(item, maxCharsPerTerm)
         # 非首条需要加分隔符
         neededChars = len(block) + (separatorLen if contextParts else 0)
 
@@ -223,8 +201,9 @@ def buildContext(
 
 def buildPrompt(
     query: str,
-    retrievalResults: list[dict[str, Any]],
+    retrievalResults: list[dict[str, Any]] | None,
     maxContextChars: int = MAX_CONTEXT_CHARS,
+    maxCharsPerTerm: int = MAX_CHARS_PER_TERM,
     systemPrompt: str = SYSTEM_PROMPT,
 ) -> dict[str, Any]:
     """
@@ -232,8 +211,10 @@ def buildPrompt(
 
     Args:
         query: 用户查询文本
-        retrievalResults: 检索结果列表（需包含 term、text、source、page 等字段）
+        retrievalResults: 检索结果列表（需包含 term、text、source、page 等字段）；
+                          传入 None 时退化为无参考资料的直接问答
         maxContextChars: 上下文最大字符数
+        maxCharsPerTerm: 单条术语文本的最大字符数
         systemPrompt: 系统提示词（默认 SYSTEM_PROMPT）
 
     Returns:
@@ -242,7 +223,9 @@ def buildPrompt(
             - "user" (str): 用户消息内容
             - "used_results" (list): 实际纳入上下文的检索结果（便于调试和溯源）
     """
-    contextStr, usedResults = buildContext(retrievalResults, maxContextChars)
+    contextStr, usedResults = buildContext(
+        retrievalResults, maxContextChars, maxCharsPerTerm
+    )
 
     if contextStr:
         userContent = (
@@ -267,8 +250,9 @@ def buildPrompt(
 
 def buildMessages(
     query: str,
-    retrievalResults: list[dict[str, Any]],
+    retrievalResults: list[dict[str, Any]] | None,
     maxContextChars: int = MAX_CONTEXT_CHARS,
+    maxCharsPerTerm: int = MAX_CHARS_PER_TERM,
     systemPrompt: str = SYSTEM_PROMPT,
 ) -> list[dict[str, str]]:
     """
@@ -276,14 +260,17 @@ def buildMessages(
 
     Args:
         query: 用户查询文本
-        retrievalResults: 检索结果列表
+        retrievalResults: 检索结果列表；传入 None 时退化为直接问答
         maxContextChars: 上下文最大字符数
+        maxCharsPerTerm: 单条术语文本的最大字符数
         systemPrompt: 系统提示词
 
     Returns:
         [{"role": "system", "content": ...}, {"role": "user", "content": ...}]
     """
-    prompt = buildPrompt(query, retrievalResults, maxContextChars, systemPrompt)
+    prompt = buildPrompt(
+        query, retrievalResults, maxContextChars, maxCharsPerTerm, systemPrompt
+    )
     return [
         {"role": "system", "content": prompt["system"]},
         {"role": "user", "content": prompt["user"]},
@@ -292,8 +279,9 @@ def buildMessages(
 
 def buildPromptJinja2(
     query: str,
-    retrievalResults: list[dict[str, Any]],
+    retrievalResults: list[dict[str, Any]] | None,
     maxContextChars: int = MAX_CONTEXT_CHARS,
+    maxCharsPerTerm: int = MAX_CHARS_PER_TERM,
     extraInstructions: str = "",
 ) -> dict[str, Any]:
     """
@@ -303,8 +291,9 @@ def buildPromptJinja2(
 
     Args:
         query: 用户查询文本
-        retrievalResults: 检索结果列表
+        retrievalResults: 检索结果列表；传入 None 时退化为直接问答
         maxContextChars: 上下文最大字符数
+        maxCharsPerTerm: 单条术语文本的最大字符数
         extraInstructions: 额外指令（追加到 system prompt 末尾）
 
     Returns:
@@ -320,7 +309,9 @@ def buildPromptJinja2(
             "buildPromptJinja2 需要 jinja2，请执行 pip install jinja2"
         ) from e
 
-    contextStr, usedResults = buildContext(retrievalResults, maxContextChars)
+    contextStr, usedResults = buildContext(
+        retrievalResults, maxContextChars, maxCharsPerTerm
+    )
 
     # 渲染 system prompt
     systemTmpl = Template(JINJA2_SYSTEM_TEMPLATE)
