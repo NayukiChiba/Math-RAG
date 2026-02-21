@@ -112,15 +112,31 @@ def calculateTermHitRate(answer: str, relevantTerms: list[str]) -> dict[str, Any
 
     Returns:
         命中率信息
+
+    注意：
+        - 英文术语使用单词边界匹配，避免部分命中
+        - 中文术语使用子串匹配
     """
     if not relevantTerms:
         return {"hit_count": 0, "total": 0, "rate": 0.0, "hit_terms": []}
 
     hitTerms = []
+    answerLower = answer.lower()
+
     for term in relevantTerms:
-        # 精确匹配（忽略大小写）
-        if term.lower() in answer.lower():
-            hitTerms.append(term)
+        termLower = term.lower()
+        # 判断是否为英文风格术语（包含拉丁字母）
+        isEnglishLike = re.search(r"[A-Za-z]", termLower) is not None
+
+        if isEnglishLike:
+            # 使用单词边界进行精确词级匹配
+            pattern = r"\b" + re.escape(termLower) + r"\b"
+            if re.search(pattern, answerLower):
+                hitTerms.append(term)
+        else:
+            # 对中文等无空格语言采用子串匹配
+            if termLower in answerLower:
+                hitTerms.append(term)
 
     return {
         "hit_count": len(hitTerms),
@@ -147,12 +163,14 @@ def calculateSourceCitationRate(
         return {"cited_count": 0, "total": 0, "rate": 0.0, "cited_sources": []}
 
     citedSources = []
+    # 使用 set 去重，提升性能
+    seenSources = set()
     uniqueSources = []
 
-    # 去重
     for s in sources:
         sourceName = s.get("source", "")
-        if sourceName and sourceName not in [x["source"] for x in uniqueSources]:
+        if sourceName and sourceName not in seenSources:
+            seenSources.add(sourceName)
             uniqueSources.append(s)
 
     for s in uniqueSources:
@@ -224,7 +242,19 @@ def isAnswerValid(answer: str) -> dict[str, Any]:
             return {"valid": False, "reason": "refusal"}
 
     # 检查回答长度（过短可能无效）
-    if len(answer.strip()) < 10:
+    # 对于数值、公式、是/否等天然很短的回答放宽限制
+    MIN_ANSWER_LENGTH = 10
+    strippedAnswer = answer.strip()
+
+    # 识别纯数值或简单公式
+    isNumericOrFormula = bool(re.fullmatch(r"[0-9+\-*/^().%√\s=]+", strippedAnswer))
+
+    # 识别是/否类回答
+    yesNoAnswers = {"是", "否", "对", "不对", "对的", "不对的", "yes", "no"}
+    isYesNo = strippedAnswer.lower() in yesNoAnswers
+
+    # 仅对一般自然语言回答应用长度下限
+    if not (isNumericOrFormula or isYesNo) and len(strippedAnswer) < MIN_ANSWER_LENGTH:
         return {"valid": False, "reason": "too_short"}
 
     return {"valid": True, "reason": None}
@@ -631,11 +661,22 @@ def main():
         "detailed_results": evalResult["detailed_results"],
     }
 
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    # 保存 JSON 汇总报告
+    outputDir = os.path.dirname(args.output)
+    if outputDir:
+        os.makedirs(outputDir, exist_ok=True)
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
 
     print(f"\n✅ 评测报告已保存: {args.output}")
+
+    # 保存逐条结果 JSONL 文件
+    jsonlOutput = args.output.replace(".json", "_detailed.jsonl")
+    with open(jsonlOutput, "w", encoding="utf-8") as f:
+        for detail in evalResult["detailed_results"]:
+            f.write(json.dumps(detail, ensure_ascii=False) + "\n")
+
+    print(f"✅ 逐条结果已保存: {jsonlOutput}")
     print("\n✅ 评测完成！")
 
 
