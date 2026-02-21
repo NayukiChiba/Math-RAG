@@ -613,9 +613,13 @@ class ExperimentRunner:
         for result in experimentResults:
             group = result["group"]
             strategy = result["strategy"] or "-"
-            recall = result["retrieval_metrics"]["recall@5"]
-            mrr = result["retrieval_metrics"]["mrr"]
-            lines.append(f"| {group} | {strategy} | {recall:.4f} | {mrr:.4f} |")
+            # norag 没有检索，显示 N/A
+            if result["strategy"] is None:
+                lines.append(f"| {group} | {strategy} | N/A | N/A |")
+            else:
+                recall = result["retrieval_metrics"]["recall@5"]
+                mrr = result["retrieval_metrics"]["mrr"]
+                lines.append(f"| {group} | {strategy} | {recall:.4f} | {mrr:.4f} |")
 
         lines.append("")
         lines.append("### 生成指标对比")
@@ -833,9 +837,13 @@ def printSummary(experimentResults: list[dict[str, Any]]) -> None:
     print("-" * 44)
     for result in experimentResults:
         group = result["group"]
-        recall = result["retrieval_metrics"]["recall@5"]
-        mrr = result["retrieval_metrics"]["mrr"]
-        print(f"{group:<20} {recall:<12.4f} {mrr:<12.4f}")
+        # norag 没有检索，显示 N/A
+        if result["strategy"] is None:
+            print(f"{group:<20} {'N/A':<12} {'N/A':<12}")
+        else:
+            recall = result["retrieval_metrics"]["recall@5"]
+            mrr = result["retrieval_metrics"]["mrr"]
+            print(f"{group:<20} {recall:<12.4f} {mrr:<12.4f}")
 
     print("\n生成指标:")
     print(f"{'实验组':<20} {'术语命中率':<12} {'来源引用率':<12} {'延迟(ms)':<12}")
