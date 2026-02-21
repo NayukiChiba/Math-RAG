@@ -12,6 +12,7 @@ from generation.promptTemplates import (
     formatTermContext,
 )
 from generation.qwenInference import QwenInference
+from generation.ragPipeline import RagPipeline
 
 __all__ = [
     "SYSTEM_PROMPT",
@@ -20,4 +21,5 @@ __all__ = [
     "buildContext",
     "formatTermContext",
     "QwenInference",
+    "RagPipeline",
 ]
