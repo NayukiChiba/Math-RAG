@@ -1,9 +1,9 @@
 faiss
 gradio
+httpx
 Jinja2
 matplotlib
 numpy
-openai
 pix2text
 pypdf
 rank_bm25
