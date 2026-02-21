@@ -3,11 +3,13 @@ gradio
 httpx
 Jinja2
 matplotlib
+nltk
 numpy
 pix2text
 pypdf
 rank_bm25
 Requests
+rouge_score
 sentence_transformers
 tomli
 torch
