@@ -84,6 +84,10 @@ class ExperimentRunner:
                     continue
                 try:
                     query = json.loads(line)
+                    # 校验必需字段
+                    if "query" not in query:
+                        print(f"⚠️ 跳过缺少 query 字段的行: {line[:50]}...")
+                        continue
                     self._queries.append(query)
                     self._goldMap[query["query"]] = query
                 except json.JSONDecodeError:
@@ -660,8 +664,17 @@ class ExperimentRunner:
             matplotlib.rcParams["axes.unicode_minus"] = False
 
             groups = [r["group"] for r in experimentResults]
-            recallAt5 = [r["retrieval_metrics"]["recall@5"] for r in experimentResults]
-            mrr = [r["retrieval_metrics"]["mrr"] for r in experimentResults]
+            # 对于 norag 组（strategy 为 None），检索指标用 None 表示，图表中显示 N/A
+            recallAt5 = [
+                r["retrieval_metrics"]["recall@5"]
+                if r.get("strategy") is not None
+                else None
+                for r in experimentResults
+            ]
+            mrr = [
+                r["retrieval_metrics"]["mrr"] if r.get("strategy") is not None else None
+                for r in experimentResults
+            ]
             termHitRate = [
                 r["generation_metrics"]["term_hit_rate"] for r in experimentResults
             ]
@@ -674,35 +687,41 @@ class ExperimentRunner:
             fig, axes = plt.subplots(2, 2, figsize=(12, 10))
             fig.suptitle("RAG 对比实验结果", fontsize=14, fontweight="bold")
 
-            # 图1: Recall@5
+            # 图1: Recall@5（跳过 None 值）
             ax1 = axes[0, 0]
-            bars1 = ax1.bar(groups, recallAt5, color="steelblue")
+            validRecall = [(g, v) for g, v in zip(groups, recallAt5) if v is not None]
+            if validRecall:
+                recallGroups, recallVals = zip(*validRecall)
+                bars1 = ax1.bar(recallGroups, recallVals, color="steelblue")
+                for bar, val in zip(bars1, recallVals):
+                    ax1.text(
+                        bar.get_x() + bar.get_width() / 2,
+                        bar.get_height() + 0.02,
+                        f"{val:.3f}",
+                        ha="center",
+                        fontsize=9,
+                    )
             ax1.set_title("Recall@5")
             ax1.set_ylabel("分数")
             ax1.set_ylim(0, 1)
-            for bar, val in zip(bars1, recallAt5):
-                ax1.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    bar.get_height() + 0.02,
-                    f"{val:.3f}",
-                    ha="center",
-                    fontsize=9,
-                )
 
-            # 图2: MRR
+            # 图2: MRR（跳过 None 值）
             ax2 = axes[0, 1]
-            bars2 = ax2.bar(groups, mrr, color="darkorange")
+            validMrr = [(g, v) for g, v in zip(groups, mrr) if v is not None]
+            if validMrr:
+                mrrGroups, mrrVals = zip(*validMrr)
+                bars2 = ax2.bar(mrrGroups, mrrVals, color="darkorange")
+                for bar, val in zip(bars2, mrrVals):
+                    ax2.text(
+                        bar.get_x() + bar.get_width() / 2,
+                        bar.get_height() + 0.02,
+                        f"{val:.3f}",
+                        ha="center",
+                        fontsize=9,
+                    )
             ax2.set_title("MRR")
             ax2.set_ylabel("分数")
             ax2.set_ylim(0, 1)
-            for bar, val in zip(bars2, mrr):
-                ax2.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    bar.get_height() + 0.02,
-                    f"{val:.3f}",
-                    ha="center",
-                    fontsize=9,
-                )
 
             # 图3: 术语命中率
             ax3 = axes[1, 0]

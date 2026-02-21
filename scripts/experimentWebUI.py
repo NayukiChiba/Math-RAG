@@ -15,8 +15,9 @@ import os
 import sys
 from pathlib import Path
 
-# 路径调整
+# 路径调整：添加项目根目录和 scripts 目录
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
     import gradio as gr
