@@ -229,14 +229,17 @@ def main():
             print("\n" + "=" * 80)
             print("统计信息")
             print("=" * 80)
-            totalRetrieval = sum(r["latency"]["retrieval_ms"] for r in results)
-            totalGeneration = sum(r["latency"]["generation_ms"] for r in results)
-            totalTime = sum(r["latency"]["total_ms"] for r in results)
-            print(f"  查询数量: {len(results)}")
-            print(f"  总检索耗时: {totalRetrieval} ms")
-            print(f"  总生成耗时: {totalGeneration} ms")
-            print(f"  总耗时: {totalTime} ms")
-            print(f"  平均每条: {totalTime // len(results)} ms")
+            if results:
+                totalRetrieval = sum(r["latency"]["retrieval_ms"] for r in results)
+                totalGeneration = sum(r["latency"]["generation_ms"] for r in results)
+                totalTime = sum(r["latency"]["total_ms"] for r in results)
+                print(f"  查询数量: {len(results)}")
+                print(f"  总检索耗时: {totalRetrieval} ms")
+                print(f"  总生成耗时: {totalGeneration} ms")
+                print(f"  总耗时: {totalTime} ms")
+                print(f"  平均每条: {totalTime // len(results)} ms")
+            else:
+                print("  无查询结果")
 
 
 if __name__ == "__main__":

@@ -104,11 +104,19 @@ class RagPipeline:
         self._corpus = {}
         if os.path.exists(self.corpusFile):
             with open(self.corpusFile, encoding="utf-8") as f:
-                for line in f:
+                for lineNum, line in enumerate(f, 1):
                     line = line.strip()
-                    if line:
+                    if not line:
+                        continue
+                    try:
                         doc = json.loads(line)
-                        self._corpus[doc["doc_id"]] = doc
+                        docId = doc.get("doc_id")
+                        if docId:
+                            self._corpus[docId] = doc
+                        else:
+                            print(f"⚠️ 语料第 {lineNum} 行缺少 doc_id，已跳过")
+                    except json.JSONDecodeError as e:
+                        print(f"⚠️ 语料第 {lineNum} 行 JSON 解析失败: {e}")
         return self._corpus
 
     def _initRetriever(self) -> None:
@@ -144,6 +152,12 @@ class RagPipeline:
                 self.vectorIndexFile,
                 self.vectorEmbeddingFile,
                 self.modelName,
+            )
+
+        else:
+            raise ValueError(
+                f"不支持的检索策略: {self.strategy}，"
+                f"请在 ['bm25', 'vector', 'hybrid'] 中选择"
             )
 
         print("检索器初始化完成")
@@ -403,9 +417,10 @@ def loadQueries(filepath: str) -> list[str]:
         查询列表
     """
     queries = []
+    skippedCount = 0
 
     with open(filepath, encoding="utf-8") as f:
-        for line in f:
+        for lineNum, line in enumerate(f, 1):
             line = line.strip()
             if not line:
                 continue
@@ -417,9 +432,16 @@ def loadQueries(filepath: str) -> list[str]:
                     queries.append(data["query"])
                 elif isinstance(data, str):
                     queries.append(data)
+                else:
+                    # JSON 对象但缺少 query 字段
+                    skippedCount += 1
+                    print(f"⚠️ 第 {lineNum} 行: JSON 对象缺少 'query' 字段，已跳过")
             except json.JSONDecodeError:
                 # 纯文本格式
                 queries.append(line)
+
+    if skippedCount > 0:
+        print(f"⚠️ 共跳过 {skippedCount} 行格式不正确的记录")
 
     return queries
 
