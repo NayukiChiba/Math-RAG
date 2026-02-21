@@ -12,7 +12,16 @@ from generation.promptTemplates import (
     formatTermContext,
 )
 from generation.qwenInference import QwenInference
-from generation.ragPipeline import RagPipeline
+
+
+# 延迟导入 RagPipeline，避免在导入时触发 faiss 依赖
+def __getattr__(name):
+    if name == "RagPipeline":
+        from generation.ragPipeline import RagPipeline
+
+        return RagPipeline
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "SYSTEM_PROMPT",
