@@ -36,9 +36,20 @@ Math-RAG/
 │   ├── retrievalVector.py  # 向量检索
 │   ├── retrievalHybrid.py  # 混合检索
 │   └── README.md         # 模块使用说明
+├── generation/            # 生成模块
+│   ├── promptTemplates.py  # RAG 提示模板
+│   ├── qwenInference.py    # Qwen 推理封装
+│   ├── ragPipeline.py      # 端到端 RAG 流程
+│   └── webui.py            # Gradio WebUI
 ├── evaluation/            # 评测模块
-│   ├── evalRetrieval.py  # 检索评测
-│   └── README.md         # 模块使用说明
+│   ├── evalRetrieval.py    # 检索评测
+│   ├── evalGeneration.py   # 生成质量评测
+│   ├── generateQueries.py  # 评测查询生成
+│   └── README.md           # 模块使用说明
+├── scripts/               # 脚本入口
+│   ├── runRag.py           # RAG 问答脚本
+│   ├── runExperiments.py   # 对比实验脚本
+│   └── experimentWebUI.py  # 实验 WebUI
 ├── data/                  # 数据目录
 │   ├── raw/              # 原始 PDF 教材
 │   ├── processed/        # 处理后数据
@@ -120,6 +131,47 @@ python evaluation/evalRetrieval.py --visualize
 # - outputs/reports/retrieval_comparison.png（可选）
 ```
 
+### 6. RAG 问答
+
+```bash
+# 单条查询
+python scripts/runRag.py --query "什么是一致收敛？"
+
+# 批量查询
+python scripts/runRag.py --input data/evaluation/queries.jsonl --output outputs/rag_results.jsonl
+
+# 指定检索策略
+python scripts/runRag.py --query "泰勒公式" --retrieval hybrid
+```
+
+### 7. 对比实验
+
+```bash
+# 运行所有实验组
+python scripts/runExperiments.py
+
+# 指定实验组
+python scripts/runExperiments.py --groups norag bm25 vector hybrid
+
+# 限制查询数量（调试用）
+python scripts/runExperiments.py --limit 10
+
+# 输出：
+# - outputs/reports/comparison_results.json
+# - outputs/reports/comparison_chart.png
+# - outputs/reports/comparison_table.md
+```
+
+### 8. WebUI 交互
+
+```bash
+# RAG 问答界面
+python generation/webui.py
+
+# 对比实验界面
+python scripts/experimentWebUI.py
+```
+
 ## 主要模块
 
 ### dataGen - 数据生成
@@ -184,19 +236,56 @@ python evaluation/evalRetrieval.py --methods bm25 vector hybrid-rrf --visualize
 
 **详见**：[evaluation/README.md](evaluation/README.md)
 
+### generation - 生成模块
+
+实现 RAG 生成流程，集成 Qwen2.5-Math 模型。
+
+**功能**：
+- **提示模板**：f-string + Jinja2 双实现，支持上下文拼接与来源标注
+- **Qwen 推理**：本地加载 Qwen2.5-Math-1.5B，支持 GPU 加速
+- **端到端流程**：查询 → 检索 → 生成，输出结构化回答
+- **WebUI**：Gradio 交互界面
+
+**使用示例**：
+```bash
+python scripts/runRag.py --query "什么是一致收敛？" --retrieval hybrid
+python generation/webui.py  # 启动 WebUI
+```
+
+**详见**：[generation/README.md](generation/README.md)（待补充）
+
+### scripts - 脚本入口
+
+提供对比实验和批量处理脚本。
+
+**功能**：
+- **runRag.py**：RAG 问答命令行入口
+- **runExperiments.py**：四组对比实验（norag/bm25/vector/hybrid）
+- **experimentWebUI.py**：实验配置与可视化界面
+
+**使用示例**：
+```bash
+python scripts/runExperiments.py --groups norag bm25 vector hybrid
+```
+
 ## 当前进度
 
 - ✅ Plan-1：任务定义与评测标准
-- ✅ Plan-3：教材 OCR + LLM 构建数学名词数据
-  - 已处理 4 本教材，生成 3,102 个术语
 - ✅ Plan-2：数据准备与检索系统
-  - ✅ Task-1：数据核验与统计
-  - ✅ Task-2：构建检索语料（3,102 条文档）
-  - ✅ Task-3：BM25 基线检索
-  - ✅ Task-4：向量检索基线（FAISS + Sentence Transformers）
-  - ✅ Task-5：混合检索（加权融合 + RRF）
-  - ✅ Task-6：评测集与指标（35 条查询，4 种指标）
-- 🔄 Plan-4：RAG 系统集成（待开始）
+- ✅ Plan-3：教材 OCR + LLM 构建数学名词数据（4 本教材，3,102 个术语）
+- ✅ Plan-4：检索层构建（BM25 + 向量 + 混合检索）
+- ✅ Plan-5：RAG 生成层
+  - ✅ Task-7：RAG 提示模板设计
+  - ✅ Task-8：Qwen2.5-Math-1.5B 本地推理集成
+  - ✅ Task-9：端到端 RAG 问答流程
+  - ✅ Task-10：生成质量评估
+  - ✅ Task-11：对比实验（RAG vs 无检索）
+- 🔄 Plan-6：评测体系完善
+  - 🔄 Task-12：黄金测试集构建
+  - 🔄 Task-13：检索指标实现
+  - 🔄 Task-14：生成质量评估扩展
+  - 🔄 Task-15：对比实验完善（消融实验、显著性检验）
+  - 🔄 Task-16：评测报告生成
 
 **详见**：[docs/plan.md](docs/plan.md) 和 [docs/task.md](docs/task.md)
 
