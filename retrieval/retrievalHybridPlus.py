@@ -314,7 +314,7 @@ class HybridPlusRetriever:
         normalization: str = "percentile",
         rrfK: int = 60,
         expandQuery: bool = True,
-        recallFactor: int = 3,
+        recallFactor: int = 5,
     ) -> list[dict[str, Any]]:
         """
         改进的混合检索
@@ -464,9 +464,11 @@ def main():
     parser.add_argument(
         "--recall-factor",
         type=int,
-        default=3,
+        default=5,
         help="召回因子（检索 topK * factor 用于融合）",
     )
+    parser.add_argument("--alpha", type=float, help="BM25 权重（默认 0.7）")
+    parser.add_argument("--beta", type=float, help="向量检索权重（默认 0.3）")
 
     args = parser.parse_args()
 
@@ -494,6 +496,8 @@ def main():
     print(f"📂 BM25+ 索引：{bm25IndexFile}")
     print(f"📂 向量索引：{vectorIndexFile}")
     print(f"🔀 融合策略：{args.strategy}")
+    if args.strategy == "weighted":
+        print(f"⚖️  权重：BM25={args.alpha or 0.7}, 向量={args.beta or 0.3}")
     print(f"🔍 查询扩展：{'禁用' if args.no_expand else '启用'}")
     print(f"📈 召回因子：{args.recall_factor}")
     print()
@@ -514,8 +518,8 @@ def main():
             args.query,
             args.topk,
             args.strategy,
-            args.alpha,
-            args.beta,
+            args.alpha or (0.7 if args.strategy == "weighted" else None),
+            args.beta or (0.3 if args.strategy == "weighted" else None),
             args.normalization,
             args.rrf_k,
             not args.no_expand,
@@ -535,8 +539,8 @@ def main():
             queries,
             args.topk,
             args.strategy,
-            alpha=args.alpha,
-            beta=args.beta,
+            alpha=args.alpha or (0.7 if args.strategy == "weighted" else None),
+            beta=args.beta or (0.3 if args.strategy == "weighted" else None),
             normalization=args.normalization,
             rrfK=args.rrf_k,
             expandQuery=not args.no_expand,

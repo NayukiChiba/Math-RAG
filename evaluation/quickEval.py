@@ -28,11 +28,19 @@ import os
 import random
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 # 路径调整
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Windows 终端 UTF-8 支持
+if sys.platform == "win32":
+    import codecs
+
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer, "strict")
+    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.buffer, "strict")
 
 import config
 
@@ -225,7 +233,7 @@ def evaluateMethod(
     retriever: Any,
     queries: list[dict],
     topK: int = 10,
-    searchFunc: str = "search",
+    searchFunc: str | Callable = "search",
     **searchKwargs,
 ) -> dict[str, Any]:
     """评测单个检索方法"""
@@ -257,7 +265,10 @@ def evaluateMethod(
         # 执行检索
         startTime = time.time()
 
-        if searchFunc == "search":
+        # 支持可调用函数作为 searchFunc
+        if callable(searchFunc):
+            results = searchFunc(queryText, topK * 2)
+        elif searchFunc == "search":
             results = retriever.search(queryText, topK * 2, **searchKwargs)
         elif searchFunc == "batchSearch":
             results = retriever.batchSearch([queryText], topK * 2, **searchKwargs).get(
@@ -390,6 +401,7 @@ def runQuickEval(
             )
             metrics = evaluateMethod("Vector", retriever, queries, topK)
         elif method == "hybrid_plus":
+            # 优化：使用更高的 BM25 权重和更大的召回因子
             retriever = createHybridPlusRetriever(
                 corpusFile,
                 bm25PlusIndex,
@@ -399,7 +411,14 @@ def runQuickEval(
                 "paraphrase-multilingual-MiniLM-L12-v2",
             )
             metrics = evaluateMethod(
-                "Hybrid+", retriever, queries, topK, strategy="weighted", recallFactor=3
+                "Hybrid+",
+                retriever,
+                queries,
+                topK,
+                strategy="weighted",
+                alpha=0.85,  # BM25 权重提高到 0.85
+                beta=0.15,  # Vector 权重降低到 0.15
+                recallFactor=8,  # 增加召回因子到 8
             )
         elif method == "hybrid_rrf":
             retriever = createHybridPlusRetriever(
@@ -411,7 +430,37 @@ def runQuickEval(
                 "paraphrase-multilingual-MiniLM-L12-v2",
             )
             metrics = evaluateMethod(
-                "Hybrid+RRF", retriever, queries, topK, strategy="rrf", recallFactor=3
+                "Hybrid+RRF",
+                retriever,
+                queries,
+                topK,
+                strategy="rrf",
+                recallFactor=8,  # 增加召回因子
+            )
+        elif method == "advanced":
+            # 高级检索：使用 RRF 融合策略 + 更高召回
+            from retrieval.retrievalHybridPlus import HybridPlusRetriever
+
+            retriever = HybridPlusRetriever(
+                corpusFile,
+                bm25PlusIndex,  # 使用 BM25+ 索引
+                vectorIndex,
+                vectorEmbedding,
+                "paraphrase-multilingual-MiniLM-L12-v2",
+                termsFile,
+            )
+
+            def advancedSearch(query, topK):
+                return retriever.search(
+                    query,
+                    topK,
+                    strategy="rrf",  # 使用 RRF 融合
+                    recallFactor=8,  # 增加召回因子
+                    expandQuery=True,
+                )
+
+            metrics = evaluateMethod(
+                "Advanced", retriever, queries, topK, searchFunc=advancedSearch
             )
         else:
             print(f"⚠️  未知方法：{method}，跳过")
@@ -487,7 +536,14 @@ def main():
         "--methods",
         type=str,
         nargs="+",
-        choices=["bm25", "bm25plus", "vector", "hybrid_plus", "hybrid_rrf"],
+        choices=[
+            "bm25",
+            "bm25plus",
+            "vector",
+            "hybrid_plus",
+            "hybrid_rrf",
+            "advanced",
+        ],
         help="评测方法列表",
     )
     parser.add_argument(
