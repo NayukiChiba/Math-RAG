@@ -45,6 +45,8 @@ OCR_DIR = os.path.join(PROCESSED_DIR, "ocr")
 TERMS_DIR = os.path.join(PROCESSED_DIR, "terms")
 # 术语定义数据（每个术语一个 JSON）：processed/chunk/{书名}/{term}.json
 CHUNK_DIR = os.path.join(PROCESSED_DIR, "chunk")
+# 评测数据目录（查询集在 data/evaluation 而非 processed）
+EVALUATION_DIR = os.path.join(PROJECT_ROOT, "data", "evaluation")
 
 
 def get_ocr_config():
