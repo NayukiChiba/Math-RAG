@@ -480,7 +480,9 @@ def runQuickEval(
 
     for _, metrics in allMetrics.items():
         avg = metrics["avg_metrics"]
-        timeStr = f"{avg['avg_query_time']:.3f}" if "avg_query_time" in avg else "N/A"
+        timeStr = (
+            f"{metrics['avg_query_time']:.3f}" if "avg_query_time" in metrics else "N/A"
+        )
         print(
             f"{metrics['method']:<15} "
             f"{avg['recall@1']:.2%}  "

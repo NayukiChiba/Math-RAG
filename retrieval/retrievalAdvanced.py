@@ -194,8 +194,8 @@ class AdvancedRetriever:
         recallTopK: int = 100,
         useReranker: bool = True,
         rewriteQuery: bool = True,
-        bm25Weight: float = 0.4,
-        vectorWeight: float = 0.3,
+        bm25Weight: float | None = None,
+        vectorWeight: float | None = None,
         rewriteWeight: float = 0.3,
     ) -> list[dict[str, Any]]:
         """
@@ -207,9 +207,9 @@ class AdvancedRetriever:
             recallTopK: 每路召回的数量
             useReranker: 是否使用重排序
             rewriteQuery: 是否使用查询改写
-            bm25Weight: BM25 权重
-            vectorWeight: 向量检索权重
-            rewriteWeight: 查询改写权重
+            bm25Weight: BM25 权重（可选，默认自适应）
+            vectorWeight: 向量检索权重（可选，默认自适应）
+            rewriteWeight: 查询改写权重（暂未使用）
 
         Returns:
             检索结果列表
@@ -281,23 +281,31 @@ class AdvancedRetriever:
         bm25ScoreMap = {docIds[i]: bm25NormScores[i] for i in range(len(docIds))}
         vectorScoreMap = {docIds[i]: vectorNormScores[i] for i in range(len(docIds))}
 
-        # 自适应权重调整（与 Hybrid+ 一致）
+        # 自适应权重调整（仅在用户未指定权重时使用）
         import numpy as np
 
-        avgBm25 = np.mean(bm25NormScores) if bm25NormScores else 0
-        avgVector = np.mean(vectorNormScores) if vectorNormScores else 0
-        total = avgBm25 + avgVector
-        if total > 0:
-            adaptiveAlpha = avgBm25 / total
-            adaptiveBeta = avgVector / total
+        # 如果用户未指定权重，使用自适应权重
+        if bm25Weight is None or vectorWeight is None:
+            avgBm25 = np.mean(bm25NormScores) if bm25NormScores else 0
+            avgVector = np.mean(vectorNormScores) if vectorNormScores else 0
+            total = avgBm25 + avgVector
+            if total > 0:
+                adaptiveAlpha = avgBm25 / total
+                adaptiveBeta = avgVector / total
+            else:
+                adaptiveAlpha = adaptiveBeta = 0.5
+            # 使用自适应权重计算融合分数
+            for idx, data in allCandidates.items():
+                data["fused_score"] = (
+                    adaptiveAlpha * bm25ScoreMap[idx]
+                    + adaptiveBeta * vectorScoreMap[idx]
+                )
         else:
-            adaptiveAlpha = adaptiveBeta = 0.5
-
-        # 使用自适应权重计算融合分数
-        for idx, data in allCandidates.items():
-            data["fused_score"] = (
-                adaptiveAlpha * bm25ScoreMap[idx] + adaptiveBeta * vectorScoreMap[idx]
-            )
+            # 使用用户指定的权重
+            for idx, data in allCandidates.items():
+                data["fused_score"] = (
+                    bm25Weight * bm25ScoreMap[idx] + vectorWeight * vectorScoreMap[idx]
+                )
 
         # 4. 重排序
         if useReranker and len(allCandidates) > 0:

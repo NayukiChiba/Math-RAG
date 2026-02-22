@@ -60,7 +60,6 @@ class RerankerRetriever:
         self.reranker = None
         self.bm25 = None
         self.vectorIndex = None
-        self.embeddings = None
         self.vectorModel = None
 
         # 加载 BM25 索引
@@ -112,16 +111,6 @@ class RerankerRetriever:
         else:
             print(f"⚠️  向量索引不存在：{indexFile}")
             self.vectorIndex = None
-
-        # 加载嵌入向量（用于获取文档信息）
-        if os.path.exists(embeddingFile):
-            import numpy as np
-
-            data = np.load(embeddingFile, allow_pickle=True)
-            self.embeddings = data["embeddings"]
-            print("✅ 已加载嵌入向量")
-        else:
-            self.embeddings = None
 
     def _loadReranker(self) -> None:
         """加载重排序模型"""

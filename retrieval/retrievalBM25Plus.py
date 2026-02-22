@@ -258,10 +258,9 @@ class BM25PlusRetriever:
 
         # 获取所有结果的索引（按分数排序）
         if returnAll:
-            # 返回所有非零分数的结果
-            topKIndices = sorted(
-                range(len(scores)), key=lambda i: scores[i], reverse=True
-            )
+            # 返回所有非零分数的结果：先过滤为非零分数，再按分数排序
+            nonzero_indices = [i for i, s in enumerate(scores) if s != 0]
+            topKIndices = sorted(nonzero_indices, key=lambda i: scores[i], reverse=True)
         else:
             topKIndices = sorted(
                 range(len(scores)), key=lambda i: scores[i], reverse=True
@@ -270,8 +269,9 @@ class BM25PlusRetriever:
         # 构建结果
         results = []
         for rank, idx in enumerate(topKIndices, 1):
-            if scores[idx] == 0 and rank > topK:
-                continue
+            # 在 returnAll 模式下不过滤零分（已在上面过滤）
+            if not returnAll and rank > topK:
+                break
 
             doc = self.corpus[idx]
             results.append(
