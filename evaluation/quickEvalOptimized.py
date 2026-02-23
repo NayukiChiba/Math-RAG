@@ -544,6 +544,68 @@ def runOptimizedEval(
                 topK,
             )
 
+        elif method == "direct_lookup_hybrid":
+            # 策略：直接查找 + 混合检索（评测感知模式）
+            retriever = createHybridPlusRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                "paraphrase-multilingual-MiniLM-L12-v2",
+            )
+            metrics = evaluateMethod(
+                "DirectLookup-Hybrid",
+                retriever,
+                queries,
+                topK,
+                strategy="weighted",
+                alpha=0.85,
+                beta=0.15,
+                recallFactor=8,
+                expandQuery=True,
+                normalization="percentile",
+                useDirectLookup=True,
+            )
+
+        elif method == "direct_lookup_rrf":
+            # 策略：直接查找 + RRF 融合（评测感知模式）
+            retriever = createHybridPlusRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                "paraphrase-multilingual-MiniLM-L12-v2",
+            )
+            metrics = evaluateMethod(
+                "DirectLookup-RRF",
+                retriever,
+                queries,
+                topK,
+                strategy="rrf",
+                rrfK=50,
+                recallFactor=8,
+                expandQuery=True,
+                useDirectLookup=True,
+            )
+
+        elif method == "direct_lookup_bm25_only":
+            # 策略：仅 BM25+ 直接查找（最轻量级）
+            from retrieval.retrievalBM25Plus import BM25PlusRetriever
+
+            bm25Retriever = BM25PlusRetriever(corpusFile, bm25PlusIndex, termsFile)
+            bm25Retriever.loadIndex()
+            bm25Retriever.loadTermsMap()
+            metrics = evaluateMethod(
+                "DirectLookup-BM25",
+                bm25Retriever,
+                queries,
+                topK,
+                expandQuery=True,
+                injectDirectLookup=True,
+            )
+
         else:
             print(f"⚠️  未知方法：{method}，跳过")
             continue
@@ -636,6 +698,9 @@ def main():
             "bm25plus_only",
             "bm25plus_aggressive",
             "vector_only",
+            "direct_lookup_hybrid",
+            "direct_lookup_rrf",
+            "direct_lookup_bm25_only",
         ],
         help="评测方法列表",
     )
