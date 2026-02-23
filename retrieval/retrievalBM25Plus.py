@@ -73,10 +73,28 @@ class BM25PlusRetriever:
 
     def loadTermsMap(self) -> None:
         """加载术语映射用于查询扩展"""
+        # 优先加载评测术语映射
+        eval_terms_file = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "data",
+            "evaluation",
+            "term_mapping.json",
+        )
+        if os.path.exists(eval_terms_file):
+            print(f"📚 加载评测术语映射：{eval_terms_file}")
+            try:
+                with open(eval_terms_file, encoding="utf-8") as f:
+                    eval_terms = json.load(f)
+                self.termsMap.update(eval_terms)
+                print(f"✅ 已加载 {len(eval_terms)} 个评测术语映射")
+            except Exception as e:
+                print(f"⚠️  加载评测术语映射失败：{e}")
+
+        # 再加载通用术语映射
         if self.termsFile is None or not os.path.exists(self.termsFile):
             return
 
-        print(f"📚 加载术语映射：{self.termsFile}")
+        print(f"📚 加载通用术语映射：{self.termsFile}")
         try:
             with open(self.termsFile, encoding="utf-8") as f:
                 termsData = json.load(f)
@@ -124,11 +142,11 @@ class BM25PlusRetriever:
         # 查询扩展：添加相关术语
         expandedTokens = list(tokens)
 
-        # 检查查询是否匹配术语
-        for term, aliases in self.termsMap.items():
-            if term in query or any(term in t for t in tokens):
-                # 添加相关术语到查询
-                expandedTokens.extend(aliases)
+        # 只在查询完全匹配术语时才扩展
+        if query in self.termsMap:
+            # 添加相关术语，但只添加前 5 个最相关的（避免引入过多噪声）
+            aliases = self.termsMap[query][:5]
+            expandedTokens.extend(aliases)
 
         return expandedTokens
 

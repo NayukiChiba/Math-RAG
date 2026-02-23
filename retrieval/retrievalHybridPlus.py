@@ -76,6 +76,9 @@ class HybridPlusRetriever:
             self.bm25Retriever.loadTermsMap()
             self.bm25Retriever.buildIndex()
             self.bm25Retriever.saveIndex()
+        else:
+            # 加载索引成功后，也要加载术语映射用于查询扩展
+            self.bm25Retriever.loadTermsMap()
 
         # 初始化向量检索器
         print("🔧 初始化向量检索器...")
@@ -353,18 +356,27 @@ class HybridPlusRetriever:
             query: 查询字符串
             topK: 返回的结果数量
             strategy: 融合策略（weighted 或 rrf）
-            alpha: BM25 权重（可选，默认使用配置值）
-            beta: 向量检索权重（可选，默认使用配置值）
+            alpha: BM25 权重（可选，默认 0.85）
+            beta: 向量检索权重（可选，默认 0.15）
             normalization: 归一化方法（可选，默认使用配置值）
             rrfK: RRF 参数（可选，默认使用配置值）
             expandQuery: 是否进行查询扩展
-            recallFactor: 召回因子（可选，默认使用配置值）
+            recallFactor: 召回因子（可选，默认 8）
         Returns:
             融合后的结果列表
         """
         # 使用配置值或传入值
         if recallFactor is None:
             recallFactor = self.config.RECALL_FACTOR
+
+        # 默认参数优化：alpha=0.85, beta=0.15, recallFactor=8
+        if alpha is None and beta is None:
+            alpha = 0.85
+            beta = 0.15
+
+        # 默认召回因子设置为 8
+        if recallFactor == self.config.RECALL_FACTOR:  # 用户未显式指定
+            recallFactor = 8
 
         # 执行两种检索（获取更多结果用于融合）
         recallTopK = topK * recallFactor
