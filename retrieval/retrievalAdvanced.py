@@ -143,10 +143,18 @@ class AdvancedRetriever:
         print("✅ 查询改写器加载完成")
 
     def _bm25Search(self, query: str, topK: int = 50) -> list[tuple[int, float]]:
-        """BM25 检索"""
+        """
+        BM25 检索（使用混合分词）
+
+        使用词级 + 字符级混合分词，与 BM25Plus 保持一致
+        """
         self._loadBM25()
 
-        tokens = query.split()
+        # 混合分词：词级 + 字符级
+        wordTokens = query.split()
+        charTokens = [char for char in query if char.strip()]
+        tokens = wordTokens + charTokens
+
         scores = self._bm25.get_scores(tokens)
 
         topIndices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[
@@ -197,6 +205,7 @@ class AdvancedRetriever:
         bm25Weight: float | None = None,
         vectorWeight: float | None = None,
         rewriteWeight: float = 0.3,
+        rewriteQueryCount: int = 3,
     ) -> list[dict[str, Any]]:
         """
         高级检索 - 多路召回 + 重排序
@@ -210,6 +219,7 @@ class AdvancedRetriever:
             bm25Weight: BM25 权重（可选，默认自适应）
             vectorWeight: 向量检索权重（可选，默认自适应）
             rewriteWeight: 查询改写权重（暂未使用）
+            rewriteQueryCount: 查询改写数量（用于扩展召回）
 
         Returns:
             检索结果列表
@@ -242,7 +252,9 @@ class AdvancedRetriever:
 
         # 查询改写召回
         if rewriteQuery and len(rewrittenQueries) > 1:
-            for rewrittenQuery in rewrittenQueries[1:4]:  # 用前 3 个改写查询
+            # 使用可配置数量的改写查询进行召回
+            rewriteCount = min(rewriteQueryCount, len(rewrittenQueries) - 1)
+            for rewrittenQuery in rewrittenQueries[1 : 1 + rewriteCount]:
                 rewriteBm25 = self._bm25Search(rewrittenQuery, recallTopK // 3)
                 for idx, score in rewriteBm25:
                     if idx in allCandidates:
@@ -464,6 +476,12 @@ def main():
     parser.add_argument(
         "--vector-weight", type=float, default=0.3, help="向量权重（默认 0.3）"
     )
+    parser.add_argument(
+        "--rewrite-query-count",
+        type=int,
+        default=3,
+        help="查询改写数量（默认 3）",
+    )
 
     args = parser.parse_args()
 
@@ -515,6 +533,7 @@ def main():
             not args.no_rewrite,
             args.bm25_weight,
             args.vector_weight,
+            rewriteQueryCount=args.rewrite_query_count,
         )
         printResults(args.query, results)
 
@@ -534,6 +553,7 @@ def main():
             rewriteQuery=not args.no_rewrite,
             bm25Weight=args.bm25_weight,
             vectorWeight=args.vector_weight,
+            rewriteQueryCount=args.rewrite_query_count,
         )
 
         for query, queryResults in results.items():

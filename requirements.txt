@@ -4,6 +4,7 @@ httpx
 Jinja2
 matplotlib
 nltk
+nltk
 numpy
 pix2text
 pypdf
@@ -13,5 +14,7 @@ rouge_score
 sentence_transformers
 tomli
 torch
+torch
+tqdm
 tqdm
 transformers
