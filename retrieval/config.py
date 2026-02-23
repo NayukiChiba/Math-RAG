@@ -137,10 +137,9 @@ class RetrievalConfig:
     # ==================== 分词配置 ====================
     # 是否使用混合分词（词级 + 字符级）
     USE_HYBRID_TOKENIZATION: bool = field(
-        default_factory=lambda: os.getenv(
-            "RETRIEVAL_HYBRID_TOKENIZATION", "true"
-        ).lower()
-        == "true"
+        default_factory=lambda: (
+            os.getenv("RETRIEVAL_HYBRID_TOKENIZATION", "true").lower() == "true"
+        )
     )
 
 
