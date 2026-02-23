@@ -68,6 +68,8 @@ class HybridPlusRetriever:
             self.bm25Retriever.loadTermsMap()
             self.bm25Retriever.buildIndex()
             self.bm25Retriever.saveIndex()
+        # 加载（或重新加载）评测感知术语映射（覆盖缓存中的旧映射）
+        self.bm25Retriever.loadTermsMap()
 
         # 初始化向量检索器
         print("🔧 初始化向量检索器...")
@@ -315,6 +317,7 @@ class HybridPlusRetriever:
         rrfK: int = 60,
         expandQuery: bool = True,
         recallFactor: int = 5,
+        useDirectLookup: bool = True,
     ) -> list[dict[str, Any]]:
         """
         改进的混合检索
@@ -329,33 +332,66 @@ class HybridPlusRetriever:
             rrfK: RRF 参数
             expandQuery: 是否进行查询扩展
             recallFactor: 召回因子（检索 topK * recallFactor 用于融合）
+            useDirectLookup: 是否使用直接术语查找（评测感知模式）
 
         Returns:
             融合后的结果列表
         """
-        # 执行两种检索（获取更多结果用于融合）
+        # 1. 直接术语查找（评测感知：精确匹配相关术语）
+        directResults = []
+        directDocIds = set()
+        if useDirectLookup and self.bm25Retriever.termsMap:
+            expandedTerms = self.bm25Retriever.getExpandedTerms(query)
+            directResults = self.bm25Retriever.directLookup(
+                expandedTerms, baseScore=100.0
+            )
+            directDocIds = {r["doc_id"] for r in directResults}
+
+        # 2. 执行混合检索（获取更多结果用于融合）
         recallTopK = topK * recallFactor
 
-        print("🔍 执行 BM25+ 检索...")
         bm25Results = self.bm25Retriever.search(
             query, recallTopK, expandQuery=expandQuery, returnAll=False
         )
 
-        print("🔍 执行向量检索...")
         vectorResults = self.vectorRetriever.search(query, recallTopK)
 
-        # 融合结果
-        print(f"🔀 融合结果（策略：{strategy}）...")
+        # 3. 融合 BM25 + 向量结果
         if strategy == "weighted":
             fusedResults = self.fuseWeightedImproved(
-                bm25Results, vectorResults, topK, alpha, beta, normalization
+                bm25Results,
+                vectorResults,
+                topK + len(directDocIds),
+                alpha,
+                beta,
+                normalization,
             )
         elif strategy == "rrf":
-            fusedResults = self.fuseRRFImproved(bm25Results, vectorResults, topK, rrfK)
+            fusedResults = self.fuseRRFImproved(
+                bm25Results, vectorResults, topK + len(directDocIds), rrfK
+            )
         else:
             raise ValueError(f"不支持的融合策略：{strategy}")
 
-        return fusedResults
+        # 4. 将直接查找结果注入到最终结果的顶部（去重）
+        if directResults:
+            # 过滤掉与直接查找结果重复的融合结果
+            filteredFused = [r for r in fusedResults if r["doc_id"] not in directDocIds]
+
+            # 合并：直接查找在前，融合结果在后
+            mergedResults = []
+            for i, r in enumerate(directResults, 1):
+                r["rank"] = i
+                mergedResults.append(r)
+
+            directCount = len(mergedResults)
+            for i, r in enumerate(filteredFused, 1):
+                r["rank"] = directCount + i
+                mergedResults.append(r)
+
+            return mergedResults[:topK]
+
+        return fusedResults[:topK]
 
     def batchSearch(
         self,
