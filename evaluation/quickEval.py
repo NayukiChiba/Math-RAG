@@ -419,7 +419,6 @@ def runQuickEval(
                 alpha=0.85,  # BM25 权重提高到 0.85
                 beta=0.15,  # Vector 权重降低到 0.15
                 recallFactor=8,  # 增加召回因子到 8
-                expandQuery=False,  # 禁用查询扩展
             )
         elif method == "hybrid_rrf":
             retriever = createHybridPlusRetriever(
@@ -481,9 +480,7 @@ def runQuickEval(
 
     for _, metrics in allMetrics.items():
         avg = metrics["avg_metrics"]
-        timeStr = (
-            f"{metrics['avg_query_time']:.3f}" if "avg_query_time" in metrics else "N/A"
-        )
+        timeStr = f"{avg['avg_query_time']:.3f}" if "avg_query_time" in avg else "N/A"
         print(
             f"{metrics['method']:<15} "
             f"{avg['recall@1']:.2%}  "

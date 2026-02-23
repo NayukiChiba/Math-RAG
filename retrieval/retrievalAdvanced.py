@@ -143,18 +143,10 @@ class AdvancedRetriever:
         print("✅ 查询改写器加载完成")
 
     def _bm25Search(self, query: str, topK: int = 50) -> list[tuple[int, float]]:
-        """
-        BM25 检索（使用混合分词）
-
-        使用词级 + 字符级混合分词，与 BM25Plus 保持一致
-        """
+        """BM25 检索"""
         self._loadBM25()
 
-        # 混合分词：词级 + 字符级
-        wordTokens = query.split()
-        charTokens = [char for char in query if char.strip()]
-        tokens = wordTokens + charTokens
-
+        tokens = query.split()
         scores = self._bm25.get_scores(tokens)
 
         topIndices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[
@@ -202,10 +194,9 @@ class AdvancedRetriever:
         recallTopK: int = 100,
         useReranker: bool = True,
         rewriteQuery: bool = True,
-        bm25Weight: float | None = None,
-        vectorWeight: float | None = None,
+        bm25Weight: float = 0.4,
+        vectorWeight: float = 0.3,
         rewriteWeight: float = 0.3,
-        rewriteQueryCount: int = 3,
     ) -> list[dict[str, Any]]:
         """
         高级检索 - 多路召回 + 重排序
@@ -216,10 +207,9 @@ class AdvancedRetriever:
             recallTopK: 每路召回的数量
             useReranker: 是否使用重排序
             rewriteQuery: 是否使用查询改写
-            bm25Weight: BM25 权重（可选，默认自适应）
-            vectorWeight: 向量检索权重（可选，默认自适应）
-            rewriteWeight: 查询改写权重（暂未使用）
-            rewriteQueryCount: 查询改写数量（用于扩展召回）
+            bm25Weight: BM25 权重
+            vectorWeight: 向量检索权重
+            rewriteWeight: 查询改写权重
 
         Returns:
             检索结果列表
@@ -252,9 +242,7 @@ class AdvancedRetriever:
 
         # 查询改写召回
         if rewriteQuery and len(rewrittenQueries) > 1:
-            # 使用可配置数量的改写查询进行召回
-            rewriteCount = min(rewriteQueryCount, len(rewrittenQueries) - 1)
-            for rewrittenQuery in rewrittenQueries[1 : 1 + rewriteCount]:
+            for rewrittenQuery in rewrittenQueries[1:4]:  # 用前 3 个改写查询
                 rewriteBm25 = self._bm25Search(rewrittenQuery, recallTopK // 3)
                 for idx, score in rewriteBm25:
                     if idx in allCandidates:
@@ -293,31 +281,23 @@ class AdvancedRetriever:
         bm25ScoreMap = {docIds[i]: bm25NormScores[i] for i in range(len(docIds))}
         vectorScoreMap = {docIds[i]: vectorNormScores[i] for i in range(len(docIds))}
 
-        # 自适应权重调整（仅在用户未指定权重时使用）
+        # 自适应权重调整（与 Hybrid+ 一致）
         import numpy as np
 
-        # 如果用户未指定权重，使用自适应权重
-        if bm25Weight is None or vectorWeight is None:
-            avgBm25 = np.mean(bm25NormScores) if bm25NormScores else 0
-            avgVector = np.mean(vectorNormScores) if vectorNormScores else 0
-            total = avgBm25 + avgVector
-            if total > 0:
-                adaptiveAlpha = avgBm25 / total
-                adaptiveBeta = avgVector / total
-            else:
-                adaptiveAlpha = adaptiveBeta = 0.5
-            # 使用自适应权重计算融合分数
-            for idx, data in allCandidates.items():
-                data["fused_score"] = (
-                    adaptiveAlpha * bm25ScoreMap[idx]
-                    + adaptiveBeta * vectorScoreMap[idx]
-                )
+        avgBm25 = np.mean(bm25NormScores) if bm25NormScores else 0
+        avgVector = np.mean(vectorNormScores) if vectorNormScores else 0
+        total = avgBm25 + avgVector
+        if total > 0:
+            adaptiveAlpha = avgBm25 / total
+            adaptiveBeta = avgVector / total
         else:
-            # 使用用户指定的权重
-            for idx, data in allCandidates.items():
-                data["fused_score"] = (
-                    bm25Weight * bm25ScoreMap[idx] + vectorWeight * vectorScoreMap[idx]
-                )
+            adaptiveAlpha = adaptiveBeta = 0.5
+
+        # 使用自适应权重计算融合分数
+        for idx, data in allCandidates.items():
+            data["fused_score"] = (
+                adaptiveAlpha * bm25ScoreMap[idx] + adaptiveBeta * vectorScoreMap[idx]
+            )
 
         # 4. 重排序
         if useReranker and len(allCandidates) > 0:
@@ -476,12 +456,6 @@ def main():
     parser.add_argument(
         "--vector-weight", type=float, default=0.3, help="向量权重（默认 0.3）"
     )
-    parser.add_argument(
-        "--rewrite-query-count",
-        type=int,
-        default=3,
-        help="查询改写数量（默认 3）",
-    )
 
     args = parser.parse_args()
 
@@ -533,7 +507,6 @@ def main():
             not args.no_rewrite,
             args.bm25_weight,
             args.vector_weight,
-            rewriteQueryCount=args.rewrite_query_count,
         )
         printResults(args.query, results)
 
@@ -553,7 +526,6 @@ def main():
             rewriteQuery=not args.no_rewrite,
             bm25Weight=args.bm25_weight,
             vectorWeight=args.vector_weight,
-            rewriteQueryCount=args.rewrite_query_count,
         )
 
         for query, queryResults in results.items():

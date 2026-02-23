@@ -55,83 +55,90 @@ class RerankerRetriever:
             rerankerModel: 重排序模型名称
         """
         self.corpusFile = corpusFile
-        self.bm25IndexFile = bm25IndexFile
-        self.vectorIndexFile = vectorIndexFile
-        self.vectorEmbeddingFile = vectorEmbeddingFile
-        self.modelName = modelName
         self.rerankerModelName = rerankerModel
+        self.corpus = []
+        self.reranker = None
+        self.bm25 = None
+        self.vectorIndex = None
+        self.embeddings = None
+        self.vectorModel = None
 
-        # 懒加载，避免不必要的启动时间
-        self._corpus = None
-        self._bm25 = None
-        self._vectorIndex = None
-        self._vectorModel = None
-        self._reranker = None
+        # 加载 BM25 索引
+        self._loadBM25Index(bm25IndexFile)
 
-    def _loadCorpus(self) -> None:
-        """懒加载语料库"""
-        if self._corpus is not None:
-            return
+        # 加载向量索引
+        self._loadVectorIndex(vectorIndexFile, vectorEmbeddingFile, modelName)
 
-        print(f"📂 加载语料：{self.corpusFile}")
-        self._corpus = []
-        with open(self.corpusFile, encoding="utf-8") as f:
-            for line in f:
-                self._corpus.append(json.loads(line.strip()))
-        print(f"✅ 已加载 {len(self._corpus)} 条语料")
+        # 加载重排序模型
+        self._loadReranker()
 
-    def _loadBM25(self) -> None:
-        """懒加载 BM25 索引"""
-        if self._bm25 is not None:
-            return
+    def _loadBM25Index(self, indexFile: str) -> None:
+        """加载 BM25 索引"""
+        print("📂 加载 BM25 索引...")
+
+        if not os.path.exists(indexFile):
+            raise FileNotFoundError(f"BM25 索引文件不存在：{indexFile}")
 
         import pickle
 
-        print("📂 加载 BM25 索引...")
-        with open(self.bm25IndexFile, "rb") as f:
+        with open(indexFile, "rb") as f:
             indexData = pickle.load(f)
 
-        self._bm25 = indexData["bm25"]
-        if self._corpus is None:
-            self._corpus = indexData["corpus"]
-        print(f"✅ 已加载 BM25 索引（{len(self._corpus)} 条文档）")
+        self.bm25 = indexData["bm25"]
+        self.corpus = indexData["corpus"]
+        print(f"✅ 已加载 BM25 索引（{len(self.corpus)} 条文档）")
 
-    def _loadVectorIndex(self) -> None:
-        """懒加载向量索引"""
-        if self._vectorIndex is not None:
-            return
-
-        import faiss
-        from sentence_transformers import SentenceTransformer
-
-        print(f"🤖 加载向量模型：{self.modelName}")
-        self._vectorModel = SentenceTransformer(self.modelName)
-
+    def _loadVectorIndex(
+        self, indexFile: str, embeddingFile: str, modelName: str
+    ) -> None:
+        """加载向量索引"""
         print("📂 加载向量索引...")
-        if os.path.exists(self.vectorIndexFile):
-            self._vectorIndex = faiss.read_index(self.vectorIndexFile)
+
+        try:
+            import faiss
+            from sentence_transformers import SentenceTransformer
+        except ImportError:
+            print("❌ 缺少依赖库")
+            sys.exit(1)
+
+        # 加载向量模型
+        print(f"🤖 加载向量模型：{modelName}")
+        self.vectorModel = SentenceTransformer(modelName)
+
+        # 加载 FAISS 索引
+        if os.path.exists(indexFile):
+            self.vectorIndex = faiss.read_index(indexFile)
             print("✅ 已加载 FAISS 索引")
         else:
-            print(f"⚠️  向量索引不存在：{self.vectorIndexFile}")
+            print(f"⚠️  向量索引不存在：{indexFile}")
+            self.vectorIndex = None
+
+        # 加载嵌入向量（用于获取文档信息）
+        if os.path.exists(embeddingFile):
+            import numpy as np
+
+            data = np.load(embeddingFile, allow_pickle=True)
+            self.embeddings = data["embeddings"]
+            print("✅ 已加载嵌入向量")
+        else:
+            self.embeddings = None
 
     def _loadReranker(self) -> None:
-        """懒加载重排序模型"""
-        if self._reranker is not None:
-            return
-
+        """加载重排序模型"""
         print(f"🤖 加载重排序模型：{self.rerankerModelName}")
+
         try:
             from sentence_transformers import CrossEncoder
 
-            self._reranker = CrossEncoder(self.rerankerModelName)
+            self.reranker = CrossEncoder(self.rerankerModelName)
             print("✅ 重排序模型加载完成")
         except ImportError:
             print("⚠️  未安装 CrossEncoder，重排序功能将不可用")
             print("请安装：pip install sentence-transformers")
-            self._reranker = None
+            self.reranker = None
         except Exception as e:
             print(f"⚠️  重排序模型加载失败：{e}")
-            self._reranker = None
+            self.reranker = None
 
     def _retrieveCandidates(self, query: str, topK: int = 50) -> list[dict[str, Any]]:
         """
@@ -144,21 +151,13 @@ class RerankerRetriever:
         Returns:
             候选文档列表
         """
-        # 懒加载组件
-        self._loadCorpus()
-        self._loadBM25()
-        self._loadVectorIndex()
-
         candidates = {}
 
         # BM25 检索
-        if self._bm25 is not None:
-            # 混合分词：词级 + 字符级
-            wordTokens = query.split()
-            charTokens = [char for char in query if char.strip()]
-            tokens = wordTokens + charTokens
-
-            scores = self._bm25.get_scores(tokens)
+        if self.bm25 is not None:
+            # 简单分词
+            tokens = query.split()
+            scores = self.bm25.get_scores(tokens)
 
             # 获取 topK 候选
             topIndices = sorted(
@@ -167,7 +166,7 @@ class RerankerRetriever:
 
             for idx in topIndices:
                 if scores[idx] > 0:
-                    doc = self._corpus[idx]
+                    doc = self.corpus[idx]
                     candidates[idx] = {
                         "doc_idx": idx,
                         "doc_id": doc["doc_id"],
@@ -180,20 +179,20 @@ class RerankerRetriever:
                     }
 
         # 向量检索
-        if self._vectorIndex is not None and self._vectorModel is not None:
+        if self.vectorIndex is not None and self.vectorModel is not None:
             import faiss
 
             # 生成查询向量
-            queryEmbedding = self._vectorModel.encode([query], convert_to_numpy=True)
+            queryEmbedding = self.vectorModel.encode([query], convert_to_numpy=True)
             faiss.normalize_L2(queryEmbedding)
 
             # 检索
-            scores, indices = self._vectorIndex.search(queryEmbedding, topK // 2)
+            scores, indices = self.vectorIndex.search(queryEmbedding, topK // 2)
 
             for score, idx in zip(scores[0], indices[0]):
                 if idx == -1:
                     continue
-                doc = self._corpus[idx]
+                doc = self.corpus[idx]
                 if idx not in candidates:
                     candidates[idx] = {
                         "doc_idx": idx,
@@ -233,11 +232,7 @@ class RerankerRetriever:
         if not candidates:
             return []
 
-        # 懒加载重排序模型
-        if useReranker:
-            self._loadReranker()
-
-        if useReranker and self._reranker is not None:
+        if useReranker and self.reranker is not None:
             # 使用 Cross-Encoder 重排序
             print(f"🔄 使用重排序模型对 {len(candidates)} 个候选进行重排序...")
 
@@ -311,7 +306,7 @@ class RerankerRetriever:
             检索结果列表
         """
         # 检索候选
-        print(f"🔍 召回候选文档（top{recallTopK}）...")
+        print(f"📥 召回候选文档（top{recallTopK}）...")
         candidates = self._retrieveCandidates(query, recallTopK)
 
         print(f"✅ 召回 {len(candidates)} 个候选文档")

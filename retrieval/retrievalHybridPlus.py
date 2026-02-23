@@ -31,7 +31,6 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
-from retrieval.config import RetrievalConfig
 from retrieval.retrievalBM25Plus import BM25PlusRetriever
 from retrieval.retrievalVector import VectorRetriever
 
@@ -47,7 +46,6 @@ class HybridPlusRetriever:
         vectorEmbeddingFile: str,
         modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
         termsFile: str | None = None,
-        retrievalConfig: RetrievalConfig | None = None,
     ):
         """
         初始化改进的混合检索器
@@ -59,14 +57,8 @@ class HybridPlusRetriever:
             vectorEmbeddingFile: 向量嵌入文件路径
             modelName: Sentence Transformer 模型名称
             termsFile: 术语文件路径（用于 BM25+ 查询扩展）
-            retrievalConfig: 检索配置（可选，默认使用全局配置）
         """
         self.corpusFile = corpusFile
-        self.config = retrievalConfig or RetrievalConfig()
-
-        # 初始化 BM25+ 检索器（支持查询扩展）
-        print("🔧 初始化 BM25+ 检索器...")
-        self.bm25Retriever = BM25PlusRetriever(corpusFile, bm25IndexFile, termsFile)
 
         # 初始化 BM25+ 检索器（支持查询扩展）
         print("🔧 初始化 BM25+ 检索器...")
@@ -76,9 +68,6 @@ class HybridPlusRetriever:
             self.bm25Retriever.loadTermsMap()
             self.bm25Retriever.buildIndex()
             self.bm25Retriever.saveIndex()
-        else:
-            # 加载索引成功后，也要加载术语映射用于查询扩展
-            self.bm25Retriever.loadTermsMap()
 
         # 初始化向量检索器
         print("🔧 初始化向量检索器...")
@@ -139,7 +128,7 @@ class HybridPlusRetriever:
         bm25Results: list[dict[str, Any]],
         vectorResults: list[dict[str, Any]],
         topK: int = 10,
-        rrfK: int | None = None,
+        rrfK: int = 60,
     ) -> list[dict[str, Any]]:
         """
         改进的 RRF 融合策略
@@ -148,26 +137,16 @@ class HybridPlusRetriever:
         1. 使用更多候选结果进行融合
         2. 根据查询难度动态调整 k 值
         3. 添加分数加权
-
-        Args:
-            bm25Results: BM25 检索结果
-            vectorResults: 向量检索结果
-            topK: 返回的结果数量
-            rrfK: RRF 参数 k（可选，默认使用配置值）
         """
-        # 使用配置值或传入值
-        if rrfK is None:
-            rrfK = self.config.RRF_K
-
         # 计算查询难度（基于 BM25 分数分布）
         if bm25Results:
             bm25Scores = [r["score"] for r in bm25Results]
             avgScore = np.mean(bm25Scores)
             # 查询难度高时使用更小的 k 值
-            if avgScore < self.config.BM25_DIFFICULT_THRESHOLD_LOW:
-                rrfK = max(self.config.RRF_MIN_K, rrfK // 2)
-            elif avgScore > self.config.BM25_DIFFICULT_THRESHOLD_HIGH:
-                rrfK = min(self.config.RRF_MAX_K, rrfK * 2)
+            if avgScore < 0.5:
+                rrfK = max(30, rrfK // 2)
+            elif avgScore > 2.0:
+                rrfK = min(100, rrfK * 2)
 
         # 构建 doc_id 到排名的映射
         bm25RankMap = {r["doc_id"]: r["rank"] for r in bm25Results}
@@ -223,7 +202,7 @@ class HybridPlusRetriever:
         topK: int = 10,
         alpha: float | None = None,
         beta: float | None = None,
-        normalization: str | None = None,
+        normalization: str = "percentile",
     ) -> list[dict[str, Any]]:
         """
         改进的加权融合策略
@@ -232,19 +211,7 @@ class HybridPlusRetriever:
         1. 使用百分位数归一化（更鲁棒）
         2. 自适应权重调整
         3. 考虑结果重叠度
-
-        Args:
-            bm25Results: BM25 检索结果
-            vectorResults: 向量检索结果
-            topK: 返回的结果数量
-            alpha: BM25 权重（可选，默认自适应）
-            beta: 向量检索权重（可选，默认自适应）
-            normalization: 归一化方法（可选，默认使用配置值）
         """
-        # 使用配置值或传入值
-        if normalization is None:
-            normalization = self.config.DEFAULT_NORMALIZATION
-
         # 提取分数
         bm25Scores = [r["score"] for r in bm25Results]
         vectorScores = [r["score"] for r in vectorResults]
@@ -272,10 +239,10 @@ class HybridPlusRetriever:
         overlap = len(bm25DocIds & vectorDocIds)
         overlapRatio = overlap / min(len(bm25DocIds), len(vectorDocIds))
 
-        # 自适应权重调整（仅在用户未指定权重时使用）
+        # 自适应权重调整
         if alpha is None or beta is None:
             # 如果重叠度高，说明两种方法一致，可以平均权重
-            if overlapRatio > self.config.OVERLAP_THRESHOLD:
+            if overlapRatio > 0.5:
                 alpha = 0.5
                 beta = 0.5
             else:
@@ -344,10 +311,10 @@ class HybridPlusRetriever:
         strategy: str = "weighted",
         alpha: float | None = None,
         beta: float | None = None,
-        normalization: str | None = None,
-        rrfK: int | None = None,
+        normalization: str = "percentile",
+        rrfK: int = 60,
         expandQuery: bool = True,
-        recallFactor: int | None = None,
+        recallFactor: int = 5,
     ) -> list[dict[str, Any]]:
         """
         改进的混合检索
@@ -356,28 +323,16 @@ class HybridPlusRetriever:
             query: 查询字符串
             topK: 返回的结果数量
             strategy: 融合策略（weighted 或 rrf）
-            alpha: BM25 权重（可选，默认 0.85）
-            beta: 向量检索权重（可选，默认 0.15）
-            normalization: 归一化方法（可选，默认使用配置值）
-            rrfK: RRF 参数（可选，默认使用配置值）
+            alpha: BM25 权重
+            beta: 向量检索权重
+            normalization: 归一化方法
+            rrfK: RRF 参数
             expandQuery: 是否进行查询扩展
-            recallFactor: 召回因子（可选，默认 8）
+            recallFactor: 召回因子（检索 topK * recallFactor 用于融合）
+
         Returns:
             融合后的结果列表
         """
-        # 使用配置值或传入值
-        if recallFactor is None:
-            recallFactor = self.config.RECALL_FACTOR
-
-        # 默认参数优化：alpha=0.85, beta=0.15, recallFactor=8
-        if alpha is None and beta is None:
-            alpha = 0.85
-            beta = 0.15
-
-        # 默认召回因子设置为 8
-        if recallFactor == self.config.RECALL_FACTOR:  # 用户未显式指定
-            recallFactor = 8
-
         # 执行两种检索（获取更多结果用于融合）
         recallTopK = topK * recallFactor
 
@@ -484,8 +439,8 @@ def main():
         choices=["weighted", "rrf"],
         help="融合策略",
     )
-    parser.add_argument("--alpha", type=float, help="BM25 权重（默认 0.7）")
-    parser.add_argument("--beta", type=float, help="向量检索权重（默认 0.3）")
+    parser.add_argument("--alpha", type=float, help="BM25 权重")
+    parser.add_argument("--beta", type=float, help="向量检索权重")
     parser.add_argument(
         "--normalization",
         type=str,
@@ -512,6 +467,8 @@ def main():
         default=5,
         help="召回因子（检索 topK * factor 用于融合）",
     )
+    parser.add_argument("--alpha", type=float, help="BM25 权重（默认 0.7）")
+    parser.add_argument("--beta", type=float, help="向量检索权重（默认 0.3）")
 
     args = parser.parse_args()
 
