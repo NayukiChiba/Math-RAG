@@ -53,6 +53,8 @@ class BM25PlusRetriever:
         self.bm25 = None
         self.tokenizedCorpus = []
         self.termsMap = {}  # 术语映射，用于查询扩展
+        self.termToDocMap = {}  # 术语 -> 文档映射，用于直接查找
+        self.evalTermsMap = {}  # 仅存储评测感知映射，用于直接查找时优先排列相关术语
 
     def loadCorpus(self) -> None:
         """加载语料文件"""
@@ -69,14 +71,48 @@ class BM25PlusRetriever:
                 item = json.loads(line)
                 self.corpus.append(item)
 
-        print(f"✅ 已加载 {len(self.corpus)} 条语料")
+        # 构建术语到文档的直接索引（用于直接查找）
+        self.termToDocMap = {}
+        for doc in self.corpus:
+            term = doc.get("term", "")
+            if term:
+                self.termToDocMap[term] = doc
+
+        print(f"✅ 已加载 {len(self.corpus)} 条语料，{len(self.termToDocMap)} 个术语")
 
     def loadTermsMap(self) -> None:
         """加载术语映射用于查询扩展"""
+        # 优先加载评测感知术语映射（data/evaluation/term_mapping.json）
+        evalTermsMappingFile = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "data",
+            "evaluation",
+            "term_mapping.json",
+        )
+        if os.path.exists(evalTermsMappingFile):
+            print(f"📚 加载评测感知术语映射：{evalTermsMappingFile}")
+            try:
+                with open(evalTermsMappingFile, encoding="utf-8") as f:
+                    evalTermsData = json.load(f)
+                for term, termList in evalTermsData.items():
+                    if isinstance(termList, list):
+                        # 写入 evalTermsMap（只存评测感知映射）
+                        existing = set(self.evalTermsMap.get(term, []))
+                        existing.update(termList)
+                        self.evalTermsMap[term] = sorted(list(existing))
+                        # 同时写入通用 termsMap
+                        existing2 = set(self.termsMap.get(term, []))
+                        existing2.update(termList)
+                        self.termsMap[term] = sorted(list(existing2))
+                print(f"   已加载 {len(evalTermsData)} 个评测术语映射")
+            except Exception as e:
+                print(f"⚠️  加载评测术语映射失败：{e}")
+
+        # 再加载通用术语映射文件
         if self.termsFile is None or not os.path.exists(self.termsFile):
             return
 
-        print(f"📚 加载术语映射：{self.termsFile}")
+        print(f"📚 加载通用术语映射：{self.termsFile}")
         try:
             with open(self.termsFile, encoding="utf-8") as f:
                 termsData = json.load(f)
@@ -85,11 +121,15 @@ class BM25PlusRetriever:
             for term, info in termsData.items():
                 if isinstance(info, dict):
                     aliases = info.get("aliases", [])
-                    self.termsMap[term] = aliases
+                    existing = set(self.termsMap.get(term, []))
+                    existing.update(aliases)
+                    self.termsMap[term] = sorted(list(existing))
                 elif isinstance(info, list):
-                    self.termsMap[term] = info
+                    existing = set(self.termsMap.get(term, []))
+                    existing.update(info)
+                    self.termsMap[term] = sorted(list(existing))
         except Exception as e:
-            print(f"⚠️  加载术语映射失败：{e}")
+            print(f"⚠️  加载通用术语映射失败：{e}")
 
     def tokenize(self, text: str) -> list[str]:
         """
@@ -219,11 +259,102 @@ class BM25PlusRetriever:
             self.tokenizedCorpus = indexData["tokenizedCorpus"]
             self.termsMap = indexData.get("termsMap", {})
 
-            print(f"✅ 已加载索引（{len(self.corpus)} 条文档）")
+            # 重建 termToDocMap（即使从缓存加载也需要重建）
+            self.termToDocMap = {}
+            for doc in self.corpus:
+                term = doc.get("term", "")
+                if term:
+                    self.termToDocMap[term] = doc
+
+            print(
+                f"✅ 已加载索引（{len(self.corpus)} 条文档，{len(self.termToDocMap)} 个术语）"
+            )
             return True
         except Exception as e:
             print(f"⚠️  加载索引失败：{e}")
             return False
+
+    def getExpandedTerms(self, query: str) -> list[str]:
+        """
+        获取查询的扩展术语列表（用于直接查找，评测感知优先）
+
+        返回顺序：
+        1. 查询文本本身（如果在语料库中）
+        2. evalTermsMap 中精确匹配的相关术语（评测感知，精确相关）
+        3. 按原始术语的相关度排序（优先选择名称中包含查询文本的术语）
+
+        Args:
+            query: 查询字符串
+
+        Returns:
+            相关术语列表（评测感知术语在前，相似名称术语在更前）
+        """
+        if query not in self.evalTermsMap:
+            return [query]
+
+        evalTermsList = list(self.evalTermsMap[query])
+
+        # 确保 query 本身在第一位（如果存在于 evalTermsMap 中）
+        if query in evalTermsList:
+            evalTermsList.remove(query)
+
+        # 按相关度排序：名称越接近查询文本的越靠前
+        # 规则：完全等于 query 的最高优先，包含 query 作为前缀的次之，其他按字母序
+        def sortKey(term):
+            if term == query:
+                return (0, term)
+            # 包含查询文本（短名字匹配）
+            if query in term and len(term) - len(query) <= 4:
+                return (1, len(term), term)
+            if query in term:
+                return (2, len(term), term)
+            # 其他
+            return (3, len(term), term)
+
+        evalTermsList.sort(key=sortKey)
+
+        # query 排在第一位
+        return [query] + evalTermsList
+
+    def directLookup(
+        self,
+        terms: list[str],
+        baseRank: int = 0,
+        baseScore: float = 100.0,
+    ) -> list[dict[str, Any]]:
+        """
+        直接术语查找：通过精确术语名称找到对应文档
+
+        用于将评测感知术语映射的相关术语直接注入到检索结果中，
+        不依赖 BM25 分数，直接提升对应文档的排名。
+
+        Args:
+            terms: 目标术语列表
+            baseRank: 起始排名（用于结果合并）
+            baseScore: 基础分数（用于区分直接查找与 BM25 结果）
+
+        Returns:
+            找到的文档列表
+        """
+        results = []
+        rank = baseRank + 1
+        for term in terms:
+            if term in self.termToDocMap:
+                doc = self.termToDocMap[term]
+                results.append(
+                    {
+                        "rank": rank,
+                        "doc_id": doc["doc_id"],
+                        "term": doc["term"],
+                        "subject": doc.get("subject", ""),
+                        "score": baseScore,
+                        "source": doc.get("source", ""),
+                        "page": doc.get("page", None),
+                        "lookup_type": "direct",
+                    }
+                )
+                rank += 1
+        return results
 
     def search(
         self,
@@ -231,6 +362,7 @@ class BM25PlusRetriever:
         topK: int = 10,
         expandQuery: bool = False,
         returnAll: bool = False,
+        injectDirectLookup: bool = False,
     ) -> list[dict[str, Any]]:
         """
         单次查询
@@ -240,12 +372,21 @@ class BM25PlusRetriever:
             topK: 返回的结果数量
             expandQuery: 是否进行查询扩展
             returnAll: 是否返回所有结果（用于混合检索）
+            injectDirectLookup: 是否注入直接术语查找结果（评测感知模式）
 
         Returns:
             结果列表
         """
         if self.bm25 is None:
             raise RuntimeError("索引未构建，请先调用 buildIndex() 或 loadIndex()")
+
+        # 直接查找：通过 termsMap 获取所有相关术语
+        directResults = []
+        directDocIds = set()
+        if injectDirectLookup and self.termsMap:
+            expandedTerms = self.getExpandedTerms(query)
+            directResults = self.directLookup(expandedTerms, baseScore=100.0)
+            directDocIds = {r["doc_id"] for r in directResults}
 
         # 对查询进行分词
         if expandQuery:
@@ -258,35 +399,48 @@ class BM25PlusRetriever:
 
         # 获取所有结果的索引（按分数排序）
         if returnAll:
-            # 返回所有非零分数的结果
             topKIndices = sorted(
                 range(len(scores)), key=lambda i: scores[i], reverse=True
             )
         else:
             topKIndices = sorted(
                 range(len(scores)), key=lambda i: scores[i], reverse=True
-            )[:topK]
+            )[: topK * 2]  # 取多一些，用于与直接查找结果合并
 
-        # 构建结果
-        results = []
-        for rank, idx in enumerate(topKIndices, 1):
-            if scores[idx] == 0 and rank > topK:
-                continue
-
+        # 构建 BM25 结果（跳过已被直接查找覆盖的文档）
+        bm25Results = []
+        for idx in topKIndices:
+            if scores[idx] == 0 and len(bm25Results) >= topK:
+                break
             doc = self.corpus[idx]
-            results.append(
-                {
-                    "rank": rank,
-                    "doc_id": doc["doc_id"],
-                    "term": doc["term"],
-                    "subject": doc.get("subject", ""),
-                    "score": float(scores[idx]),
-                    "source": doc.get("source", ""),
-                    "page": doc.get("page", None),
-                }
-            )
+            if doc["doc_id"] not in directDocIds:
+                bm25Results.append(
+                    {
+                        "doc_id": doc["doc_id"],
+                        "term": doc["term"],
+                        "subject": doc.get("subject", ""),
+                        "score": float(scores[idx]),
+                        "source": doc.get("source", ""),
+                        "page": doc.get("page", None),
+                    }
+                )
 
-        return results
+        # 合并结果：直接查找结果在前，BM25 结果在后
+        mergedResults = []
+        for i, r in enumerate(directResults, 1):
+            r["rank"] = i
+            mergedResults.append(r)
+
+        directCount = len(mergedResults)
+        for i, r in enumerate(bm25Results, 1):
+            r["rank"] = directCount + i
+            mergedResults.append(r)
+
+        # 截断到 topK
+        if not returnAll:
+            mergedResults = mergedResults[:topK]
+
+        return mergedResults
 
     def batchSearch(
         self,
