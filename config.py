@@ -160,3 +160,50 @@ def getGenerationConfig() -> dict:
         "top_p": gen_cfg.get("top_p", defaults["top_p"]),
         "max_new_tokens": gen_cfg.get("max_new_tokens", defaults["max_new_tokens"]),
     }
+
+
+def getRetrievalConfig() -> dict:
+    """
+    获取检索模块配置
+
+    Returns:
+        dict，包含 recall_factor、rrf_k、bm25_default_weight、
+        default_vector_model、default_reranker_model 等字段
+    """
+    defaults = {
+        "recall_factor": 5,
+        "advanced_recall_topk": 100,
+        "rerank_candidates": 50,
+        "rrf_k": 60,
+        "rrf_min_k": 30,
+        "rrf_max_k": 100,
+        "bm25_default_weight": 0.7,
+        "vector_default_weight": 0.3,
+        "overlap_threshold": 0.5,
+        "bm25_difficult_threshold_low": 0.5,
+        "bm25_difficult_threshold_high": 2.0,
+        "rewrite_query_count": 3,
+        "rewrite_max_terms": 10,
+        "default_normalization": "percentile",
+        "default_reranker_model": "BAAI/bge-reranker-v2-mixed",
+        "default_vector_model": "paraphrase-multilingual-MiniLM-L12-v2",
+        "use_hybrid_tokenization": True,
+        "eval_num_queries": 20,
+        "eval_topk": 10,
+        "eval_hybrid_alpha": 0.85,
+        "eval_hybrid_beta": 0.15,
+    }
+
+    if not os.path.isfile(CONFIG_TOML):
+        return defaults
+
+    try:
+        data = _load_toml(CONFIG_TOML)
+    except Exception:
+        return defaults
+
+    ret_cfg = data.get("retrieval", {})
+    result = {}
+    for key, defaultVal in defaults.items():
+        result[key] = ret_cfg.get(key, defaultVal)
+    return result

@@ -11,7 +11,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import config
-from retrieval.retrievalHybrid import HybridRetriever
+from retrieval.retrievers import HybridRetriever
 
 retrievalDir = os.path.join(config.PROCESSED_DIR, "retrieval")
 
@@ -64,10 +64,17 @@ for name, strategy, alpha, beta in testConfigs:
     r5List, r3List, mrrList = [], [], []
     for q in queries:
         if strategy == "rrf":
-            results = retriever.search(q["query"], topK=10, strategy="rrf", rrfK=60)
+            results = retriever.search(
+                q["query"], topK=10, strategy="rrf", rrfK=60, verbose=False
+            )
         else:
             results = retriever.search(
-                q["query"], topK=10, strategy="weighted", alpha=alpha, beta=beta
+                q["query"],
+                topK=10,
+                strategy="weighted",
+                alpha=alpha,
+                beta=beta,
+                verbose=False,
             )
         rel = q["relevant_terms"]
         r5List.append(recallAtK(results, rel, 5))

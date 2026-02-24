@@ -517,7 +517,7 @@ def main():
         print(f"\n🔄 初始化检索器: {method.upper()}")
         try:
             if method == "bm25":
-                from retrieval.retrievalBM25 import BM25Retriever
+                from retrieval.retrievers import BM25Retriever
 
                 retriever = BM25Retriever(corpusPath, bm25IndexFile)
                 # 尝试加载索引，如果不存在则构建
@@ -527,7 +527,7 @@ def main():
                     retriever.saveIndex()
                 retrievers["BM25"] = retriever
             elif method == "vector":
-                from retrieval.retrievalVector import VectorRetriever
+                from retrieval.retrievers import VectorRetriever
 
                 retriever = VectorRetriever(
                     corpusPath,
@@ -541,7 +541,7 @@ def main():
                     retriever.saveIndex()
                 retrievers["Vector"] = retriever
             elif method == "hybrid-weighted":
-                from retrieval.retrievalHybrid import HybridRetriever
+                from retrieval.retrievers import HybridRetriever
 
                 # P1-1 修复：HybridRetriever 需要完整的索引文件路径参数
                 retriever = HybridRetriever(
@@ -553,7 +553,7 @@ def main():
                 # Hybrid 会自动初始化子检索器
                 retrievers["Hybrid-Weighted"] = retriever
             elif method == "hybrid-rrf":
-                from retrieval.retrievalHybrid import HybridRetriever
+                from retrieval.retrievers import HybridRetriever
 
                 # P1-1 修复：HybridRetriever 需要完整的索引文件路径参数
                 retriever = HybridRetriever(

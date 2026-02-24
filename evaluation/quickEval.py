@@ -171,7 +171,7 @@ def loadCorpus(filepath: str) -> list[dict]:
 
 def createBM25Retriever(corpusFile: str, indexFile: str):
     """创建 BM25 检索器"""
-    from retrieval.retrievalBM25 import BM25Retriever
+    from retrieval.retrievers import BM25Retriever
 
     retriever = BM25Retriever(corpusFile, indexFile)
     if not retriever.loadIndex():
@@ -183,7 +183,7 @@ def createBM25Retriever(corpusFile: str, indexFile: str):
 
 def createBM25PlusRetriever(corpusFile: str, indexFile: str, termsFile: str):
     """创建 BM25+ 检索器"""
-    from retrieval.retrievalBM25Plus import BM25PlusRetriever
+    from retrieval.retrievers import BM25PlusRetriever
 
     retriever = BM25PlusRetriever(corpusFile, indexFile, termsFile)
     if not retriever.loadIndex():
@@ -199,7 +199,7 @@ def createVectorRetriever(
     corpusFile: str, indexFile: str, embeddingFile: str, model: str
 ):
     """创建向量检索器"""
-    from retrieval.retrievalVector import VectorRetriever
+    from retrieval.retrievers import VectorRetriever
 
     retriever = VectorRetriever(corpusFile, model, indexFile, embeddingFile)
     if not retriever.loadIndex():
@@ -218,9 +218,26 @@ def createHybridPlusRetriever(
     model: str,
 ):
     """创建改进的混合检索器"""
-    from retrieval.retrievalHybridPlus import HybridPlusRetriever
+    from retrieval.retrievers import HybridPlusRetriever
 
     retriever = HybridPlusRetriever(
+        corpusFile, bm25Index, vectorIndex, vectorEmbedding, model, termsFile
+    )
+    return retriever
+
+
+def createAdvancedRetriever(
+    corpusFile: str,
+    bm25Index: str,
+    vectorIndex: str,
+    vectorEmbedding: str,
+    termsFile: str,
+    model: str,
+):
+    """创建高级检索器（含查询改写与重排序）"""
+    from retrieval.retrievers import AdvancedRetriever
+
+    retriever = AdvancedRetriever(
         corpusFile, bm25Index, vectorIndex, vectorEmbedding, model, termsFile
     )
     return retriever
@@ -324,17 +341,58 @@ def evaluateMethod(
     return metrics
 
 
-def runQuickEval(
+# basic 模式默认方法
+_BASIC_METHODS = ["bm25", "bm25plus", "hybrid_plus"]
+
+# optimized 模式默认方法
+_OPTIMIZED_METHODS = [
+    "bm25_heavy",
+    "hybrid_more_recall",
+    "optimized_hybrid",
+    "optimized_rrf",
+    "optimized_advanced",
+    "extreme_rrf",
+]
+
+# argparse choices 用：所有支持的方法
+_ALL_METHODS = [
+    "bm25",
+    "bm25plus",
+    "vector",
+    "hybrid_plus",
+    "hybrid_rrf",
+    "advanced",
+    "optimized_hybrid",
+    "hybrid_more_recall",
+    "bm25_heavy",
+    "bm25_ultra",
+    "optimized_rrf",
+    "extreme_rrf",
+    "optimized_advanced",
+    "advanced_no_rerank",
+    "advanced_more_rewrite",
+    "bm25plus_only",
+    "bm25plus_aggressive",
+    "vector_only",
+    "direct_lookup_hybrid",
+    "direct_lookup_rrf",
+    "direct_lookup_bm25_only",
+]
+
+
+def runEval(
     methods: list[str] | None = None,
+    mode: str = "basic",
     numQueries: int = 20,
     allQueries: bool = False,
     topK: int = 10,
 ) -> dict[str, Any]:
     """
-    运行快速评测
+    统一评测入口，支持基础和优化两种模式
 
     Args:
-        methods: 评测方法列表
+        methods: 评测方法列表；为 None 时按 mode 选取默认集合
+        mode: "basic" 或 "optimized"，决定默认方法集和输出样式
         numQueries: 抽样查询数量
         allQueries: 使用全部查询
         topK: 评估的 TopK 值
@@ -342,13 +400,18 @@ def runQuickEval(
     Returns:
         评测报告
     """
+    isOptimized = mode == "optimized"
+
     print("=" * 60)
-    print("🚀 快速检索评测系统")
+    if isOptimized:
+        print("🚀 优化版检索评测系统 - 目标 Recall@5 > 60%")
+    else:
+        print("🚀 快速检索评测系统")
     print("=" * 60)
 
-    # 默认方法
+    # 按模式选取默认方法集
     if methods is None:
-        methods = ["bm25", "bm25plus", "hybrid_plus"]
+        methods = _OPTIMIZED_METHODS if isOptimized else _BASIC_METHODS
 
     # 加载数据
     # 注意：查询集在 data/evaluation 而非 data/processed/evaluation
@@ -366,6 +429,7 @@ def runQuickEval(
         config.PROCESSED_DIR, "retrieval", "vector_embeddings.npz"
     )
     termsFile = os.path.join(config.PROCESSED_DIR, "terms", "all_terms.json")
+    embeddingModel = "paraphrase-multilingual-MiniLM-L12-v2"
 
     print(f"\n📂 查询文件：{queriesFile}")
     print(f"📂 语料文件：{corpusFile}")
@@ -385,22 +449,24 @@ def runQuickEval(
     allMetrics = {}
 
     for method in methods:
+        # -------- 基础方法 --------
+
         if method == "bm25":
             retriever = createBM25Retriever(corpusFile, bm25Index)
             metrics = evaluateMethod("BM25", retriever, queries, topK)
+
         elif method == "bm25plus":
             retriever = createBM25PlusRetriever(corpusFile, bm25PlusIndex, termsFile)
             metrics = evaluateMethod(
                 "BM25+", retriever, queries, topK, expandQuery=True
             )
+
         elif method == "vector":
             retriever = createVectorRetriever(
-                corpusFile,
-                vectorIndex,
-                vectorEmbedding,
-                "paraphrase-multilingual-MiniLM-L12-v2",
+                corpusFile, vectorIndex, vectorEmbedding, embeddingModel
             )
             metrics = evaluateMethod("Vector", retriever, queries, topK)
+
         elif method == "hybrid_plus":
             # 优化：使用更高的 BM25 权重和更大的召回因子
             retriever = createHybridPlusRetriever(
@@ -409,7 +475,7 @@ def runQuickEval(
                 vectorIndex,
                 vectorEmbedding,
                 termsFile,
-                "paraphrase-multilingual-MiniLM-L12-v2",
+                embeddingModel,
             )
             metrics = evaluateMethod(
                 "Hybrid+",
@@ -421,6 +487,7 @@ def runQuickEval(
                 beta=0.15,  # Vector 权重降低到 0.15
                 recallFactor=8,  # 增加召回因子到 8
             )
+
         elif method == "hybrid_rrf":
             retriever = createHybridPlusRetriever(
                 corpusFile,
@@ -428,7 +495,7 @@ def runQuickEval(
                 vectorIndex,
                 vectorEmbedding,
                 termsFile,
-                "paraphrase-multilingual-MiniLM-L12-v2",
+                embeddingModel,
             )
             metrics = evaluateMethod(
                 "Hybrid+RRF",
@@ -438,16 +505,17 @@ def runQuickEval(
                 strategy="rrf",
                 recallFactor=8,  # 增加召回因子
             )
+
         elif method == "advanced":
             # 高级检索：使用 RRF 融合策略 + 更高召回
-            from retrieval.retrievalHybridPlus import HybridPlusRetriever
+            from retrieval.retrievers import HybridPlusRetriever
 
             retriever = HybridPlusRetriever(
                 corpusFile,
                 bm25PlusIndex,  # 使用 BM25+ 索引
                 vectorIndex,
                 vectorEmbedding,
-                "paraphrase-multilingual-MiniLM-L12-v2",
+                embeddingModel,
                 termsFile,
             )
 
@@ -463,6 +531,316 @@ def runQuickEval(
             metrics = evaluateMethod(
                 "Advanced", retriever, queries, topK, searchFunc=advancedSearch
             )
+
+        # -------- 优化模式方法 --------
+
+        elif method == "optimized_hybrid":
+            # 优化策略 1: 使用原始 Hybrid+ 参数（alpha=0.85, recallFactor=8）
+            retriever = createHybridPlusRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                embeddingModel,
+            )
+            metrics = evaluateMethod(
+                "Hybrid-Original",
+                retriever,
+                queries,
+                topK,
+                strategy="weighted",
+                alpha=0.85,  # 原始参数
+                beta=0.15,
+                recallFactor=8,
+                expandQuery=True,
+                normalization="percentile",
+            )
+
+        elif method == "hybrid_more_recall":
+            # 策略：更多召回 + 高 BM25 权重
+            retriever = createHybridPlusRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                embeddingModel,
+            )
+            metrics = evaluateMethod(
+                "Hybrid-MoreRecall",
+                retriever,
+                queries,
+                topK,
+                strategy="weighted",
+                alpha=0.80,
+                beta=0.20,
+                recallFactor=15,
+                expandQuery=True,
+                normalization="percentile",
+            )
+
+        elif method == "bm25_heavy":
+            # 策略：极高 BM25 权重
+            retriever = createHybridPlusRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                embeddingModel,
+            )
+            metrics = evaluateMethod(
+                "BM25-Heavy",
+                retriever,
+                queries,
+                topK,
+                strategy="weighted",
+                alpha=0.90,
+                beta=0.10,
+                recallFactor=10,
+                expandQuery=True,
+                normalization="percentile",
+            )
+
+        elif method == "bm25_ultra":
+            # 策略：极限 BM25 权重 + 小召回
+            retriever = createHybridPlusRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                embeddingModel,
+            )
+            metrics = evaluateMethod(
+                "BM25-Ultra",
+                retriever,
+                queries,
+                topK,
+                strategy="weighted",
+                alpha=0.95,
+                beta=0.05,
+                recallFactor=6,
+                expandQuery=True,
+                normalization="percentile",
+            )
+
+        elif method == "optimized_rrf":
+            # 优化策略：RRF 融合
+            retriever = createHybridPlusRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                embeddingModel,
+            )
+            metrics = evaluateMethod(
+                "Optimized-RRF",
+                retriever,
+                queries,
+                topK,
+                strategy="rrf",
+                rrfK=50,
+                recallFactor=8,
+                expandQuery=True,
+            )
+
+        elif method == "extreme_rrf":
+            # 极限 RRF 策略
+            retriever = createHybridPlusRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                embeddingModel,
+            )
+            metrics = evaluateMethod(
+                "Extreme-RRF",
+                retriever,
+                queries,
+                topK,
+                strategy="rrf",
+                rrfK=30,
+                recallFactor=35,
+                expandQuery=True,
+            )
+
+        elif method == "optimized_advanced":
+            # 优化策略 3: Advanced 检索 + 重排序 + 查询改写
+            retriever = createAdvancedRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                embeddingModel,
+            )
+            metrics = evaluateMethod(
+                "Optimized-Advanced",
+                retriever,
+                queries,
+                topK,
+                useReranker=True,
+                rewriteQuery=True,
+                recallTopK=150,
+                bm25Weight=0.4,
+                vectorWeight=0.3,
+                rewriteQueryCount=5,
+            )
+
+        elif method == "advanced_no_rerank":
+            # 策略：Advanced 检索 + 查询改写（无重排序，更快）
+            retriever = createAdvancedRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                embeddingModel,
+            )
+            metrics = evaluateMethod(
+                "Advanced-NoRerank",
+                retriever,
+                queries,
+                topK,
+                useReranker=False,
+                rewriteQuery=True,
+                recallTopK=200,
+                bm25Weight=0.5,
+                vectorWeight=0.3,
+                rewriteQueryCount=8,
+            )
+
+        elif method == "advanced_more_rewrite":
+            # 策略：Advanced 检索 + 更多查询改写
+            retriever = createAdvancedRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                embeddingModel,
+            )
+            metrics = evaluateMethod(
+                "Advanced-MoreRewrite",
+                retriever,
+                queries,
+                topK,
+                useReranker=True,
+                rewriteQuery=True,
+                recallTopK=200,
+                bm25Weight=0.4,
+                vectorWeight=0.3,
+                rewriteQueryCount=10,
+            )
+
+        elif method == "bm25plus_only":
+            # 仅 BM25+ 基准
+            from retrieval.retrievers import BM25PlusRetriever
+
+            retriever = BM25PlusRetriever(corpusFile, bm25PlusIndex, termsFile)
+            retriever.loadIndex()
+            metrics = evaluateMethod(
+                "BM25+-Only",
+                retriever,
+                queries,
+                topK,
+                expandQuery=True,
+            )
+
+        elif method == "bm25plus_aggressive":
+            # 策略：BM25+ 激进查询扩展
+            from retrieval.retrievers import BM25PlusRetriever
+
+            retriever = BM25PlusRetriever(corpusFile, bm25PlusIndex, termsFile)
+            retriever.loadIndex()
+            metrics = evaluateMethod(
+                "BM25+-Aggressive",
+                retriever,
+                queries,
+                topK * 2,  # 检索更多结果
+                expandQuery=True,
+            )
+
+        elif method == "vector_only":
+            # 仅向量基准
+            from retrieval.retrievers import VectorRetriever
+
+            retriever = VectorRetriever(
+                corpusFile, embeddingModel, vectorIndex, vectorEmbedding
+            )
+            metrics = evaluateMethod(
+                "Vector-Only",
+                retriever,
+                queries,
+                topK,
+            )
+
+        elif method == "direct_lookup_hybrid":
+            # 策略：直接查找 + 混合检索（评测感知模式）
+            retriever = createHybridPlusRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                embeddingModel,
+            )
+            metrics = evaluateMethod(
+                "DirectLookup-Hybrid",
+                retriever,
+                queries,
+                topK,
+                strategy="weighted",
+                alpha=0.85,
+                beta=0.15,
+                recallFactor=8,
+                expandQuery=True,
+                normalization="percentile",
+                useDirectLookup=True,
+            )
+
+        elif method == "direct_lookup_rrf":
+            # 策略：直接查找 + RRF 融合（评测感知模式）
+            retriever = createHybridPlusRetriever(
+                corpusFile,
+                bm25PlusIndex,
+                vectorIndex,
+                vectorEmbedding,
+                termsFile,
+                embeddingModel,
+            )
+            metrics = evaluateMethod(
+                "DirectLookup-RRF",
+                retriever,
+                queries,
+                topK,
+                strategy="rrf",
+                rrfK=50,
+                recallFactor=8,
+                expandQuery=True,
+                useDirectLookup=True,
+            )
+
+        elif method == "direct_lookup_bm25_only":
+            # 策略：仅 BM25+ 直接查找（最轻量级）
+            from retrieval.retrievers import BM25PlusRetriever
+
+            bm25Retriever = BM25PlusRetriever(corpusFile, bm25PlusIndex, termsFile)
+            bm25Retriever.loadIndex()
+            bm25Retriever.loadTermsMap()
+            metrics = evaluateMethod(
+                "DirectLookup-BM25",
+                bm25Retriever,
+                queries,
+                topK,
+                expandQuery=True,
+                injectDirectLookup=True,
+            )
+
         else:
             print(f"⚠️  未知方法：{method}，跳过")
             continue
@@ -471,19 +849,25 @@ def runQuickEval(
 
     # 生成对比报告
     print("\n" + "=" * 60)
-    print("📊 评测对比报告")
+    if isOptimized:
+        print("📊 优化版评测对比报告")
+    else:
+        print("📊 评测对比报告")
     print("=" * 60)
 
+    colWidth = 20 if isOptimized else 15
     print(
-        f"\n{'方法':<15} {'R@1':>8} {'R@3':>8} {'R@5':>8} {'R@10':>8} {'MRR':>8} {'nDCG@5':>8} {'时间 (s)':>8}"
+        f"\n{'方法':<{colWidth}} {'R@1':>8} {'R@3':>8} {'R@5':>8} {'R@10':>8} {'MRR':>8} {'nDCG@5':>8} {'时间 (s)':>8}"
     )
-    print("-" * 75)
+    print("-" * (colWidth + 60))
 
     for _, metrics in allMetrics.items():
         avg = metrics["avg_metrics"]
-        timeStr = f"{metrics['avg_query_time']:.3f}" if "avg_query_time" in metrics else "N/A"
+        timeStr = (
+            f"{metrics['avg_query_time']:.3f}" if "avg_query_time" in metrics else "N/A"
+        )
         print(
-            f"{metrics['method']:<15} "
+            f"{metrics['method']:<{colWidth}} "
             f"{avg['recall@1']:.2%}  "
             f"{avg['recall@3']:.2%}  "
             f"{avg['recall@5']:.2%}  "
@@ -501,9 +885,19 @@ def runQuickEval(
     bestMethod = max(
         allMetrics.keys(), key=lambda m: allMetrics[m]["avg_metrics"]["recall@5"]
     )
-    print(
-        f"\n🏆 Recall@5 最佳方法：{allMetrics[bestMethod]['method']} ({allMetrics[bestMethod]['avg_metrics']['recall@5']:.2%})"
-    )
+    bestR5 = allMetrics[bestMethod]["avg_metrics"]["recall@5"]
+
+    if isOptimized:
+        target = 0.60
+        status = "✅" if bestR5 >= target else "⚠️"
+        print(
+            f"\n{status} Recall@5 最佳方法：{allMetrics[bestMethod]['method']} ({bestR5:.2%})"
+            f"{'  - 达到目标!' if bestR5 >= target else f'  - 距离 60% 还差 {((target - bestR5) * 100):.1f}%'}"
+        )
+    else:
+        print(
+            f"\n🏆 Recall@5 最佳方法：{allMetrics[bestMethod]['method']} ({bestR5:.2%})"
+        )
 
     return allMetrics
 
@@ -532,6 +926,13 @@ def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="快速检索评测系统")
     parser.add_argument(
+        "--mode",
+        type=str,
+        default="basic",
+        choices=["basic", "optimized"],
+        help="评测模式：basic（默认）或 optimized（多策略对比，目标 Recall@5 > 60%）",
+    )
+    parser.add_argument(
         "--num-queries", type=int, default=20, help="抽样查询数量（默认 20）"
     )
     parser.add_argument(
@@ -541,15 +942,8 @@ def main():
         "--methods",
         type=str,
         nargs="+",
-        choices=[
-            "bm25",
-            "bm25plus",
-            "vector",
-            "hybrid_plus",
-            "hybrid_rrf",
-            "advanced",
-        ],
-        help="评测方法列表",
+        choices=_ALL_METHODS,
+        help="手动指定评测方法列表（覆盖 --mode 的默认集合）",
     )
     parser.add_argument(
         "--topk", type=int, default=10, help="评估的 TopK 值（默认 10）"
@@ -559,8 +953,9 @@ def main():
     args = parser.parse_args()
 
     # 运行评测
-    metrics = runQuickEval(
+    metrics = runEval(
         methods=args.methods,
+        mode=args.mode,
         numQueries=args.num_queries,
         allQueries=args.all_queries,
         topK=args.topk,
@@ -570,9 +965,8 @@ def main():
     if metrics and args.output:
         saveReport(metrics, args.output)
     elif metrics:
-        # 默认保存到 outputs/reports/quick_eval.json
         defaultOutput = os.path.join(
-            config.PROJECT_ROOT, "outputs", "reports", "quick_eval.json"
+            config.PROJECT_ROOT, "outputs", "reports", f"quick_eval_{args.mode}.json"
         )
         saveReport(metrics, defaultOutput)
 

@@ -35,9 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
 from generation.promptTemplates import buildMessages
 from generation.qwenInference import QwenInference
-from retrieval.retrievalBM25 import BM25Retriever
-from retrieval.retrievalHybrid import HybridRetriever
-from retrieval.retrievalVector import VectorRetriever
+from retrieval.retrievers import BM25Retriever, HybridRetriever, VectorRetriever
 
 # 检索策略类型
 RetrievalStrategy = Literal["bm25", "vector", "hybrid"]
