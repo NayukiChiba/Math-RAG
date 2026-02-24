@@ -3,7 +3,7 @@
 
 功能：
 1. 加载评测查询集
-2. 调用多种检索方法（BM25、Vector、Hybrid）
+2. 调用多种检索方法（BM25+、Vector、Hybrid+）
 3. 计算评测指标：Recall@K、MRR、nDCG@K、MAP
 4. 生成评测报告和对比图表
 
@@ -15,7 +15,7 @@
 
 使用方法：
     python evaluation/evalRetrieval.py
-    python evaluation/evalRetrieval.py --methods bm25 vector
+    python evaluation/evalRetrieval.py --methods bm25plus vector
     python evaluation/evalRetrieval.py --topk 20
     python evaluation/evalRetrieval.py --visualize
 """
@@ -257,15 +257,18 @@ def evaluateMethod(
         # 执行检索
         startTime = time.time()
         try:
-            if method.startswith("Hybrid-"):
-                strategy = "weighted" if method == "Hybrid-Weighted" else "rrf"
+            if method.startswith("Hybrid+"):
+                strategy = "weighted" if method == "Hybrid+-Weighted" else "rrf"
                 results = retriever.search(
                     queryText,
                     topK=topK,
                     strategy=strategy,
-                    alpha=0.5,
-                    beta=0.5,
+                    alpha=0.85,
+                    beta=0.15,
+                    recallFactor=8,
                 )
+            elif method == "BM25+":
+                results = retriever.search(queryText, topK=topK, expandQuery=True)
             else:
                 results = retriever.search(queryText, topK=topK)
         except Exception as e:
@@ -452,8 +455,8 @@ def main():
     parser.add_argument(
         "--methods",
         nargs="+",
-        default=["bm25", "vector", "hybrid-weighted", "hybrid-rrf"],
-        choices=["bm25", "vector", "hybrid-weighted", "hybrid-rrf"],
+        default=["bm25plus", "vector", "hybrid-plus-weighted", "hybrid-plus-rrf"],
+        choices=["bm25plus", "vector", "hybrid-plus-weighted", "hybrid-plus-rrf"],
         help="要评测的检索方法",
     )
     parser.add_argument(
@@ -502,33 +505,40 @@ def main():
     retrievers = {}
     corpusPath = os.path.join(config.PROCESSED_DIR, "retrieval", "corpus.jsonl")
 
-    # 定义索引文件路径（P2 修复：避免重复构建索引）
-    bm25IndexFile = os.path.join(config.PROCESSED_DIR, "retrieval", "bm25_index.pkl")
+    # 定义索引文件路径
+    bm25PlusIndexFile = os.path.join(
+        config.PROCESSED_DIR, "retrieval", "bm25plus_index.pkl"
+    )
     vectorIndexFile = os.path.join(
         config.PROCESSED_DIR, "retrieval", "vector_index.faiss"
     )
     vectorEmbeddingFile = os.path.join(
         config.PROCESSED_DIR, "retrieval", "vector_embeddings.npz"
     )
+    termsFile = os.path.join(config.PROCESSED_DIR, "terms", "all_terms.json")
+    embeddingModel = "paraphrase-multilingual-MiniLM-L12-v2"
 
     for method in args.methods:
         print(f"\n🔄 初始化检索器: {method.upper()}")
         try:
-            if method == "bm25":
-                from retrieval.retrievers import BM25Retriever
+            if method == "bm25plus":
+                from retrieval.retrievers import BM25PlusRetriever
 
-                retriever = BM25Retriever(corpusPath, bm25IndexFile)
+                retriever = BM25PlusRetriever(corpusPath, bm25PlusIndexFile, termsFile)
                 # 尝试加载索引，如果不存在则构建
                 if not retriever.loadIndex():
                     print("  索引不存在，开始构建...")
                     retriever.buildIndex()
                     retriever.saveIndex()
-                retrievers["BM25"] = retriever
+                # 无论索引是否存在都加载术语映射
+                retriever.loadTermsMap()
+                retrievers["BM25+"] = retriever
             elif method == "vector":
                 from retrieval.retrievers import VectorRetriever
 
                 retriever = VectorRetriever(
                     corpusPath,
+                    embeddingModel,
                     indexFile=vectorIndexFile,
                     embeddingFile=vectorEmbeddingFile,
                 )
@@ -538,30 +548,30 @@ def main():
                     retriever.buildIndex()
                     retriever.saveIndex()
                 retrievers["Vector"] = retriever
-            elif method == "hybrid-weighted":
-                from retrieval.retrievers import HybridRetriever
+            elif method == "hybrid-plus-weighted":
+                from retrieval.retrievers import HybridPlusRetriever
 
-                # P1-1 修复：HybridRetriever 需要完整的索引文件路径参数
-                retriever = HybridRetriever(
+                retriever = HybridPlusRetriever(
                     corpusPath,
-                    bm25IndexFile=bm25IndexFile,
-                    vectorIndexFile=vectorIndexFile,
-                    vectorEmbeddingFile=vectorEmbeddingFile,
+                    bm25PlusIndexFile,
+                    vectorIndexFile,
+                    vectorEmbeddingFile,
+                    embeddingModel,
+                    termsFile,
                 )
-                # Hybrid 会自动初始化子检索器
-                retrievers["Hybrid-Weighted"] = retriever
-            elif method == "hybrid-rrf":
-                from retrieval.retrievers import HybridRetriever
+                retrievers["Hybrid+-Weighted"] = retriever
+            elif method == "hybrid-plus-rrf":
+                from retrieval.retrievers import HybridPlusRetriever
 
-                # P1-1 修复：HybridRetriever 需要完整的索引文件路径参数
-                retriever = HybridRetriever(
+                retriever = HybridPlusRetriever(
                     corpusPath,
-                    bm25IndexFile=bm25IndexFile,
-                    vectorIndexFile=vectorIndexFile,
-                    vectorEmbeddingFile=vectorEmbeddingFile,
+                    bm25PlusIndexFile,
+                    vectorIndexFile,
+                    vectorEmbeddingFile,
+                    embeddingModel,
+                    termsFile,
                 )
-                # Hybrid 会自动初始化子检索器
-                retrievers["Hybrid-RRF"] = retriever
+                retrievers["Hybrid+-RRF"] = retriever
         except (ImportError, SystemExit) as e:
             # P1-2 修复：捕获 SystemExit，避免进程退出（如 faiss 缺失时）
             print(f"❌ 初始化失败（缺少依赖）: {e}")
@@ -612,9 +622,9 @@ def main():
 
     # 表头
     print(
-        f"{'方法':<20} {'Recall@1':<10} {'Recall@10':<10} {'MRR':<10} {'MAP':<10} {'nDCG@10':<10} {'查询时间':<10}"
+        f"{'方法':<20} {'Recall@1':<10} {'Recall@3':<10} {'Recall@5':<10} {'Recall@10':<10} {'MRR':<10} {'MAP':<10} {'nDCG@10':<10} {'查询时间':<10}"
     )
-    print("-" * 90)
+    print("-" * 110)
 
     # 数据行
     for m in allMetrics:
@@ -622,6 +632,8 @@ def main():
         print(
             f"{m['method']:<20} "
             f"{avg['recall@1']:<10.4f} "
+            f"{avg['recall@3']:<10.4f} "
+            f"{avg['recall@5']:<10.4f} "
             f"{avg['recall@10']:<10.4f} "
             f"{avg['mrr']:<10.4f} "
             f"{avg['map']:<10.4f} "

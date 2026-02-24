@@ -72,7 +72,8 @@ Math-RAG/
 │   └── task.md               # 任务进度跟踪
 │
 └── outputs/                   # 实验输出
-    └── reports/              # 评测报告
+    └── reports/              # 评测报告（按运行时间自动分目录）
+        └── YYYYMMDD_HHMMSS/ # 每次运行的报告子目录
 ```
 
 ## 快速开始
@@ -114,55 +115,85 @@ python evaluation/generateQueries.py
 python scripts/buildEvalTermMapping.py
 ```
 
-### 4. 检索评测
+### 4. 评测与实验
+
+详见下方 [评测与实验指南](#评测与实验指南) 章节。
+
+## 评测与实验指南
+
+项目包含 4 套评测体系，按以下顺序执行可完成从检索调优到论文出图的全流程。
+
+> 每次运行的报告会自动保存到 `outputs/reports/YYYYMMDD_HHMMSS/` 时间戳子目录下，不会覆盖历史结果。
+
+### 推荐执行顺序
+
+| 步骤 | 脚本 | 目的 | 是否需要 Qwen 模型 | 预估耗时 |
+|------|------|------|:------------------:|----------|
+| 1 | `evaluation/quickEval.py` | 快速对比 20+ 种检索策略，找最优配置 | 否 | 几分钟 |
+| 2 | `evaluation/evalRetrieval.py` | 正式检索评测，出论文数据 + 图表 | 否 | 几分钟 |
+| 3 | `scripts/runExperiments.py` | 端到端对比实验（RAG vs 无检索） | **是** | 较长 |
+| 4 | `evaluation/evalGeneration.py` | 生成质量细粒度分析 | 否（依赖步骤 3 输出） | 几分钟 |
+
+### 步骤 1：快速检索评测（策略选型）
+
+快速对比多种检索策略的 Recall@K / MRR，确定最优检索方法及参数。
 
 ```bash
-# 快速评测（默认 20 条查询）
+# 快速抽样（20 条查询，调试用）
 python evaluation/quickEval.py
 
-# 完整检索评测
-python evaluation/evalRetrieval.py --methods bm25 vector hybrid-weighted hybrid-rrf
+# 全量评测（论文数据用这个）
+python evaluation/quickEval.py --all-queries
 
-# 检索权重调参测试
-python tests/testRetrievalWeights.py
+# 只测指定方法
+python evaluation/quickEval.py --methods bm25plus hybrid_rrf advanced --all-queries
 ```
 
-### 5. RAG 问答
+### 步骤 2：正式检索评测（出论文表格和图）
+
+在全量查询集上计算 Recall@K、MRR、nDCG@K、MAP 四个标准指标，可生成对比图表。
 
 ```bash
-# 单条查询
-python scripts/runRag.py --query "什么是一致收敛？"
+# 全量评测 + 生成对比图表
+python evaluation/evalRetrieval.py --visualize
 
-# 批量查询
-python scripts/runRag.py --input data/evaluation/queries.jsonl --output outputs/rag_results.jsonl
-
-# 指定检索策略
-python scripts/runRag.py --query "泰勒公式" --retrieval hybrid
+# 只测指定方法
+python evaluation/evalRetrieval.py --methods bm25plus vector hybrid-plus-weighted hybrid-plus-rrf --visualize
 ```
 
-### 6. 对比实验
+### 步骤 3：端到端对比实验（核心消融实验）
+
+同时测检索 + 生成，运行完整 RAG pipeline。对比 norag / bm25 / vector / hybrid / hybrid-rrf 五组，计算检索指标和生成指标（术语命中率、来源引用率）。
 
 ```bash
-# 运行所有实验组（norag / bm25 / vector / hybrid）
+# 运行所有实验组（⚠ 需要 Qwen 模型，耗时较长）
 python scripts/runExperiments.py
 
 # 指定实验组
-python scripts/runExperiments.py --groups norag bm25 vector hybrid
+python scripts/runExperiments.py --groups norag bm25 vector hybrid hybrid-rrf
 
 # 限制查询数量（调试用）
 python scripts/runExperiments.py --limit 10
 ```
 
-### 7. 生成质量评测
+### 步骤 4：生成质量评测（事后分析）
+
+对步骤 3 产出的 RAG 问答结果做生成质量细粒度评测。
 
 ```bash
-# 评测 RAG 生成质量
+# 基本评测
 python evaluation/evalGeneration.py
+
+# 加 BLEU + ROUGE 分数
+python evaluation/evalGeneration.py --bleu --rouge
 ```
 
-### 8. WebUI
+### 补充：检索权重测试 / WebUI
 
 ```bash
+# 检索权重调参测试
+python tests/testRetrievalWeights.py
+
 # RAG 问答界面
 python generation/webui.py
 
@@ -251,6 +282,7 @@ python scripts/experimentWebUI.py
 | `get_ocr_config()` | OCR 相关参数 |
 | `getGenerationConfig()` | 生成层参数（temperature、max_new_tokens 等） |
 | `getRetrievalConfig()` | 检索参数（权重、模型、RRF k 值等） |
+| `getReportsDir()` | 当前运行的报告输出目录（`outputs/reports/YYYYMMDD_HHMMSS/`） |
 
 路径常量：`PROJECT_ROOT`、`RAW_DIR`、`PROCESSED_DIR`、`OCR_DIR`、`TERMS_DIR`、`CHUNK_DIR`、`EVALUATION_DIR`、`QWEN_MODEL_DIR`
 
