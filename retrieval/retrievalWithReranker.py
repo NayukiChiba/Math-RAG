@@ -113,15 +113,8 @@ class RerankerRetriever:
             print(f"⚠️  向量索引不存在：{indexFile}")
             self.vectorIndex = None
 
-        # 加载嵌入向量（用于获取文档信息）
-        if os.path.exists(embeddingFile):
-            import numpy as np
-
-            data = np.load(embeddingFile, allow_pickle=True)
-            self.embeddings = data["embeddings"]
-            print("✅ 已加载嵌入向量")
-        else:
-            self.embeddings = None
+        # 嵌入向量文件在此类中未使用，不加载以节省内存
+        # self.embeddings = None（如有需要可在此处加载 embeddingFile）
 
     def _loadReranker(self) -> None:
         """加载重排序模型"""

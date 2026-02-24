@@ -128,11 +128,14 @@ class QueryRewriter:
 
         Args:
             query: 原始查询
-            maxTerms: 返回的最大术语数量
+            maxTerms: 返回的最大术语数量（最小为 1，至少保留原始查询）
 
         Returns:
             扩展后的术语列表
         """
+        # 边界保护：maxTerms 至少为 1，确保始终返回原始查询
+        maxTerms = max(1, maxTerms)
+
         expandedTerms = [query]  # 始终包含原始查询
 
         # 查找匹配的术语
