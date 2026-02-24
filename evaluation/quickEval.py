@@ -156,10 +156,21 @@ def loadQueries(
 def loadCorpus(filepath: str) -> list[dict]:
     """加载语料库"""
     corpus = []
+    skipped = 0
     try:
         with open(filepath, encoding="utf-8") as f:
-            for line in f:
-                corpus.append(json.loads(line.strip()))
+            for lineNum, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    corpus.append(json.loads(line))
+                except json.JSONDecodeError as e:
+                    # 跳过格式损坏的行，保持与 loadQueries 一致的容错行为
+                    skipped += 1
+                    print(f"⚠️  第 {lineNum} 行 JSON 解析失败，已跳过：{e}")
+        if skipped:
+            print(f"⚠️  共跳过 {skipped} 行损坏数据")
         print(f"✅ 加载了 {len(corpus)} 条语料")
     except FileNotFoundError:
         print(f"⚠️  语料文件不存在：{filepath}")

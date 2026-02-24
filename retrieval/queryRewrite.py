@@ -225,6 +225,10 @@ class QueryRewriter:
         # 边界保护：maxTerms 至少为 1，确保始终返回原始查询
         maxTerms = max(1, maxTerms)
 
+        # 空查询保护：空字符串是任何字符串的子串，会错误匹配所有术语
+        if not query.strip():
+            return [query]
+
         expandedTerms = [query]  # 始终包含原始查询
 
         # 查找匹配的术语

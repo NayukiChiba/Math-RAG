@@ -2058,9 +2058,23 @@ class AdvancedRetriever:
         """加载语料库"""
         print(f"📂 加载语料：{self.corpusFile}")
         self._corpus = []
+        if not os.path.exists(self.corpusFile):
+            raise FileNotFoundError(
+                f"语料文件不存在：{self.corpusFile}，请先运行语料构建流程"
+            )
+        skipped = 0
         with open(self.corpusFile, encoding="utf-8") as f:
-            for line in f:
-                self._corpus.append(json.loads(line.strip()))
+            for lineNum, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    self._corpus.append(json.loads(line))
+                except json.JSONDecodeError as e:
+                    skipped += 1
+                    print(f"⚠️  第 {lineNum} 行 JSON 解析失败，已跳过：{e}")
+        if skipped:
+            print(f"⚠️  共跳过 {skipped} 行损坏数据")
         print(f"✅ 已加载 {len(self._corpus)} 条语料")
 
     def _loadBM25(self):
@@ -2203,7 +2217,11 @@ class AdvancedRetriever:
         # BM25 召回
         bm25Results = self._bm25Search(query, recallTopK)
         for idx, score in bm25Results:
-            allCandidates[idx] = {"bm25_score": score, "vector_score": 0.0}
+            allCandidates[idx] = {
+                "bm25_score": score,
+                "vector_score": 0.0,
+                "rewrite_score": 0.0,
+            }
 
         # 向量召回
         vectorResults = self._vectorSearch(query, recallTopK)
@@ -2211,19 +2229,27 @@ class AdvancedRetriever:
             if idx in allCandidates:
                 allCandidates[idx]["vector_score"] = score
             else:
-                allCandidates[idx] = {"bm25_score": 0.0, "vector_score": score}
+                allCandidates[idx] = {
+                    "bm25_score": 0.0,
+                    "vector_score": score,
+                    "rewrite_score": 0.0,
+                }
 
-        # 查询改写召回
+        # 查询改写召回（独立追踪 rewrite_score，使 rewriteWeight 参与融合）
         if rewriteQuery and len(rewrittenQueries) > 1:
             for rewrittenQuery in rewrittenQueries[1:4]:
                 rewriteBm25 = self._bm25Search(rewrittenQuery, recallTopK // 3)
                 for idx, score in rewriteBm25:
                     if idx in allCandidates:
-                        allCandidates[idx]["bm25_score"] = max(
-                            allCandidates[idx]["bm25_score"], score
+                        allCandidates[idx]["rewrite_score"] = max(
+                            allCandidates[idx]["rewrite_score"], score
                         )
                     else:
-                        allCandidates[idx] = {"bm25_score": score, "vector_score": 0.0}
+                        allCandidates[idx] = {
+                            "bm25_score": 0.0,
+                            "vector_score": 0.0,
+                            "rewrite_score": score,
+                        }
 
         print(f"✅ 召回 {len(allCandidates)} 个候选文档")
 
@@ -2231,34 +2257,36 @@ class AdvancedRetriever:
         if not allCandidates:
             return []
 
-        # 百分位数归一化
+        # 百分位数归一化 - 使用 bisect 将复杂度从 O(n²) 降低到 O(n log n)
+        import bisect
+
         def percentileNorm(scores: list[float]) -> list[float]:
             if not scores:
                 return []
             sortedScores = sorted(scores)
             n = len(sortedScores)
-            result = []
-            for s in scores:
-                rank = sum(1 for x in sortedScores if x <= s)
-                result.append(rank / n)
-            return result
+            # bisect_right 返回 <= s 的元素个数，等价于之前的 sum(1 for x in ... if x <= s)
+            return [bisect.bisect_right(sortedScores, s) / n for s in scores]
 
         bm25Scores = [c["bm25_score"] for c in allCandidates.values()]
         vectorScores = [c["vector_score"] for c in allCandidates.values()]
+        rewriteScores = [c["rewrite_score"] for c in allCandidates.values()]
 
         bm25NormScores = percentileNorm(bm25Scores)
         vectorNormScores = percentileNorm(vectorScores)
+        rewriteNormScores = percentileNorm(rewriteScores)
 
         docIds = list(allCandidates.keys())
         bm25ScoreMap = {docIds[i]: bm25NormScores[i] for i in range(len(docIds))}
         vectorScoreMap = {docIds[i]: vectorNormScores[i] for i in range(len(docIds))}
+        rewriteScoreMap = {docIds[i]: rewriteNormScores[i] for i in range(len(docIds))}
 
-        fusionAlpha = bm25Weight
-        fusionBeta = vectorWeight
-
+        # 三路加权融合：bm25Weight + vectorWeight + rewriteWeight
         for idx, data in allCandidates.items():
             data["fused_score"] = (
-                fusionAlpha * bm25ScoreMap[idx] + fusionBeta * vectorScoreMap[idx]
+                bm25Weight * bm25ScoreMap[idx]
+                + vectorWeight * vectorScoreMap[idx]
+                + rewriteWeight * rewriteScoreMap[idx]
             )
 
         # 4. 重排序
