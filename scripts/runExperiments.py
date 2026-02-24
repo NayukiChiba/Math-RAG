@@ -250,6 +250,50 @@ class ExperimentRunner:
             "rate": hitCount / len(relevantTerms),
         }
 
+    def _appendSourceCitations(self, answer: str, sources: list[dict]) -> str:
+        """
+        在回答末尾自动追加来源引用区块
+
+        由于模型（1.5B）指令跟随能力有限，无法可靠地在行内插入引用，
+        因此采用后处理方式，在答案末尾统一追加参考来源，确保引用率可评估。
+
+        Args:
+            answer: 模型生成的原始回答
+            sources: 检索到的来源列表（含 source 和 page）
+
+        Returns:
+            追加了来源区块的完整回答
+        """
+        if not sources:
+            return answer
+
+        # 去重：相同书名+页码只保留一条
+        import re
+
+        seenKeys: set[tuple] = set()
+        uniqueSources = []
+        for s in sources:
+            key = (s.get("source", ""), s.get("page"))
+            if key not in seenKeys and s.get("source"):
+                seenKeys.add(key)
+                uniqueSources.append(s)
+
+        if not uniqueSources:
+            return answer
+
+        # 构建来源区块，使用简短书名（括号前的主标题）
+        citationLines = ["\n\n---\n**参考来源：**"]
+        for s in uniqueSources:
+            sourceName = s.get("source", "")
+            page = s.get("page")
+            shortName = re.split(r"[(（]", sourceName)[0].strip()
+            if page:
+                citationLines.append(f"- {shortName} 第{page}页")
+            else:
+                citationLines.append(f"- {shortName}")
+
+        return answer + "\n".join(citationLines)
+
     def _calculateSourceCitationRate(
         self, answer: str, sources: list[dict]
     ) -> dict[str, Any]:
@@ -507,6 +551,13 @@ class ExperimentRunner:
                 for r in retrievalResults
                 if r.get("source")
             ]
+
+            # 后处理：自动追加来源引用区块
+            # 模型（1.5B）指令跟随能力不足以在正文内可靠嵌入引用，
+            # 因此在答案末尾统一追加，保证引用率指标可评估
+            if retrievalResults:
+                answer = self._appendSourceCitations(answer, sources)
+
             sourceCitation = self._calculateSourceCitationRate(answer, sources)
             sourceCitationRates.append(sourceCitation["rate"])
 
