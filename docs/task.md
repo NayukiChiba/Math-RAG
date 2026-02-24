@@ -1,10 +1,8 @@
-# Math-RAG 当下计划（2026-02-22）
-
-## 目标
-- 落地 RAG 生成层与端到端评测，支撑论文实验章节
+# Math-RAG 任务进度（2026-02-24）
 
 ## 当前状态
-- ✅ 已完成：数据层、检索层、RAG 生成层（Task-7~11）
+
+- ✅ 已完成：数据层、检索层（重构完成）、RAG 生成层（Task-1~11）
 - 🔄 进行中：评测体系完善（Task-12~16）
 
 ## 本阶段任务（按顺序，含实现细节）
@@ -53,10 +51,10 @@
 - BM25 索引文件（pickle 格式）
 - TopK 查询结果（JSON）
 
-**脚本**：`retrieval/retrievalBM25.py`  
+**实现**：`retrieval/retrievers.py` → `BM25Retriever`
 
 **验收标准**：
-- ✅ 脚本可对任意 query 输出 TopK（默认 K=10）
+- ✅ 支持对任意 query 输出 TopK（默认 K=10）
 - ✅ 支持批量查询（从文件读取）
 - ✅ 输出包含：doc_id、term、score、rank
 - ✅ 索引可保存和加载，避免重复构建
@@ -75,10 +73,10 @@
 - 向量嵌入文件（.npy）
 - TopK 查询结果（JSON）
 
-**脚本**：`retrieval/retrievalVector.py`  
+**实现**：`retrieval/retrievers.py` → `VectorRetriever`
 
 **验收标准**：
-- ✅ 脚本可对任意 query 输出 TopK（默认 K=10）
+- ✅ 支持对任意 query 输出 TopK（默认 K=10）
 - ✅ 支持批量查询
 - ✅ 索引构建可配置（维度、距离度量）
 - ✅ 支持 GPU 加速，CPU fallback 正常
@@ -93,13 +91,12 @@
 - BM25 检索结果
 - 向量检索结果
 
-**策略**：RRF（Reciprocal Rank Fusion）+ 加权融合（alpha/beta 可配置）  
-**输出**：混合 TopK 结果（JSON）  
-**脚本**：`retrieval/retrievalHybrid.py`  
+**策略**：RRF（Reciprocal Rank Fusion）+ 加权融合（alpha/beta 可配置）
+**实现**：`retrieval/retrievers.py` → `HybridRetriever`
 
 **验收标准**：
-- ✅ 脚本输出混合 TopK
-- ✅ 支持权重配置（命令行参数或配置文件）
+- ✅ 输出混合 TopK
+- ✅ 支持权重配置（config.toml [retrieval]）
 - ✅ 输出格式与单一检索方法一致
 - ✅ 融合策略可扩展（支持 RRF、加权线性融合）
 
@@ -307,14 +304,15 @@
 ## 已完成产出物
 - `data/processed/retrieval/corpus.jsonl` - 检索语料库
 - `data/stats/` - 数据统计报告与可视化
-- `data/evaluation/queries.jsonl` - 评测查询集
+- `data/evaluation/queries.jsonl` - 评测查询集（105 条）
+- `data/evaluation/term_mapping.json` - 评测术语映射
 - `retrieval/buildCorpus.py` - 语料构建
-- `retrieval/retrievalBM25.py` - BM25 检索
-- `retrieval/retrievalVector.py` - 向量检索
-- `retrieval/retrievalHybrid.py` - 混合检索
+- `retrieval/retrievers.py` - 7 种检索器（BM25/BM25+/向量/混合/HybridPlus/Reranker/Advanced）
+- `retrieval/queryRewrite.py` - 查询改写（144 条同义词映射）
 - `evaluation/evalRetrieval.py` - 检索评测
 - `evaluation/evalGeneration.py` - 生成质量评测
 - `evaluation/generateQueries.py` - 评测查询生成
+- `evaluation/quickEval.py` - 快速检索评测
 - `generation/promptTemplates.py` - RAG 提示模板
 - `generation/qwenInference.py` - Qwen 推理封装
 - `generation/ragPipeline.py` - 端到端 RAG 流程
@@ -322,6 +320,7 @@
 - `scripts/runRag.py` - RAG 问答脚本
 - `scripts/runExperiments.py` - 对比实验脚本
 - `scripts/experimentWebUI.py` - 实验 WebUI
+- `scripts/buildEvalTermMapping.py` - 评测术语映射构建
 - `outputs/reports/` - 检索评测、生成评测、对比实验结果
 
 ## 待完成产出物
