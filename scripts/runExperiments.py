@@ -3,7 +3,7 @@
 
 功能：
 1. 在相同测试集上运行多组对比实验
-2. 实验组：baseline-norag、baseline-bm25、baseline-vector、exp-hybrid
+2. 实验组：baseline-norag、baseline-bm25、baseline-vector、exp-hybrid（BM25 0.7/向量 0.3）、exp-hybrid-rrf
 3. 记录检索指标（Recall@5, MRR）和生成指标（术语命中率、来源引用率）
 4. 生成对比报告和图表
 
@@ -11,6 +11,7 @@
     python scripts/runExperiments.py
     python scripts/runExperiments.py --groups norag bm25 vector hybrid
     python scripts/runExperiments.py --limit 10  # 限制查询数量（调试用）
+    python scripts/runExperiments.py --groups norag bm25 vector hybrid hybrid-rrf  # 含 RRF 对比
 """
 
 import os
@@ -31,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
 
 # 实验组类型
-ExperimentGroup = Literal["norag", "bm25", "vector", "hybrid"]
+ExperimentGroup = Literal["norag", "bm25", "vector", "hybrid", "hybrid-rrf"]
 
 
 class ExperimentRunner:
@@ -138,7 +139,7 @@ class ExperimentRunner:
                 retriever.buildIndex()
                 retriever.saveIndex()
 
-        elif strategy == "hybrid":
+        elif strategy in ("hybrid", "hybrid-rrf"):
             from retrieval.retrievalHybrid import HybridRetriever
 
             retriever = HybridRetriever(
@@ -419,11 +420,18 @@ class ExperimentRunner:
 
         Args:
             queries: 查询列表
-            strategy: 检索策略（bm25/vector/hybrid）
+            strategy: 检索策略（bm25/vector/hybrid/hybrid-rrf）
+                - hybrid: 加权融合（BM25 alpha=0.7, 向量 beta=0.3）
+                - hybrid-rrf: RRF 融合（k=60）
             topK: 检索返回数量
             showProgress: 是否显示进度
         """
-        groupName = f"baseline-{strategy}" if strategy != "hybrid" else "exp-hybrid"
+        # 实验组命名：hybrid/hybrid-rrf 归为 exp- 前缀，其余为 baseline-
+        groupNameMap = {
+            "hybrid": "exp-hybrid",
+            "hybrid-rrf": "exp-hybrid-rrf",
+        }
+        groupName = groupNameMap.get(strategy, f"baseline-{strategy}")
         print("\n" + "=" * 60)
         print(f"📊 实验组: {groupName}（{strategy} 检索）")
         print("=" * 60)
@@ -450,8 +458,13 @@ class ExperimentRunner:
             # 检索
             try:
                 if strategy == "hybrid":
+                    # BM25 主导（0.7）：实验表明向量检索在数学领域噪声较大
                     rawResults = retriever.search(
-                        queryText, topK=topK, strategy="weighted", alpha=0.5, beta=0.5
+                        queryText, topK=topK, strategy="weighted", alpha=0.7, beta=0.3
+                    )
+                elif strategy == "hybrid-rrf":
+                    rawResults = retriever.search(
+                        queryText, topK=topK, strategy="rrf", rrfK=60
                     )
                 else:
                     rawResults = retriever.search(queryText, topK=topK)
@@ -881,9 +894,9 @@ def main():
     parser.add_argument(
         "--groups",
         nargs="+",
-        choices=["norag", "bm25", "vector", "hybrid"],
+        choices=["norag", "bm25", "vector", "hybrid", "hybrid-rrf"],
         default=["norag", "bm25", "vector", "hybrid"],
-        help="要运行的实验组",
+        help="要运行的实验组（hybrid=BM25 0.7/向量 0.3 加权, hybrid-rrf=RRF 融合，默认不含 hybrid-rrf）",
     )
     parser.add_argument(
         "--limit",
