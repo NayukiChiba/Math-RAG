@@ -3,7 +3,7 @@
 
 功能：
 1. 在相同测试集上运行多组对比实验
-2. 实验组：baseline-norag、baseline-bm25、baseline-vector、exp-hybrid（BM25 0.7/向量 0.3）、exp-hybrid-rrf
+2. 实验组：baseline-norag、baseline-bm25plus、baseline-vector、exp-hybrid-plus（BM25+ 0.85/向量 0.15）、exp-hybrid-plus-rrf
 3. 记录检索指标（Recall@5, MRR）和生成指标（术语命中率、来源引用率）
 4. 生成对比报告和图表
 
@@ -105,31 +105,36 @@ class ExperimentRunner:
         return self._qwen
 
     def _initRetriever(self, strategy: str):
-        """初始化检索器"""
+        """初始化检索器（使用 Plus 增强版本）"""
         if strategy in self._retrievers:
             return self._retrievers[strategy]
 
         retrievalDir = os.path.join(config.PROCESSED_DIR, "retrieval")
         corpusFile = os.path.join(retrievalDir, "corpus.jsonl")
-        bm25IndexFile = os.path.join(retrievalDir, "bm25_index.pkl")
+        bm25PlusIndexFile = os.path.join(retrievalDir, "bm25plus_index.pkl")
         vectorIndexFile = os.path.join(retrievalDir, "vector_index.faiss")
         vectorEmbeddingFile = os.path.join(retrievalDir, "vector_embeddings.npz")
+        termsFile = os.path.join(config.PROCESSED_DIR, "terms", "all_terms.json")
+        embeddingModel = "paraphrase-multilingual-MiniLM-L12-v2"
 
         print(f"🔧 初始化检索器（策略: {strategy}）...")
 
         if strategy == "bm25":
-            from retrieval.retrievers import BM25Retriever
+            from retrieval.retrievers import BM25PlusRetriever
 
-            retriever = BM25Retriever(corpusFile, bm25IndexFile)
+            retriever = BM25PlusRetriever(corpusFile, bm25PlusIndexFile, termsFile)
             if not retriever.loadIndex():
                 retriever.buildIndex()
                 retriever.saveIndex()
+            # 无论索引是否存在都加载术语映射，确保查询扩展有效
+            retriever.loadTermsMap()
 
         elif strategy == "vector":
             from retrieval.retrievers import VectorRetriever
 
             retriever = VectorRetriever(
                 corpusFile,
+                embeddingModel,
                 indexFile=vectorIndexFile,
                 embeddingFile=vectorEmbeddingFile,
             )
@@ -138,13 +143,15 @@ class ExperimentRunner:
                 retriever.saveIndex()
 
         elif strategy in ("hybrid", "hybrid-rrf"):
-            from retrieval.retrievers import HybridRetriever
+            from retrieval.retrievers import HybridPlusRetriever
 
-            retriever = HybridRetriever(
+            retriever = HybridPlusRetriever(
                 corpusFile,
-                bm25IndexFile,
+                bm25PlusIndexFile,
                 vectorIndexFile,
                 vectorEmbeddingFile,
+                embeddingModel,
+                termsFile,
             )
 
         else:
@@ -500,13 +507,26 @@ class ExperimentRunner:
             # 检索
             try:
                 if strategy == "hybrid":
-                    # BM25 主导（0.7）：实验表明向量检索在数学领域噪声较大
+                    # BM25+ 主导（0.85）：向量检索在数学领域噪声较大
                     rawResults = retriever.search(
-                        queryText, topK=topK, strategy="weighted", alpha=0.7, beta=0.3
+                        queryText,
+                        topK=topK,
+                        strategy="weighted",
+                        alpha=0.85,
+                        beta=0.15,
+                        recallFactor=8,
                     )
                 elif strategy == "hybrid-rrf":
                     rawResults = retriever.search(
-                        queryText, topK=topK, strategy="rrf", rrfK=60
+                        queryText,
+                        topK=topK,
+                        strategy="rrf",
+                        rrfK=60,
+                        recallFactor=8,
+                    )
+                elif strategy == "bm25":
+                    rawResults = retriever.search(
+                        queryText, topK=topK, expandQuery=True
                     )
                 else:
                     rawResults = retriever.search(queryText, topK=topK)
@@ -945,7 +965,7 @@ def main():
         nargs="+",
         choices=["norag", "bm25", "vector", "hybrid", "hybrid-rrf"],
         default=["norag", "bm25", "vector", "hybrid"],
-        help="要运行的实验组（hybrid=BM25 0.7/向量 0.3 加权, hybrid-rrf=RRF 融合，默认不含 hybrid-rrf）",
+        help="要运行的实验组（hybrid=BM25+ 0.85/向量 0.15 加权, hybrid-rrf=RRF 融合，默认不含 hybrid-rrf）",
     )
     parser.add_argument(
         "--limit",
