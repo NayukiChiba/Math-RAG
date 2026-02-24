@@ -64,6 +64,7 @@ class AdvancedRetriever:
         self.vectorEmbeddingFile = vectorEmbeddingFile
         self.modelName = modelName
         self.rerankerModelName = rerankerModel
+        self.termsFile = termsFile  # 保存术语文件路径，供 _loadQueryRewriter 使用
 
         # 延迟加载，避免不必要的导入
         self._bm25 = None
@@ -218,7 +219,7 @@ class AdvancedRetriever:
 
         # 1. 查询改写
         if rewriteQuery:
-            self._loadQueryRewriter()
+            self._loadQueryRewriter(self.termsFile)
             rewrittenQueries = self._queryRewriter.rewrite(query)
             print(f"🔄 查询改写：{query} -> {rewrittenQueries}")
         else:
@@ -281,22 +282,24 @@ class AdvancedRetriever:
         bm25ScoreMap = {docIds[i]: bm25NormScores[i] for i in range(len(docIds))}
         vectorScoreMap = {docIds[i]: vectorNormScores[i] for i in range(len(docIds))}
 
-        # 自适应权重调整（与 Hybrid+ 一致）
+        # 自适应权重（参考用，实际使用调用方传入的 bm25Weight/vectorWeight）
         import numpy as np
 
         avgBm25 = np.mean(bm25NormScores) if bm25NormScores else 0
         avgVector = np.mean(vectorNormScores) if vectorNormScores else 0
         total = avgBm25 + avgVector
-        if total > 0:
-            adaptiveAlpha = avgBm25 / total
-            adaptiveBeta = avgVector / total
-        else:
-            adaptiveAlpha = adaptiveBeta = 0.5
+        # 当调用方使用默认权重时，可选择基于分数分布自适应调整
+        # adaptiveAlpha = avgBm25 / total if total > 0 else 0.5
+        # adaptiveBeta = avgVector / total if total > 0 else 0.5
 
-        # 使用自适应权重计算融合分数
+        # 使用调用方显式传入的权重（确保参数实际生效，避免 API 误导）
+        fusionAlpha = bm25Weight
+        fusionBeta = vectorWeight
+
+        # 使用融合权重计算最终分数
         for idx, data in allCandidates.items():
             data["fused_score"] = (
-                adaptiveAlpha * bm25ScoreMap[idx] + adaptiveBeta * vectorScoreMap[idx]
+                fusionAlpha * bm25ScoreMap[idx] + fusionBeta * vectorScoreMap[idx]
             )
 
         # 4. 重排序

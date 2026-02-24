@@ -188,9 +188,10 @@ def createBM25PlusRetriever(corpusFile: str, indexFile: str, termsFile: str):
     retriever = BM25PlusRetriever(corpusFile, indexFile, termsFile)
     if not retriever.loadIndex():
         print("⚠️  BM25+ 索引不存在，正在构建...")
-        retriever.loadTermsMap()
         retriever.buildIndex()
         retriever.saveIndex()
+    # 无论索引是否存在都加载术语映射，确保 expandQuery=True 时查询扩展有效
+    retriever.loadTermsMap()
     return retriever
 
 
@@ -267,7 +268,7 @@ def evaluateMethod(
 
         # 支持可调用函数作为 searchFunc
         if callable(searchFunc):
-            results = searchFunc(queryText, topK * 2)
+            results = searchFunc(queryText, topK * 2, **searchKwargs)
         elif searchFunc == "search":
             results = retriever.search(queryText, topK * 2, **searchKwargs)
         elif searchFunc == "batchSearch":
@@ -480,7 +481,7 @@ def runQuickEval(
 
     for _, metrics in allMetrics.items():
         avg = metrics["avg_metrics"]
-        timeStr = f"{avg['avg_query_time']:.3f}" if "avg_query_time" in avg else "N/A"
+        timeStr = f"{metrics['avg_query_time']:.3f}" if "avg_query_time" in metrics else "N/A"
         print(
             f"{metrics['method']:<15} "
             f"{avg['recall@1']:.2%}  "
@@ -492,7 +493,11 @@ def runQuickEval(
             f"{timeStr:>8}"
         )
 
-    # 找出最佳方法
+    # 找出最佳方法（空结果保护）
+    if not allMetrics:
+        print("\n⚠️  没有有效的评测结果")
+        return allMetrics
+
     bestMethod = max(
         allMetrics.keys(), key=lambda m: allMetrics[m]["avg_metrics"]["recall@5"]
     )

@@ -263,8 +263,6 @@ def runOptimizedEval(
             "optimized_hybrid",
             "optimized_rrf",
             "optimized_advanced",
-            "optimized_rrf_rerank",
-            "extreme_hybrid",
             "extreme_rrf",
         ]
 
@@ -638,7 +636,11 @@ def runOptimizedEval(
             f"{timeStr:>8}"
         )
 
-    # 找出最佳方法
+    # 找出最佳方法（空结果保护）
+    if not allMetrics:
+        print("\n⚠️  没有有效的评测结果")
+        return allMetrics
+
     bestMethod = max(
         allMetrics.keys(), key=lambda m: allMetrics[m]["avg_metrics"]["recall@5"]
     )

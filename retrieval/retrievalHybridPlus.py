@@ -475,8 +475,8 @@ def main():
         choices=["weighted", "rrf"],
         help="融合策略",
     )
-    parser.add_argument("--alpha", type=float, help="BM25 权重")
-    parser.add_argument("--beta", type=float, help="向量检索权重")
+    parser.add_argument("--alpha", type=float, default=0.7, help="BM25 权重（默认 0.7）")
+    parser.add_argument("--beta", type=float, default=0.3, help="向量检索权重（默认 0.3）")
     parser.add_argument(
         "--normalization",
         type=str,
@@ -503,8 +503,6 @@ def main():
         default=5,
         help="召回因子（检索 topK * factor 用于融合）",
     )
-    parser.add_argument("--alpha", type=float, help="BM25 权重（默认 0.7）")
-    parser.add_argument("--beta", type=float, help="向量检索权重（默认 0.3）")
 
     args = parser.parse_args()
 

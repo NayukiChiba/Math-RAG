@@ -399,9 +399,9 @@ class BM25PlusRetriever:
 
         # 获取所有结果的索引（按分数排序）
         if returnAll:
-            topKIndices = sorted(
-                range(len(scores)), key=lambda i: scores[i], reverse=True
-            )
+            # returnAll 模式：只返回非零分数的文档，提前过滤避免循环内逻辑不一致
+            nonzeroIndices = [i for i, s in enumerate(scores) if s > 0]
+            topKIndices = sorted(nonzeroIndices, key=lambda i: scores[i], reverse=True)
         else:
             topKIndices = sorted(
                 range(len(scores)), key=lambda i: scores[i], reverse=True
@@ -410,7 +410,7 @@ class BM25PlusRetriever:
         # 构建 BM25 结果（跳过已被直接查找覆盖的文档）
         bm25Results = []
         for idx in topKIndices:
-            if scores[idx] == 0 and len(bm25Results) >= topK:
+            if not returnAll and scores[idx] == 0 and len(bm25Results) >= topK:
                 break
             doc = self.corpus[idx]
             if doc["doc_id"] not in directDocIds:
