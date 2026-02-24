@@ -47,6 +47,31 @@ TERMS_DIR = os.path.join(PROCESSED_DIR, "terms")
 CHUNK_DIR = os.path.join(PROCESSED_DIR, "chunk")
 # 评测数据目录（查询集在 data/evaluation 而非 processed）
 EVALUATION_DIR = os.path.join(PROJECT_ROOT, "data", "evaluation")
+# 报告输出根目录
+REPORTS_BASE_DIR = os.path.join(PROJECT_ROOT, "outputs", "reports")
+
+# 缓存：同一进程内只生成一次时间戳目录
+_reportsDir = None
+
+
+def getReportsDir() -> str:
+    """
+    获取当前运行对应的报告输出目录
+
+    每次运行自动在 outputs/reports/ 下创建以当前时间命名的子目录，
+    格式为 YYYYMMDD_HHMMSS。同一进程中多次调用返回同一个目录。
+
+    Returns:
+        str: 报告输出目录的绝对路径
+    """
+    global _reportsDir
+    if _reportsDir is None:
+        import time
+
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        _reportsDir = os.path.join(REPORTS_BASE_DIR, timestamp)
+        os.makedirs(_reportsDir, exist_ok=True)
+    return _reportsDir
 
 
 def get_ocr_config():

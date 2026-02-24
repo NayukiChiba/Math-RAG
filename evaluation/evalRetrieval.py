@@ -470,9 +470,7 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        default=os.path.join(
-            config.PROJECT_ROOT, "outputs", "reports", "retrieval_metrics.json"
-        ),
+        default=os.path.join(config.getReportsDir(), "retrieval_metrics.json"),
         help="输出报告路径",
     )
 

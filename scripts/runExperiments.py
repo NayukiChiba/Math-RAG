@@ -55,9 +55,7 @@ class ExperimentRunner:
         self.queryFile = queryFile or os.path.join(
             config.PROJECT_ROOT, "data", "evaluation", "queries.jsonl"
         )
-        self.outputDir = outputDir or os.path.join(
-            config.PROJECT_ROOT, "outputs", "reports"
-        )
+        self.outputDir = outputDir or config.getReportsDir()
         self.logDir = logDir or os.path.join(config.PROJECT_ROOT, "outputs", "logs")
 
         # 确保目录存在

@@ -977,7 +977,7 @@ def main():
         saveReport(metrics, args.output)
     elif metrics:
         defaultOutput = os.path.join(
-            config.PROJECT_ROOT, "outputs", "reports", f"quick_eval_{args.mode}.json"
+            config.getReportsDir(), f"quick_eval_{args.mode}.json"
         )
         saveReport(metrics, defaultOutput)
 
