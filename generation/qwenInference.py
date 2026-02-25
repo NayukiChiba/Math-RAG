@@ -29,12 +29,17 @@ Qwen2.5-Math 本地推理封装模块
 
 import os
 import sys
+import warnings
 from pathlib import Path
+
+import config
+
+# 抑制 autoawq 废弃警告和 torch.jit.script 废弃警告
+warnings.filterwarnings("ignore", category=DeprecationWarning, module=r"awq\.")
+warnings.filterwarnings("ignore", message=r".*torch\.jit\.script.*is deprecated.*")
 
 # 路径调整，支持直接运行和模块导入两种方式
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-import config
 
 
 class QwenInference:
@@ -93,6 +98,20 @@ class QwenInference:
             return
 
         import torch
+
+        # ---- 兼容性补丁：autoawq 依赖已从新版 transformers 移除的类 ----
+        import transformers.activations as _act
+
+        if not hasattr(_act, "PytorchGELUTanh"):
+            import torch.nn as nn
+
+            class _PytorchGELUTanh(nn.Module):
+                def forward(self, x):
+                    return nn.functional.gelu(x, approximate="tanh")
+
+            _act.PytorchGELUTanh = _PytorchGELUTanh
+        # ---- 补丁结束 ----
+
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
         print(f"🔄 正在加载模型: {self.modelDir}")
@@ -103,11 +122,9 @@ class QwenInference:
         # 检测设备
         if torch.cuda.is_available():
             print("✅ 检测到 CUDA，使用 GPU 加速")
-            torchDtype = torch.float16
             deviceMap = self.deviceMap
         else:
             print("⚠️  未检测到 CUDA，使用 CPU 推理（速度较慢）")
-            torchDtype = torch.float32
             deviceMap = "cpu"
 
         # 加载 tokenizer
@@ -116,12 +133,29 @@ class QwenInference:
             trust_remote_code=True,
         )
 
-        # 加载模型
+        # 加载模型（支持 AWQ 量化模型，自动识别 quantization_config）
+        loadKwargs = {
+            "device_map": deviceMap,
+            "trust_remote_code": True,
+        }
+        # 非量化模型需要指定 dtype
+        if not os.path.isfile(os.path.join(self.modelDir, "config.json")):
+            loadKwargs["torch_dtype"] = (
+                torch.float16 if torch.cuda.is_available() else torch.float32
+            )
+        else:
+            import json
+
+            with open(os.path.join(self.modelDir, "config.json")) as f:
+                modelCfg = json.load(f)
+            if "quantization_config" not in modelCfg:
+                loadKwargs["torch_dtype"] = (
+                    torch.float16 if torch.cuda.is_available() else torch.float32
+                )
+
         self._model = AutoModelForCausalLM.from_pretrained(
             self.modelDir,
-            dtype=torchDtype,
-            device_map=deviceMap,
-            trust_remote_code=True,
+            **loadKwargs,
         )
 
         # 记录实际设备

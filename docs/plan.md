@@ -1,10 +1,12 @@
 # Math-RAG 毕业论文项目规划
 
+> 最后更新：2026-02-24
+
 本项目目标：构建面向数学名词的高精度搜索型 RAG 系统。
 
 基础模型：
 - `Qwen2.5-Math-1.5B-Instruct`（本地运行主力）
-- `Qwen2.5-Math-7B-Instruct`（可选：有空或有算力时租服务器运行）
+- `Qwen2.5-Math-7B-Instruct`（可选：有算力时补充对比）
 
 核心要求：
 - 检索准确率优先
@@ -152,15 +154,21 @@
   python scripts/ocr_to_json_all.py
   ```
 
-### 任务4：检索层构建（✅ 已完成）
+### 任务4：检索层构建（✅ 已完成，2026-02-24 重构）
 - 目标：实现多种检索策略，支持可插拔切换
 - 子任务：
-  - ✅ BM25 稀疏检索基线（retrieval/retrievalBM25.py）
-  - ✅ 向量检索（sentence-transformers + FAISS，retrieval/retrievalVector.py）
-  - ✅ 混合检索（RRF 策略，retrieval/retrievalHybrid.py）
-  - ✅ 统一检索接口设计（retrieval/__init__.py）
+  - ✅ BM25 稀疏检索基线（`BM25Retriever`）
+  - ✅ 向量检索（sentence-transformers + FAISS，`VectorRetriever`）
+  - ✅ 混合检索（RRF / 加权融合，`HybridRetriever`）
+  - ✅ BM25+（查询扩展 + 混合分词，`BM25PlusRetriever`）
+  - ✅ HybridPlus（百分位归一化 + 自适应权重，`HybridPlusRetriever`）
+  - ✅ Reranker（Cross-Encoder 两阶段，`RerankerRetriever`）
+  - ✅ AdvancedRetriever（多路召回 + 查询改写 + 重排序）
+  - ✅ 统一检索接口（`retrieval/retrievers.py`，7 种检索器合并为单文件）
+  - ✅ 查询改写模块（`retrieval/queryRewrite.py`，144 条数学同义词映射）
+  - ✅ 配置统一到 `config.toml [retrieval]`
 - 输入：`data/processed/retrieval/corpus.jsonl`
-- 输出：`retrieval/` 检索模块，索引文件保存至 `outputs/`
+- 输出：`retrieval/` 检索模块，索引文件保存至 `data/processed/retrieval/`
 
 ### 任务5：RAG 生成层（✅ 已完成）
 - 目标：集成 Qwen2.5-Math 模型，实现检索增强生成

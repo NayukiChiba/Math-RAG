@@ -591,9 +591,7 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        default=os.path.join(
-            config.PROJECT_ROOT, "outputs", "reports", "generation_metrics.json"
-        ),
+        default=os.path.join(config.getReportsDir(), "generation_metrics.json"),
         help="输出报告路径",
     )
     parser.add_argument(

@@ -45,6 +45,33 @@ OCR_DIR = os.path.join(PROCESSED_DIR, "ocr")
 TERMS_DIR = os.path.join(PROCESSED_DIR, "terms")
 # 术语定义数据（每个术语一个 JSON）：processed/chunk/{书名}/{term}.json
 CHUNK_DIR = os.path.join(PROCESSED_DIR, "chunk")
+# 评测数据目录（查询集在 data/evaluation 而非 processed）
+EVALUATION_DIR = os.path.join(PROJECT_ROOT, "data", "evaluation")
+# 报告输出根目录
+REPORTS_BASE_DIR = os.path.join(PROJECT_ROOT, "outputs", "reports")
+
+# 缓存：同一进程内只生成一次时间戳目录
+_reportsDir = None
+
+
+def getReportsDir() -> str:
+    """
+    获取当前运行对应的报告输出目录
+
+    每次运行自动在 outputs/reports/ 下创建以当前时间命名的子目录，
+    格式为 YYYYMMDD_HHMMSS。同一进程中多次调用返回同一个目录。
+
+    Returns:
+        str: 报告输出目录的绝对路径
+    """
+    global _reportsDir
+    if _reportsDir is None:
+        import time
+
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        _reportsDir = os.path.join(REPORTS_BASE_DIR, timestamp)
+        os.makedirs(_reportsDir, exist_ok=True)
+    return _reportsDir
 
 
 def get_ocr_config():
@@ -158,3 +185,50 @@ def getGenerationConfig() -> dict:
         "top_p": gen_cfg.get("top_p", defaults["top_p"]),
         "max_new_tokens": gen_cfg.get("max_new_tokens", defaults["max_new_tokens"]),
     }
+
+
+def getRetrievalConfig() -> dict:
+    """
+    获取检索模块配置
+
+    Returns:
+        dict，包含 recall_factor、rrf_k、bm25_default_weight、
+        default_vector_model、default_reranker_model 等字段
+    """
+    defaults = {
+        "recall_factor": 5,
+        "advanced_recall_topk": 100,
+        "rerank_candidates": 50,
+        "rrf_k": 60,
+        "rrf_min_k": 30,
+        "rrf_max_k": 100,
+        "bm25_default_weight": 0.7,
+        "vector_default_weight": 0.3,
+        "overlap_threshold": 0.5,
+        "bm25_difficult_threshold_low": 0.5,
+        "bm25_difficult_threshold_high": 2.0,
+        "rewrite_query_count": 3,
+        "rewrite_max_terms": 10,
+        "default_normalization": "percentile",
+        "default_reranker_model": "BAAI/bge-reranker-v2-mixed",
+        "default_vector_model": "paraphrase-multilingual-MiniLM-L12-v2",
+        "use_hybrid_tokenization": True,
+        "eval_num_queries": 20,
+        "eval_topk": 10,
+        "eval_hybrid_alpha": 0.85,
+        "eval_hybrid_beta": 0.15,
+    }
+
+    if not os.path.isfile(CONFIG_TOML):
+        return defaults
+
+    try:
+        data = _load_toml(CONFIG_TOML)
+    except Exception:
+        return defaults
+
+    ret_cfg = data.get("retrieval", {})
+    result = {}
+    for key, defaultVal in defaults.items():
+        result[key] = ret_cfg.get(key, defaultVal)
+    return result

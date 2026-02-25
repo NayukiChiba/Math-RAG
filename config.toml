@@ -123,15 +123,60 @@ definitions 中每条定义必须包含 reference 字段。
 # RAG 生成层配置
 
 # 上下文总最大字符数
-# 1.5B 模型约 2000 token，中文平均约 1.5 char/token，预留 prompt 开销
-max_context_chars = 2000
+# 7B 模型支持 32K 上下文，中文约 1.5 char/token，可放更多检索内容
+max_context_chars = 4000
 
 # 单条术语文本最大字符数，避免一条术语挤占整个上下文
-max_chars_per_term = 800
+max_chars_per_term = 1000
 
 # Qwen 推理参数（Task-8 使用）
 temperature = 0.1
 top_p = 0.9
-max_new_tokens = 512
+max_new_tokens = 1024
 # 本地模型目录（相对项目根目录）
-qwen_model_dir = "../Qwen-model"
+qwen_model_dir = "../Qwen-model-7B"
+
+[retrieval]
+# 检索模块配置
+
+# 召回因子：检索 topK * recall_factor 用于融合
+recall_factor = 5
+# 高级检索每路召回数量
+advanced_recall_topk = 100
+# 重排序候选数量
+rerank_candidates = 50
+
+# RRF 参数
+rrf_k = 60
+rrf_min_k = 30
+rrf_max_k = 100
+
+# 融合权重（BM25, 向量）
+bm25_default_weight = 0.7
+vector_default_weight = 0.3
+# 重叠度阈值（高于此值使用平均权重）
+overlap_threshold = 0.5
+
+# BM25 查询难度阈值
+bm25_difficult_threshold_low = 0.5
+bm25_difficult_threshold_high = 2.0
+
+# 查询改写
+rewrite_query_count = 3
+rewrite_max_terms = 10
+
+# 归一化方法：percentile / min_max / z_score
+default_normalization = "percentile"
+
+# 模型
+default_reranker_model = "BAAI/bge-reranker-v2-mixed"
+default_vector_model = "paraphrase-multilingual-MiniLM-L12-v2"
+
+# 是否使用混合分词（词级 + 字符级）
+use_hybrid_tokenization = true
+
+# 评测配置
+eval_num_queries = 20
+eval_topk = 10
+eval_hybrid_alpha = 0.85
+eval_hybrid_beta = 0.15

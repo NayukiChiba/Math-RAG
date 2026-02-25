@@ -3,7 +3,7 @@
 
 功能：
 1. 在相同测试集上运行多组对比实验
-2. 实验组：baseline-norag、baseline-bm25、baseline-vector、exp-hybrid
+2. 实验组：baseline-norag、baseline-bm25plus、baseline-vector、exp-hybrid-plus（BM25+ 0.85/向量 0.15）、exp-hybrid-plus-rrf
 3. 记录检索指标（Recall@5, MRR）和生成指标（术语命中率、来源引用率）
 4. 生成对比报告和图表
 
@@ -11,6 +11,7 @@
     python scripts/runExperiments.py
     python scripts/runExperiments.py --groups norag bm25 vector hybrid
     python scripts/runExperiments.py --limit 10  # 限制查询数量（调试用）
+    python scripts/runExperiments.py --groups norag bm25 vector hybrid hybrid-rrf  # 含 RRF 对比
 """
 
 import os
@@ -31,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
 
 # 实验组类型
-ExperimentGroup = Literal["norag", "bm25", "vector", "hybrid"]
+ExperimentGroup = Literal["norag", "bm25", "vector", "hybrid", "hybrid-rrf"]
 
 
 class ExperimentRunner:
@@ -54,9 +55,7 @@ class ExperimentRunner:
         self.queryFile = queryFile or os.path.join(
             config.PROJECT_ROOT, "data", "evaluation", "queries.jsonl"
         )
-        self.outputDir = outputDir or os.path.join(
-            config.PROJECT_ROOT, "outputs", "reports"
-        )
+        self.outputDir = outputDir or config.getReportsDir()
         self.logDir = logDir or os.path.join(config.PROJECT_ROOT, "outputs", "logs")
 
         # 确保目录存在
@@ -106,31 +105,36 @@ class ExperimentRunner:
         return self._qwen
 
     def _initRetriever(self, strategy: str):
-        """初始化检索器"""
+        """初始化检索器（使用 Plus 增强版本）"""
         if strategy in self._retrievers:
             return self._retrievers[strategy]
 
         retrievalDir = os.path.join(config.PROCESSED_DIR, "retrieval")
         corpusFile = os.path.join(retrievalDir, "corpus.jsonl")
-        bm25IndexFile = os.path.join(retrievalDir, "bm25_index.pkl")
+        bm25PlusIndexFile = os.path.join(retrievalDir, "bm25plus_index.pkl")
         vectorIndexFile = os.path.join(retrievalDir, "vector_index.faiss")
         vectorEmbeddingFile = os.path.join(retrievalDir, "vector_embeddings.npz")
+        termsFile = os.path.join(config.PROCESSED_DIR, "terms", "all_terms.json")
+        embeddingModel = "paraphrase-multilingual-MiniLM-L12-v2"
 
         print(f"🔧 初始化检索器（策略: {strategy}）...")
 
         if strategy == "bm25":
-            from retrieval.retrievalBM25 import BM25Retriever
+            from retrieval.retrievers import BM25PlusRetriever
 
-            retriever = BM25Retriever(corpusFile, bm25IndexFile)
+            retriever = BM25PlusRetriever(corpusFile, bm25PlusIndexFile, termsFile)
             if not retriever.loadIndex():
                 retriever.buildIndex()
                 retriever.saveIndex()
+            # 无论索引是否存在都加载术语映射，确保查询扩展有效
+            retriever.loadTermsMap()
 
         elif strategy == "vector":
-            from retrieval.retrievalVector import VectorRetriever
+            from retrieval.retrievers import VectorRetriever
 
             retriever = VectorRetriever(
                 corpusFile,
+                embeddingModel,
                 indexFile=vectorIndexFile,
                 embeddingFile=vectorEmbeddingFile,
             )
@@ -138,14 +142,16 @@ class ExperimentRunner:
                 retriever.buildIndex()
                 retriever.saveIndex()
 
-        elif strategy == "hybrid":
-            from retrieval.retrievalHybrid import HybridRetriever
+        elif strategy in ("hybrid", "hybrid-rrf"):
+            from retrieval.retrievers import HybridPlusRetriever
 
-            retriever = HybridRetriever(
+            retriever = HybridPlusRetriever(
                 corpusFile,
-                bm25IndexFile,
+                bm25PlusIndexFile,
                 vectorIndexFile,
                 vectorEmbeddingFile,
+                embeddingModel,
+                termsFile,
             )
 
         else:
@@ -248,6 +254,50 @@ class ExperimentRunner:
             "total": len(relevantTerms),
             "rate": hitCount / len(relevantTerms),
         }
+
+    def _appendSourceCitations(self, answer: str, sources: list[dict]) -> str:
+        """
+        在回答末尾自动追加来源引用区块
+
+        由于模型（1.5B）指令跟随能力有限，无法可靠地在行内插入引用，
+        因此采用后处理方式，在答案末尾统一追加参考来源，确保引用率可评估。
+
+        Args:
+            answer: 模型生成的原始回答
+            sources: 检索到的来源列表（含 source 和 page）
+
+        Returns:
+            追加了来源区块的完整回答
+        """
+        if not sources:
+            return answer
+
+        # 去重：相同书名+页码只保留一条
+        import re
+
+        seenKeys: set[tuple] = set()
+        uniqueSources = []
+        for s in sources:
+            key = (s.get("source", ""), s.get("page"))
+            if key not in seenKeys and s.get("source"):
+                seenKeys.add(key)
+                uniqueSources.append(s)
+
+        if not uniqueSources:
+            return answer
+
+        # 构建来源区块，使用简短书名（括号前的主标题）
+        citationLines = ["\n\n---\n**参考来源：**"]
+        for s in uniqueSources:
+            sourceName = s.get("source", "")
+            page = s.get("page")
+            shortName = re.split(r"[(（]", sourceName)[0].strip()
+            if page:
+                citationLines.append(f"- {shortName} 第{page}页")
+            else:
+                citationLines.append(f"- {shortName}")
+
+        return answer + "\n".join(citationLines)
 
     def _calculateSourceCitationRate(
         self, answer: str, sources: list[dict]
@@ -419,11 +469,18 @@ class ExperimentRunner:
 
         Args:
             queries: 查询列表
-            strategy: 检索策略（bm25/vector/hybrid）
+            strategy: 检索策略（bm25/vector/hybrid/hybrid-rrf）
+                - hybrid: 加权融合（BM25 alpha=0.7, 向量 beta=0.3）
+                - hybrid-rrf: RRF 融合（k=60）
             topK: 检索返回数量
             showProgress: 是否显示进度
         """
-        groupName = f"baseline-{strategy}" if strategy != "hybrid" else "exp-hybrid"
+        # 实验组命名：hybrid/hybrid-rrf 归为 exp- 前缀，其余为 baseline-
+        groupNameMap = {
+            "hybrid": "exp-hybrid",
+            "hybrid-rrf": "exp-hybrid-rrf",
+        }
+        groupName = groupNameMap.get(strategy, f"baseline-{strategy}")
         print("\n" + "=" * 60)
         print(f"📊 实验组: {groupName}（{strategy} 检索）")
         print("=" * 60)
@@ -450,8 +507,26 @@ class ExperimentRunner:
             # 检索
             try:
                 if strategy == "hybrid":
+                    # BM25+ 主导（0.85）：向量检索在数学领域噪声较大
                     rawResults = retriever.search(
-                        queryText, topK=topK, strategy="weighted", alpha=0.5, beta=0.5
+                        queryText,
+                        topK=topK,
+                        strategy="weighted",
+                        alpha=0.85,
+                        beta=0.15,
+                        recallFactor=8,
+                    )
+                elif strategy == "hybrid-rrf":
+                    rawResults = retriever.search(
+                        queryText,
+                        topK=topK,
+                        strategy="rrf",
+                        rrfK=60,
+                        recallFactor=8,
+                    )
+                elif strategy == "bm25":
+                    rawResults = retriever.search(
+                        queryText, topK=topK, expandQuery=True
                     )
                 else:
                     rawResults = retriever.search(queryText, topK=topK)
@@ -494,6 +569,13 @@ class ExperimentRunner:
                 for r in retrievalResults
                 if r.get("source")
             ]
+
+            # 后处理：自动追加来源引用区块
+            # 模型（1.5B）指令跟随能力不足以在正文内可靠嵌入引用，
+            # 因此在答案末尾统一追加，保证引用率指标可评估
+            if retrievalResults:
+                answer = self._appendSourceCitations(answer, sources)
+
             sourceCitation = self._calculateSourceCitationRate(answer, sources)
             sourceCitationRates.append(sourceCitation["rate"])
 
@@ -881,9 +963,9 @@ def main():
     parser.add_argument(
         "--groups",
         nargs="+",
-        choices=["norag", "bm25", "vector", "hybrid"],
+        choices=["norag", "bm25", "vector", "hybrid", "hybrid-rrf"],
         default=["norag", "bm25", "vector", "hybrid"],
-        help="要运行的实验组",
+        help="要运行的实验组（hybrid=BM25+ 0.85/向量 0.15 加权, hybrid-rrf=RRF 融合，默认不含 hybrid-rrf）",
     )
     parser.add_argument(
         "--limit",
