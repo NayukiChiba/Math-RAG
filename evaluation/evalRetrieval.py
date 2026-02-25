@@ -516,7 +516,7 @@ def main():
         config.PROCESSED_DIR, "retrieval", "vector_embeddings.npz"
     )
     termsFile = os.path.join(config.PROCESSED_DIR, "terms", "all_terms.json")
-    embeddingModel = "paraphrase-multilingual-MiniLM-L12-v2"
+    embeddingModel = "BAAI/bge-base-zh-v1.5"
 
     for method in args.methods:
         print(f"\n🔄 初始化检索器: {method.upper()}")

@@ -378,12 +378,16 @@ class BM25Retriever:
 class VectorRetriever:
     """向量检索器"""
 
+    # BGE 模型查询指令前缀（仅用于查询，不用于语料编码）
+    BGE_QUERY_INSTRUCTION = "为这个句子生成表示以用于检索中文维基百科中的相关文章："
+
     def __init__(
         self,
         corpusFile: str,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        modelName: str = "BAAI/bge-base-zh-v1.5",
         indexFile: str | None = None,
         embeddingFile: str | None = None,
+        termsFile: str | None = None,
     ):
         """
         初始化向量检索器
@@ -393,6 +397,7 @@ class VectorRetriever:
             modelName: Sentence Transformer 模型名称
             indexFile: FAISS 索引文件路径，如果为 None 则不保存
             embeddingFile: 嵌入向量文件路径（.npz），如果为 None 则不保存
+            termsFile: 术语文件路径（可选，用于查询同义词扩展）
         """
         self.corpusFile = corpusFile
         self.modelName = modelName
@@ -402,6 +407,14 @@ class VectorRetriever:
         self.model = None
         self.index = None
         self.embeddings = None
+
+        # 是否为 BGE 模型（需要查询指令前缀）
+        self._isBgeModel = "bge" in modelName.lower()
+
+        # 查询同义词扩展
+        from retrieval.queryRewrite import QueryRewriter
+
+        self.queryRewriter = QueryRewriter(termsFile)
 
     def loadModel(self) -> None:
         """加载 Sentence Transformer 模型"""
@@ -611,7 +624,7 @@ class VectorRetriever:
 
     def search(self, query: str, topK: int = 10) -> list[dict[str, Any]]:
         """
-        单次查询
+        单次查询（支持 BGE 指令前缀 + 同义词扩展平均嵌入）
 
         Args:
             query: 查询字符串
@@ -626,8 +639,23 @@ class VectorRetriever:
         if self.model is None:
             self.loadModel()
 
-        # 生成查询嵌入
-        queryEmbedding = self.model.encode([query], convert_to_numpy=True)
+        # 1. 查询同义词扩展
+        expandedTerms = self.queryRewriter.rewrite(query, maxTerms=5)
+
+        # 2. 添加 BGE 查询指令前缀
+        if self._isBgeModel:
+            encodingTexts = [self.BGE_QUERY_INSTRUCTION + t for t in expandedTerms]
+        else:
+            encodingTexts = expandedTerms
+
+        # 3. 编码所有扩展词
+        allEmbeddings = self.model.encode(encodingTexts, convert_to_numpy=True)
+
+        # 4. 取加权平均（原始查询权重更高）
+        weights = np.array([2.0] + [1.0] * (len(expandedTerms) - 1), dtype=np.float32)
+        weights = weights / weights.sum()
+        queryEmbedding = np.average(allEmbeddings, axis=0, weights=weights)
+        queryEmbedding = queryEmbedding.reshape(1, -1).astype(np.float32)
         faiss.normalize_L2(queryEmbedding)
 
         # 执行搜索
@@ -1105,7 +1133,7 @@ class HybridRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        modelName: str = "BAAI/bge-base-zh-v1.5",
     ):
         """
         初始化混合检索器
@@ -1399,7 +1427,7 @@ class HybridPlusRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        modelName: str = "BAAI/bge-base-zh-v1.5",
         termsFile: str | None = None,
     ):
         """
@@ -1757,7 +1785,7 @@ class RerankerRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        modelName: str = "BAAI/bge-base-zh-v1.5",
         rerankerModel: str = "bge-reranker-base",
     ):
         """
@@ -2021,7 +2049,7 @@ class AdvancedRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        modelName: str = "BAAI/bge-base-zh-v1.5",
         rerankerModel: str = "BAAI/bge-reranker-v2-mixed",
         termsFile: str | None = None,
     ):

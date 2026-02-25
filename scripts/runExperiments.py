@@ -115,7 +115,7 @@ class ExperimentRunner:
         vectorIndexFile = os.path.join(retrievalDir, "vector_index.faiss")
         vectorEmbeddingFile = os.path.join(retrievalDir, "vector_embeddings.npz")
         termsFile = os.path.join(config.PROCESSED_DIR, "terms", "all_terms.json")
-        embeddingModel = "paraphrase-multilingual-MiniLM-L12-v2"
+        embeddingModel = "BAAI/bge-base-zh-v1.5"
 
         print(f"🔧 初始化检索器（策略: {strategy}）...")
 
@@ -738,12 +738,11 @@ class ExperimentRunner:
             是否成功生成
         """
         try:
-            import matplotlib
             import matplotlib.pyplot as plt
 
             # 设置中文字体
-            matplotlib.rcParams["font.sans-serif"] = ["SimHei", "DejaVu Sans"]
-            matplotlib.rcParams["axes.unicode_minus"] = False
+            plt.rcParams["font.sans-serif"] = ["SimHei", "DejaVu Sans"]
+            plt.rcParams["axes.unicode_minus"] = False
 
             groups = [r["group"] for r in experimentResults]
             # 对于 norag 组（strategy 为 None），检索指标用 None 表示，图表中显示 N/A

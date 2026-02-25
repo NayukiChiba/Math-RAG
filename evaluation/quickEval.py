@@ -440,7 +440,7 @@ def runEval(
         config.PROCESSED_DIR, "retrieval", "vector_embeddings.npz"
     )
     termsFile = os.path.join(config.PROCESSED_DIR, "terms", "all_terms.json")
-    embeddingModel = "paraphrase-multilingual-MiniLM-L12-v2"
+    embeddingModel = "BAAI/bge-base-zh-v1.5"
 
     print(f"\n📂 查询文件：{queriesFile}")
     print(f"📂 语料文件：{corpusFile}")

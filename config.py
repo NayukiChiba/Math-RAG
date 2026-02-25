@@ -211,7 +211,7 @@ def getRetrievalConfig() -> dict:
         "rewrite_max_terms": 10,
         "default_normalization": "percentile",
         "default_reranker_model": "BAAI/bge-reranker-v2-mixed",
-        "default_vector_model": "paraphrase-multilingual-MiniLM-L12-v2",
+        "default_vector_model": "BAAI/bge-base-zh-v1.5",
         "use_hybrid_tokenization": True,
         "eval_num_queries": 20,
         "eval_topk": 10,

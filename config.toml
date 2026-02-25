@@ -170,7 +170,7 @@ default_normalization = "percentile"
 
 # 模型
 default_reranker_model = "BAAI/bge-reranker-v2-mixed"
-default_vector_model = "paraphrase-multilingual-MiniLM-L12-v2"
+default_vector_model = "BAAI/bge-base-zh-v1.5"
 
 # 是否使用混合分词（词级 + 字符级）
 use_hybrid_tokenization = true

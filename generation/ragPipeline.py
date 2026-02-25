@@ -52,7 +52,7 @@ class RagPipeline:
         bm25IndexFile: str | None = None,
         vectorIndexFile: str | None = None,
         vectorEmbeddingFile: str | None = None,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        modelName: str = "BAAI/bge-base-zh-v1.5",
         hybridAlpha: float = 0.5,
         hybridBeta: float = 0.5,
     ):
