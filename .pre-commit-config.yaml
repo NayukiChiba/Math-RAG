@@ -15,9 +15,3 @@ repos:
         types: [python]
         additional_dependencies: [ruff]
         exclude: \.toml$
-      - id: pipreqs
-        name: pipreqs (generate requirements.txt)
-        entry: bash -c 'pipreqs . --force --encoding=utf-8 --mode no-pin'
-        language: system
-        pass_filenames: false
-        types: [python]
