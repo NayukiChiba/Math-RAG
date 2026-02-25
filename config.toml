@@ -134,7 +134,7 @@ temperature = 0.1
 top_p = 0.9
 max_new_tokens = 512
 # 本地模型目录（相对项目根目录）
-qwen_model_dir = "../Qwen-model"
+qwen_model_dir = "../Qwen-model-7B"
 
 [retrieval]
 # 检索模块配置

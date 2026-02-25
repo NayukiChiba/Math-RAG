@@ -45,13 +45,15 @@ try:
             NUM_GPUS = faiss.get_num_gpus()
             if NUM_GPUS > 0:
                 USE_GPU = True
-                print(f"✅ 检测到 {NUM_GPUS} 个 GPU，将使用 GPU 加速")
+                print(f"✅ FAISS 检索：检测到 {NUM_GPUS} 个 GPU，将使用 GPU 加速")
             else:
-                print("ℹ️ 使用 CPU 模式（未检测到 GPU）")
+                print(
+                    "ℹ️ FAISS 检索：使用 CPU 模式（不影响 Qwen 模型推理，模型仍使用 GPU）"
+                )
         except Exception:
-            print("ℹ️ 使用 CPU 模式（GPU 初始化失败）")
+            print("ℹ️ FAISS 检索：使用 CPU 模式（不影响 Qwen 模型推理，模型仍使用 GPU）")
     else:
-        print("ℹ️ 使用 CPU 模式（faiss-cpu 版本）")
+        print("ℹ️ FAISS 检索：使用 CPU 模式（faiss-cpu 版本，不影响 Qwen 模型推理）")
     _FAISS_AVAILABLE = True
 except ImportError:
     print("⚠️  faiss 未安装，向量检索功能不可用")

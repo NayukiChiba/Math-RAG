@@ -1,9 +1,8 @@
-faiss
+faiss-cpu
 gradio
 httpx
 Jinja2
 matplotlib
-nltk
 nltk
 numpy
 pix2text
@@ -14,7 +13,5 @@ rouge_score
 sentence_transformers
 tomli
 torch
-torch
-tqdm
 tqdm
 transformers
