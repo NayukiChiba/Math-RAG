@@ -207,9 +207,12 @@ class BM25Retriever:
 
     def tokenize(self, text: str) -> list[str]:
         """
-        分词函数（简单字符级分词）
+        分词函数（字符级 + 2-gram + 3-gram）
 
-        对于数学术语，使用字符级分词可以捕获部分匹配。
+        对于数学术语，使用字符级分词 + n-gram 可以捕获更多部分匹配：
+        - 字符级：保留每个字符
+        - 2-gram：每两个连续字符
+        - 3-gram：每三个连续字符
 
         Args:
             text: 待分词文本
@@ -217,11 +220,16 @@ class BM25Retriever:
         Returns:
             分词结果列表
         """
-        # 简单的字符级分词，去除空格和换行，保留数学符号和标点
         tokens = []
-        for char in text:
-            if char.strip():
-                tokens.append(char)
+        chars = [c for c in text if c.strip()]
+        # 字符级 token
+        tokens.extend(chars)
+        # 2-gram
+        for i in range(len(chars) - 1):
+            tokens.append(chars[i] + chars[i + 1])
+        # 3-gram
+        for i in range(len(chars) - 2):
+            tokens.append(chars[i] + chars[i + 1] + chars[i + 2])
         return tokens
 
     def buildIndex(self) -> None:
@@ -639,8 +647,8 @@ class VectorRetriever:
         if self.model is None:
             self.loadModel()
 
-        # 1. 查询同义词扩展
-        expandedTerms = self.queryRewriter.rewrite(query, maxTerms=5)
+        # 1. 查询同义词扩展（扩展到更多近义词以提升召回）
+        expandedTerms = self.queryRewriter.rewrite(query, maxTerms=8)
 
         # 2. 添加 BGE 查询指令前缀
         if self._isBgeModel:
@@ -809,17 +817,25 @@ class BM25PlusRetriever:
 
     def tokenize(self, text: str) -> list[str]:
         """
-        分词函数（改进版）
+        分词函数（改进版：词级 + 字符级 + 2-gram + 3-gram）
 
         对于数学术语，使用混合策略：
         1. 保留完整术语（按空格分词）
-        2. 同时保留字符级分词（用于部分匹配）
+        2. 字符级分词（用于部分匹配）
+        3. 2-gram / 3-gram（用于连续子串匹配，捕获如"二阶"等常见前缀）
         """
         # 按空格分词，保留数学术语完整性
         wordTokens = text.split()
 
-        # 字符级分词，用于部分匹配
-        charTokens = [char for char in text if char.strip()]
+        # 字符级 + n-gram
+        chars = [c for c in text if c.strip()]
+        charTokens = list(chars)
+        # 2-gram
+        for i in range(len(chars) - 1):
+            charTokens.append(chars[i] + chars[i + 1])
+        # 3-gram
+        for i in range(len(chars) - 2):
+            charTokens.append(chars[i] + chars[i + 1] + chars[i + 2])
 
         # 合并两种分词结果
         return wordTokens + charTokens

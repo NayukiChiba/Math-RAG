@@ -139,12 +139,12 @@ qwen_model_dir = "../Qwen-model-7B"
 [retrieval]
 # 检索模块配置
 
-# 召回因子：检索 topK * recall_factor 用于融合
-recall_factor = 5
+# 召回因子：检索 topK * recall_factor 用于融合（提升以增加召回率）
+recall_factor = 10
 # 高级检索每路召回数量
-advanced_recall_topk = 100
+advanced_recall_topk = 200
 # 重排序候选数量
-rerank_candidates = 50
+rerank_candidates = 100
 
 # RRF 参数
 rrf_k = 60

@@ -265,10 +265,14 @@ def evaluateMethod(
                     strategy=strategy,
                     alpha=0.85,
                     beta=0.15,
-                    recallFactor=8,
+                    recallFactor=10,
+                    expandQuery=True,
+                    useDirectLookup=True,
                 )
             elif method == "BM25+":
-                results = retriever.search(queryText, topK=topK, expandQuery=True)
+                results = retriever.search(
+                    queryText, topK=topK, expandQuery=True, injectDirectLookup=True
+                )
             else:
                 results = retriever.search(queryText, topK=topK)
         except Exception as e:
