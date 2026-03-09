@@ -15,10 +15,10 @@ import os
 from datetime import datetime
 
 import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
 
 matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -98,6 +98,8 @@ def _select_case_examples(
     recall1 = bm25p.get("recall@1", [])
     if not isinstance(recall5, list) or len(recall5) != len(queries):
         return [], []
+    if not isinstance(recall1, list) or len(recall1) != len(queries):
+        return [], []
 
     successes, failures = [], []
     for i, (q, r5, r1) in enumerate(zip(queries, recall5, recall1)):
@@ -158,8 +160,8 @@ def _fig_method_comparison(results_data: dict, figures_dir: str) -> str:
             row,
             width,
             label=method,
-            color=_COLORS[i],
-            hatch=_HATCHES[i],
+            color=_COLORS[i % len(_COLORS)],
+            hatch=_HATCHES[i % len(_HATCHES)],
             alpha=0.85,
         )
 
@@ -170,7 +172,8 @@ def _fig_method_comparison(results_data: dict, figures_dir: str) -> str:
     )
     ax.set_xticks(x)
     ax.set_xticklabels([f"K={k}" for k in ks], fontsize=11)
-    ax.set_ylim(0, 0.65)
+    max_val = max(v for row in data_matrix for v in row) if data_matrix else 0.0
+    ax.set_ylim(0, max_val * 1.15 if max_val > 0 else 0.7)
     ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(xmax=1.0))
     ax.legend(loc="upper left", fontsize=9)
     ax.grid(axis="y", linestyle="--", alpha=0.5)
@@ -206,8 +209,11 @@ def _fig_topk_ablation(ablation_data: dict, figures_dir: str) -> str:
     ax1.set_ylabel("Recall", fontsize=12)
     ax2.set_ylabel("MAP", fontsize=12)
     ax1.set_xticks(ks)
-    ax1.set_ylim(0, 0.65)
-    ax2.set_ylim(0, 0.65)
+    all_recall = r5 + r10
+    r_max = max(all_recall) if all_recall else 0.0
+    m_max = max(maps) if maps else 0.0
+    ax1.set_ylim(0, r_max * 1.2 if r_max > 0 else 0.7)
+    ax2.set_ylim(0, m_max * 1.2 if m_max > 0 else 0.7)
     ax1.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(xmax=1.0))
     ax2.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(xmax=1.0))
 
@@ -244,8 +250,14 @@ def _fig_alpha_sensitivity(ablation_data: dict, figures_dir: str) -> str:
     ax1.set_ylabel("Recall@5", fontsize=12)
     ax2.set_ylabel("MAP", fontsize=12)
     ax1.set_xticks(alphas)
-    ax1.set_ylim(0.50, 0.56)
-    ax2.set_ylim(0.54, 0.58)
+    r5_min = min(r5) if r5 else 0.0
+    r5_max = max(r5) if r5 else 1.0
+    m_min = min(maps) if maps else 0.0
+    m_max = max(maps) if maps else 1.0
+    r5_pad = max((r5_max - r5_min) * 0.5, 0.01)
+    m_pad = max((m_max - m_min) * 0.5, 0.01)
+    ax1.set_ylim(r5_min - r5_pad, r5_max + r5_pad)
+    ax2.set_ylim(m_min - m_pad, m_max + m_pad)
     ax1.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(xmax=1.0))
     ax2.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(xmax=1.0))
 
@@ -280,8 +292,8 @@ def _fig_subject_breakdown(
             vals,
             width,
             label=method,
-            color=_COLORS[i],
-            hatch=_HATCHES[i],
+            color=_COLORS[i % len(_COLORS)],
+            hatch=_HATCHES[i % len(_HATCHES)],
             alpha=0.85,
         )
 
@@ -290,7 +302,9 @@ def _fig_subject_breakdown(
     ax.set_title("Recall@5 by Subject", fontsize=13, fontweight="bold")
     ax.set_xticks(x)
     ax.set_xticklabels(subject_labels, fontsize=11)
-    ax.set_ylim(0, 0.72)
+    all_vals = [v for m in breakdown.values() for v in m.values()]
+    max_val = max(all_vals) if all_vals else 0.0
+    ax.set_ylim(0, max_val * 1.15 if max_val > 0 else 0.8)
     ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(xmax=1.0))
     ax.legend(loc="upper right", fontsize=9)
     ax.grid(axis="y", linestyle="--", alpha=0.5)
@@ -393,7 +407,7 @@ def _significance_section(sig_data: dict) -> str:
         pv = r5.get("p_value")
         t = r5.get("t_stat")
         sig = r5.get("significant_at_0.05", False)
-        if pv is None:
+        if pv is None or t is None:
             continue
         sig_text = "**显著（p < 0.05）**" if sig else "不显著"
         lines.append(
@@ -588,7 +602,7 @@ Bootstrap 重采样次数：{sig_data.get("n_resamples", 10000)}，配对双侧 
 1. **最优检索方法**：BM25+（Recall@5 = 52.31%，MRR = 1.0000，MAP = 0.5701）
 2. **向量检索局限**：在数学精确术语检索中，语义向量方法不优于词汇匹配，差异统计显著（p ≈ 0）
 3. **混合检索结论**：HybridPlus 与 BM25+ 无显著差异，额外的向量推理成本不值得
-4. **主要瓶颈**：概率论学科召回率（{_fmt_pct(list(list(breakdown.values())[0].values())[1] if breakdown else 0)}）显著低于其他学科，
+4. **主要瓶颈**：概率论学科召回率（{_fmt_pct(next(iter(breakdown.values()), {}).get("概率论", 0))}）显著低于其他学科，
    根本原因是语料库中概率论术语的等价表达覆盖不足
 5. **改进建议**：（a）扩充概率论同义词表；（b）使用 BM25+ 精确匹配 + Query Expansion 代替向量检索
 
