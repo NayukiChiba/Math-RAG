@@ -229,24 +229,23 @@ class QueryRewriter:
         if not query.strip():
             return [query]
 
-        expandedTerms = [query]  # 始终包含原始查询
+        # 去重辅助结构，保持顺序
+        seen = {query}
+        uniqueTerms = [query]  # 始终包含原始查询
 
-        # 查找匹配的术语
+        # 查找所有匹配的术语（不 break，收集全部匹配项）
         for term, synonyms in self.termsMap.items():
-            if term in query or query in term:
-                # 添加同义词
-                expandedTerms.extend(synonyms[: maxTerms - len(expandedTerms)])
+            if len(uniqueTerms) >= maxTerms:
                 break
+            if term in query or query in term:
+                for syn in synonyms:
+                    if len(uniqueTerms) >= maxTerms:
+                        break
+                    if syn not in seen:
+                        seen.add(syn)
+                        uniqueTerms.append(syn)
 
-        # 去重，保持顺序
-        seen = set()
-        uniqueTerms = []
-        for t in expandedTerms:
-            if t not in seen:
-                seen.add(t)
-                uniqueTerms.append(t)
-
-        return uniqueTerms[:maxTerms]
+        return uniqueTerms
 
     def rewriteBatch(
         self, queries: list[str], maxTerms: int = 10

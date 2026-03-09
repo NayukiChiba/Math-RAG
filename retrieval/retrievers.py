@@ -30,6 +30,22 @@ import numpy as np
 # 路径调整
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import config
+
+try:
+    _retriCfg = config.getRetrievalConfig()
+    _DEFAULT_VECTOR_MODEL: str = _retriCfg.get(
+        "default_vector_model", "BAAI/bge-base-zh-v1.5"
+    )
+    _DEFAULT_RERANKER_MODEL: str = _retriCfg.get(
+        "default_reranker_model", "BAAI/bge-reranker-v2-mixed"
+    )
+    _DEFAULT_BM25_NGRAM_MAX: int = int(_retriCfg.get("bm25_char_ngram_max", 3))
+except Exception:
+    _DEFAULT_VECTOR_MODEL = "BAAI/bge-base-zh-v1.5"
+    _DEFAULT_RERANKER_MODEL = "BAAI/bge-reranker-v2-mixed"
+    _DEFAULT_BM25_NGRAM_MAX = 3
+
 # ============================================================
 # GPU 检测（FAISS）
 # ============================================================
@@ -174,16 +190,20 @@ def printResults(
 class BM25Retriever:
     """BM25 检索器"""
 
-    def __init__(self, corpusFile: str, indexFile: str | None = None):
+    def __init__(
+        self, corpusFile: str, indexFile: str | None = None, ngramMax: int | None = None
+    ):
         """
         初始化 BM25 检索器
 
         Args:
             corpusFile: 语料文件路径（JSONL 格式）
             indexFile: 索引文件路径（pickle 格式），如果为 None 则不保存
+            ngramMax: 字符 n-gram 最大长度（None=读取配置，0/1=禁用，2=+2-gram，3=+3-gram）
         """
         self.corpusFile = corpusFile
         self.indexFile = indexFile
+        self.ngramMax = ngramMax if ngramMax is not None else _DEFAULT_BM25_NGRAM_MAX
         self.corpus = []
         self.bm25 = None
         self.tokenizedCorpus = []
@@ -207,9 +227,12 @@ class BM25Retriever:
 
     def tokenize(self, text: str) -> list[str]:
         """
-        分词函数（简单字符级分词）
+        分词函数（字符级 + 2-gram + 3-gram）
 
-        对于数学术语，使用字符级分词可以捕获部分匹配。
+        对于数学术语，使用字符级分词 + n-gram 可以捕获更多部分匹配：
+        - 字符级：保留每个字符
+        - 2-gram：每两个连续字符
+        - 3-gram：每三个连续字符
 
         Args:
             text: 待分词文本
@@ -217,11 +240,18 @@ class BM25Retriever:
         Returns:
             分词结果列表
         """
-        # 简单的字符级分词，去除空格和换行，保留数学符号和标点
         tokens = []
-        for char in text:
-            if char.strip():
-                tokens.append(char)
+        chars = [c for c in text if c.strip()]
+        # 字符级 token
+        tokens.extend(chars)
+        # 2-gram
+        if self.ngramMax >= 2:
+            for i in range(len(chars) - 1):
+                tokens.append(chars[i] + chars[i + 1])
+        # 3-gram
+        if self.ngramMax >= 3:
+            for i in range(len(chars) - 2):
+                tokens.append(chars[i] + chars[i + 1] + chars[i + 2])
         return tokens
 
     def buildIndex(self) -> None:
@@ -378,12 +408,16 @@ class BM25Retriever:
 class VectorRetriever:
     """向量检索器"""
 
+    # BGE 模型查询指令前缀（仅用于查询，不用于语料编码）
+    BGE_QUERY_INSTRUCTION = "为这个句子生成表示以用于检索中文维基百科中的相关文章："
+
     def __init__(
         self,
         corpusFile: str,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        modelName: str = _DEFAULT_VECTOR_MODEL,
         indexFile: str | None = None,
         embeddingFile: str | None = None,
+        termsFile: str | None = None,
     ):
         """
         初始化向量检索器
@@ -393,6 +427,7 @@ class VectorRetriever:
             modelName: Sentence Transformer 模型名称
             indexFile: FAISS 索引文件路径，如果为 None 则不保存
             embeddingFile: 嵌入向量文件路径（.npz），如果为 None 则不保存
+            termsFile: 术语文件路径（可选，用于查询同义词扩展）
         """
         self.corpusFile = corpusFile
         self.modelName = modelName
@@ -402,6 +437,17 @@ class VectorRetriever:
         self.model = None
         self.index = None
         self.embeddings = None
+
+        # 是否为 BGE 模型（需要查询指令前缀）
+        self._isBgeModel = "bge" in self.modelName.lower()
+
+        # 查询同义词扩展（仅在 termsFile 可用时初始化，否则退化为原始查询）
+        if termsFile is not None:
+            from retrieval.queryRewrite import QueryRewriter
+
+            self.queryRewriter = QueryRewriter(termsFile)
+        else:
+            self.queryRewriter = None
 
     def loadModel(self) -> None:
         """加载 Sentence Transformer 模型"""
@@ -611,7 +657,7 @@ class VectorRetriever:
 
     def search(self, query: str, topK: int = 10) -> list[dict[str, Any]]:
         """
-        单次查询
+        单次查询（支持 BGE 指令前缀 + 同义词扩展平均嵌入）
 
         Args:
             query: 查询字符串
@@ -626,8 +672,26 @@ class VectorRetriever:
         if self.model is None:
             self.loadModel()
 
-        # 生成查询嵌入
-        queryEmbedding = self.model.encode([query], convert_to_numpy=True)
+        # 1. 查询同义词扩展（扩展到更多近义词以提升召回；无 QueryRewriter 时退化为原始查询）
+        if self.queryRewriter is not None:
+            expandedTerms = self.queryRewriter.rewrite(query, maxTerms=8)
+        else:
+            expandedTerms = [query]
+
+        # 2. 添加 BGE 查询指令前缀
+        if self._isBgeModel:
+            encodingTexts = [self.BGE_QUERY_INSTRUCTION + t for t in expandedTerms]
+        else:
+            encodingTexts = expandedTerms
+
+        # 3. 编码所有扩展词
+        allEmbeddings = self.model.encode(encodingTexts, convert_to_numpy=True)
+
+        # 4. 取加权平均（原始查询权重更高）
+        weights = np.array([2.0] + [1.0] * (len(expandedTerms) - 1), dtype=np.float32)
+        weights = weights / weights.sum()
+        queryEmbedding = np.average(allEmbeddings, axis=0, weights=weights)
+        queryEmbedding = queryEmbedding.reshape(1, -1).astype(np.float32)
         faiss.normalize_L2(queryEmbedding)
 
         # 执行搜索
@@ -686,6 +750,7 @@ class BM25PlusRetriever:
         corpusFile: str,
         indexFile: str | None = None,
         termsFile: str | None = None,
+        ngramMax: int | None = None,
     ):
         """
         初始化 BM25+ 检索器
@@ -694,10 +759,12 @@ class BM25PlusRetriever:
             corpusFile: 语料文件路径（JSONL 格式）
             indexFile: 索引文件路径（pickle 格式）
             termsFile: 术语文件路径（用于查询扩展）
+            ngramMax: 字符 n-gram 最大长度（None=读取配置，0/1=禁用，2=+2-gram，3=+3-gram）
         """
         self.corpusFile = corpusFile
         self.indexFile = indexFile
         self.termsFile = termsFile
+        self.ngramMax = ngramMax if ngramMax is not None else _DEFAULT_BM25_NGRAM_MAX
         self.corpus = []
         self.bm25 = None
         self.tokenizedCorpus = []
@@ -781,17 +848,27 @@ class BM25PlusRetriever:
 
     def tokenize(self, text: str) -> list[str]:
         """
-        分词函数（改进版）
+        分词函数（改进版：词级 + 字符级 + 2-gram + 3-gram）
 
         对于数学术语，使用混合策略：
         1. 保留完整术语（按空格分词）
-        2. 同时保留字符级分词（用于部分匹配）
+        2. 字符级分词（用于部分匹配）
+        3. 2-gram / 3-gram（用于连续子串匹配，捕获如"二阶"等常见前缀）
         """
         # 按空格分词，保留数学术语完整性
         wordTokens = text.split()
 
-        # 字符级分词，用于部分匹配
-        charTokens = [char for char in text if char.strip()]
+        # 字符级 + n-gram
+        chars = [c for c in text if c.strip()]
+        charTokens = list(chars)
+        # 2-gram
+        if self.ngramMax >= 2:
+            for i in range(len(chars) - 1):
+                charTokens.append(chars[i] + chars[i + 1])
+        # 3-gram
+        if self.ngramMax >= 3:
+            for i in range(len(chars) - 2):
+                charTokens.append(chars[i] + chars[i + 1] + chars[i + 2])
 
         # 合并两种分词结果
         return wordTokens + charTokens
@@ -1105,7 +1182,7 @@ class HybridRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        modelName: str = _DEFAULT_VECTOR_MODEL,
     ):
         """
         初始化混合检索器
@@ -1399,7 +1476,7 @@ class HybridPlusRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        modelName: str = _DEFAULT_VECTOR_MODEL,
         termsFile: str | None = None,
     ):
         """
@@ -1757,7 +1834,7 @@ class RerankerRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        modelName: str = _DEFAULT_VECTOR_MODEL,
         rerankerModel: str = "bge-reranker-base",
     ):
         """
@@ -2021,8 +2098,8 @@ class AdvancedRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
-        rerankerModel: str = "BAAI/bge-reranker-v2-mixed",
+        modelName: str = _DEFAULT_VECTOR_MODEL,
+        rerankerModel: str = _DEFAULT_RERANKER_MODEL,
         termsFile: str | None = None,
     ):
         """

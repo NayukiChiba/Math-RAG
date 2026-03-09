@@ -35,7 +35,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
 from generation.promptTemplates import buildMessages
 from generation.qwenInference import QwenInference
-from retrieval.retrievers import BM25Retriever, HybridRetriever, VectorRetriever
+from retrieval.retrievers import (
+    BM25Retriever,
+    HybridPlusRetriever,
+    VectorRetriever,
+)
 
 # 检索策略类型
 RetrievalStrategy = Literal["bm25", "vector", "hybrid"]
@@ -52,7 +56,7 @@ class RagPipeline:
         bm25IndexFile: str | None = None,
         vectorIndexFile: str | None = None,
         vectorEmbeddingFile: str | None = None,
-        modelName: str = "paraphrase-multilingual-MiniLM-L12-v2",
+        modelName: str = "BAAI/bge-base-zh-v1.5",
         hybridAlpha: float = 0.5,
         hybridBeta: float = 0.5,
     ):
@@ -144,9 +148,13 @@ class RagPipeline:
                 self._retriever.saveIndex()
 
         elif self.strategy == "hybrid":
-            self._retriever = HybridRetriever(
+            # 使用 HybridPlusRetriever 替换 HybridRetriever，支持查询扩展与直接术语查找
+            bm25PlusIndexFile = os.path.join(
+                os.path.dirname(self.bm25IndexFile), "bm25plus_index.pkl"
+            )
+            self._retriever = HybridPlusRetriever(
                 self.corpusFile,
-                self.bm25IndexFile,
+                bm25PlusIndexFile,
                 self.vectorIndexFile,
                 self.vectorEmbeddingFile,
                 self.modelName,
@@ -188,6 +196,9 @@ class RagPipeline:
                 strategy="weighted",
                 alpha=self.hybridAlpha,
                 beta=self.hybridBeta,
+                expandQuery=True,
+                recallFactor=10,
+                useDirectLookup=True,
             )
         else:
             results = self._retriever.search(queryText, topK=self.topK)

@@ -265,10 +265,14 @@ def evaluateMethod(
                     strategy=strategy,
                     alpha=0.85,
                     beta=0.15,
-                    recallFactor=8,
+                    recallFactor=10,
+                    expandQuery=True,
+                    useDirectLookup=True,
                 )
             elif method == "BM25+":
-                results = retriever.search(queryText, topK=topK, expandQuery=True)
+                results = retriever.search(
+                    queryText, topK=topK, expandQuery=True, injectDirectLookup=True
+                )
             else:
                 results = retriever.search(queryText, topK=topK)
         except Exception as e:
@@ -516,7 +520,9 @@ def main():
         config.PROCESSED_DIR, "retrieval", "vector_embeddings.npz"
     )
     termsFile = os.path.join(config.PROCESSED_DIR, "terms", "all_terms.json")
-    embeddingModel = "paraphrase-multilingual-MiniLM-L12-v2"
+    embeddingModel = config.getRetrievalConfig().get(
+        "default_vector_model", "BAAI/bge-base-zh-v1.5"
+    )
 
     for method in args.methods:
         print(f"\n🔄 初始化检索器: {method.upper()}")

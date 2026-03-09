@@ -194,7 +194,7 @@ data/processed/retrieval/
 | `bm25_default_weight` | 0.7 | BM25 默认权重 |
 | `vector_default_weight` | 0.3 | 向量默认权重 |
 | `default_normalization` | `percentile` | 归一化方法 |
-| `default_vector_model` | `paraphrase-multilingual-MiniLM-L12-v2` | 向量模型 |
+| `default_vector_model` | `BAAI/bge-base-zh-v1.5` | 向量模型 |
 | `default_reranker_model` | `BAAI/bge-reranker-v2-mixed` | 重排序模型 |
 | `use_hybrid_tokenization` | `true` | 混合分词（词级 + 字符级） |
 

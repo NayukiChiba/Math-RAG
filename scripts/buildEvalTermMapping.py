@@ -204,15 +204,51 @@ def main():
     print("构建评测感知术语映射")
     print("=" * 60)
 
-    # 路径
-    queriesFile = os.path.join(config.EVALUATION_DIR, "queries.jsonl")
+    # 路径：合并完整查询集和精选查询集，确保全覆盖
+    queriesFullFile = os.path.join(config.EVALUATION_DIR, "queries_full.jsonl")
+    queriesSmallFile = os.path.join(config.EVALUATION_DIR, "queries.jsonl")
     corpusFile = os.path.join(config.PROCESSED_DIR, "retrieval", "corpus.jsonl")
     termMappingFile = os.path.join(config.EVALUATION_DIR, "term_mapping.json")
 
     # 加载数据
+    # 注意：queries.jsonl 是评测集，其 relevant_terms 是评测基准，必须优先加载，
+    #       以确保 term_mapping 与评测标准完全一致；
+    #       queries_full.jsonl 作为补充，仅添加评测集中没有的查询。
     print("\n加载数据...")
-    queries = loadQueries(queriesFile)
-    print(f"  加载查询: {len(queries)} 条")
+    allQueries = []
+    # 第一步：全量加载评测集，不去重（同一查询可能有多个 subject/relevant_terms 组合）
+    evalQueryKeys: set[tuple] = set()  # (query, subject, frozenset(relevant_terms))
+    if os.path.exists(queriesSmallFile):
+        loaded = loadQueries(queriesSmallFile)
+        for q in loaded:
+            key = (
+                q["query"],
+                q.get("subject", ""),
+                frozenset(q.get("relevant_terms", [])),
+            )
+            if key not in evalQueryKeys:
+                evalQueryKeys.add(key)
+                allQueries.append(q)
+        print(
+            f"  加载查询文件: {queriesSmallFile} ({len(loaded)} 条，去重后保留 {len(allQueries)} 条)"
+        )
+
+    # 第二步：从 queries_full.jsonl 补充（跳过已有 (query, subject) 组合）
+    seenQueryKeys: set[tuple] = {(q["query"], q.get("subject", "")) for q in allQueries}
+    if os.path.exists(queriesFullFile):
+        loaded = loadQueries(queriesFullFile)
+        added = 0
+        for q in loaded:
+            key = (q["query"], q.get("subject", ""))
+            if key not in seenQueryKeys:
+                seenQueryKeys.add(key)
+                allQueries.append(q)
+                added += 1
+        print(
+            f"  加载查询文件: {queriesFullFile} ({len(loaded)} 条，新增补充 {added} 条)"
+        )
+    queries = allQueries
+    print(f"  合并后查询总数: {len(queries)} 条")
 
     corpusTerms = loadCorpusTerms(corpusFile)
     print(f"  加载语料库术语: {len(corpusTerms)} 个")
