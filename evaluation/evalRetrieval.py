@@ -231,6 +231,15 @@ def evaluateMethod(
     Returns:
         评测结果字典
     """
+    if not (0.0 <= alpha <= 1.0):
+        raise ValueError(f"alpha must be in [0, 1], got {alpha}")
+    if not (0.0 <= beta <= 1.0):
+        raise ValueError(f"beta must be in [0, 1], got {beta}")
+    if alpha + beta <= 0.0:
+        raise ValueError(f"alpha + beta must be > 0, got alpha={alpha}, beta={beta}")
+    if recallFactor <= 0:
+        raise ValueError(f"recallFactor must be > 0, got {recallFactor}")
+
     print(f"\n{'=' * 60}")
     print(f"📊 评测方法: {method}")
     print(f"{'=' * 60}")

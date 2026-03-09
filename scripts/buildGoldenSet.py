@@ -6,12 +6,24 @@
 import json
 import os
 
-# 加载语料库
-entries = {}
-with open("data/processed/retrieval/corpus.jsonl") as f:
-    for line in f:
-        d = json.loads(line)
-        entries[d["term"]] = d
+# 项目根目录（脚本位于 scripts/，上级为根目录）
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _load_entries(corpus_path: str) -> dict:
+    """加载 corpus.jsonl 为 term → entry 字典"""
+    result: dict = {}
+    with open(corpus_path, encoding="utf-8") as f:
+        for line in f:
+            d = json.loads(line)
+            result[d["term"]] = d
+    return result
+
+
+# 模块级加载，供 get_def 使用（路径和编码均已显式指定）
+entries = _load_entries(
+    os.path.join(_REPO_ROOT, "data", "processed", "retrieval", "corpus.jsonl")
+)
 
 
 def get_def(term: str) -> str:
@@ -39,7 +51,7 @@ math_analysis = [
     # ---- easy (8) ----
     {
         "query": "什么是收敛数列？",
-        "expected_terms": ["收敛数列", "收敛序列", "收敛点列"],
+        "expected_terms": ["收敛数列", "收敛点列"],
         "expected_answer": get_def("收敛数列"),
         "subject": "数学分析",
         "difficulty": "easy",
@@ -517,24 +529,26 @@ linear_algebra = [
 # ============================================================
 # 合并并写出
 # ============================================================
-golden = math_analysis + probability + linear_algebra
-print(f"总条数: {len(golden)}")
-print(f"  数学分析: {sum(1 for q in golden if q['subject'] == '数学分析')}")
-print(f"  概率论:   {sum(1 for q in golden if q['subject'] == '概率论')}")
-print(f"  高等代数: {sum(1 for q in golden if q['subject'] == '高等代数')}")
+if __name__ == "__main__":
+    golden = math_analysis + probability + linear_algebra
+    print(f"总条数: {len(golden)}")
+    print(f"  数学分析: {sum(1 for q in golden if q['subject'] == '数学分析')}")
+    print(f"  概率论:   {sum(1 for q in golden if q['subject'] == '概率论')}")
+    print(f"  高等代数: {sum(1 for q in golden if q['subject'] == '高等代数')}")
 
-os.makedirs("data/evaluation", exist_ok=True)
-with open("data/evaluation/golden_set.jsonl", "w", encoding="utf-8") as f:
-    for item in golden:
-        f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    output_path = os.path.join(_REPO_ROOT, "data", "evaluation", "golden_set.jsonl")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        for item in golden:
+            f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
-print("已写入 data/evaluation/golden_set.jsonl")
+    print(f"已写入 {output_path}")
 
-# 验证：抽样打印
-print("\n--- 抽样三条 ---")
-for i in [0, 21, 41]:
-    q = golden[i]
-    print(f"[{q['subject']} / {q['difficulty']}] {q['query']}")
-    print(f"  expected_terms: {q['expected_terms']}")
-    print(f"  answer snippet: {q['expected_answer'][:80]}...")
-    print()
+    # 验证：抽样打印
+    print("\n--- 抽样三条 ---")
+    for i in [0, 21, 41]:
+        q = golden[i]
+        print(f"[{q['subject']} / {q['difficulty']}] {q['query']}")
+        print(f"  expected_terms: {q['expected_terms']}")
+        print(f"  answer snippet: {q['expected_answer'][:80]}...")
+        print()
