@@ -175,6 +175,9 @@ default_vector_model = "BAAI/bge-base-zh-v1.5"
 # 是否使用混合分词（词级 + 字符级）
 use_hybrid_tokenization = true
 
+# BM25 字符 n-gram 最大长度（0/1=仅字符级，2=+2-gram，3=+2-gram+3-gram）
+bm25_char_ngram_max = 3
+
 # 评测配置
 eval_num_queries = 20
 eval_topk = 10

@@ -213,6 +213,7 @@ def getRetrievalConfig() -> dict:
         "default_reranker_model": "BAAI/bge-reranker-v2-mixed",
         "default_vector_model": "BAAI/bge-base-zh-v1.5",
         "use_hybrid_tokenization": True,
+        "bm25_char_ngram_max": 3,
         "eval_num_queries": 20,
         "eval_topk": 10,
         "eval_hybrid_alpha": 0.85,

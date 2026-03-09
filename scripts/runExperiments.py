@@ -115,7 +115,9 @@ class ExperimentRunner:
         vectorIndexFile = os.path.join(retrievalDir, "vector_index.faiss")
         vectorEmbeddingFile = os.path.join(retrievalDir, "vector_embeddings.npz")
         termsFile = os.path.join(config.PROCESSED_DIR, "terms", "all_terms.json")
-        embeddingModel = "BAAI/bge-base-zh-v1.5"
+        embeddingModel = config.getRetrievalConfig().get(
+            "default_vector_model", "BAAI/bge-base-zh-v1.5"
+        )
 
         print(f"🔧 初始化检索器（策略: {strategy}）...")
 

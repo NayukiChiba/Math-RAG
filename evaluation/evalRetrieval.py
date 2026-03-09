@@ -520,7 +520,9 @@ def main():
         config.PROCESSED_DIR, "retrieval", "vector_embeddings.npz"
     )
     termsFile = os.path.join(config.PROCESSED_DIR, "terms", "all_terms.json")
-    embeddingModel = "BAAI/bge-base-zh-v1.5"
+    embeddingModel = config.getRetrievalConfig().get(
+        "default_vector_model", "BAAI/bge-base-zh-v1.5"
+    )
 
     for method in args.methods:
         print(f"\n🔄 初始化检索器: {method.upper()}")

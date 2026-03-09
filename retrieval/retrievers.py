@@ -30,6 +30,22 @@ import numpy as np
 # 路径调整
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import config
+
+try:
+    _retriCfg = config.getRetrievalConfig()
+    _DEFAULT_VECTOR_MODEL: str = _retriCfg.get(
+        "default_vector_model", "BAAI/bge-base-zh-v1.5"
+    )
+    _DEFAULT_RERANKER_MODEL: str = _retriCfg.get(
+        "default_reranker_model", "BAAI/bge-reranker-v2-mixed"
+    )
+    _DEFAULT_BM25_NGRAM_MAX: int = int(_retriCfg.get("bm25_char_ngram_max", 3))
+except Exception:
+    _DEFAULT_VECTOR_MODEL = "BAAI/bge-base-zh-v1.5"
+    _DEFAULT_RERANKER_MODEL = "BAAI/bge-reranker-v2-mixed"
+    _DEFAULT_BM25_NGRAM_MAX = 3
+
 # ============================================================
 # GPU 检测（FAISS）
 # ============================================================
@@ -174,16 +190,20 @@ def printResults(
 class BM25Retriever:
     """BM25 检索器"""
 
-    def __init__(self, corpusFile: str, indexFile: str | None = None):
+    def __init__(
+        self, corpusFile: str, indexFile: str | None = None, ngramMax: int | None = None
+    ):
         """
         初始化 BM25 检索器
 
         Args:
             corpusFile: 语料文件路径（JSONL 格式）
             indexFile: 索引文件路径（pickle 格式），如果为 None 则不保存
+            ngramMax: 字符 n-gram 最大长度（None=读取配置，0/1=禁用，2=+2-gram，3=+3-gram）
         """
         self.corpusFile = corpusFile
         self.indexFile = indexFile
+        self.ngramMax = ngramMax if ngramMax is not None else _DEFAULT_BM25_NGRAM_MAX
         self.corpus = []
         self.bm25 = None
         self.tokenizedCorpus = []
@@ -225,11 +245,13 @@ class BM25Retriever:
         # 字符级 token
         tokens.extend(chars)
         # 2-gram
-        for i in range(len(chars) - 1):
-            tokens.append(chars[i] + chars[i + 1])
+        if self.ngramMax >= 2:
+            for i in range(len(chars) - 1):
+                tokens.append(chars[i] + chars[i + 1])
         # 3-gram
-        for i in range(len(chars) - 2):
-            tokens.append(chars[i] + chars[i + 1] + chars[i + 2])
+        if self.ngramMax >= 3:
+            for i in range(len(chars) - 2):
+                tokens.append(chars[i] + chars[i + 1] + chars[i + 2])
         return tokens
 
     def buildIndex(self) -> None:
@@ -392,7 +414,7 @@ class VectorRetriever:
     def __init__(
         self,
         corpusFile: str,
-        modelName: str = "BAAI/bge-base-zh-v1.5",
+        modelName: str = _DEFAULT_VECTOR_MODEL,
         indexFile: str | None = None,
         embeddingFile: str | None = None,
         termsFile: str | None = None,
@@ -417,12 +439,15 @@ class VectorRetriever:
         self.embeddings = None
 
         # 是否为 BGE 模型（需要查询指令前缀）
-        self._isBgeModel = "bge" in modelName.lower()
+        self._isBgeModel = "bge" in self.modelName.lower()
 
-        # 查询同义词扩展
-        from retrieval.queryRewrite import QueryRewriter
+        # 查询同义词扩展（仅在 termsFile 可用时初始化，否则退化为原始查询）
+        if termsFile is not None:
+            from retrieval.queryRewrite import QueryRewriter
 
-        self.queryRewriter = QueryRewriter(termsFile)
+            self.queryRewriter = QueryRewriter(termsFile)
+        else:
+            self.queryRewriter = None
 
     def loadModel(self) -> None:
         """加载 Sentence Transformer 模型"""
@@ -647,8 +672,11 @@ class VectorRetriever:
         if self.model is None:
             self.loadModel()
 
-        # 1. 查询同义词扩展（扩展到更多近义词以提升召回）
-        expandedTerms = self.queryRewriter.rewrite(query, maxTerms=8)
+        # 1. 查询同义词扩展（扩展到更多近义词以提升召回；无 QueryRewriter 时退化为原始查询）
+        if self.queryRewriter is not None:
+            expandedTerms = self.queryRewriter.rewrite(query, maxTerms=8)
+        else:
+            expandedTerms = [query]
 
         # 2. 添加 BGE 查询指令前缀
         if self._isBgeModel:
@@ -722,6 +750,7 @@ class BM25PlusRetriever:
         corpusFile: str,
         indexFile: str | None = None,
         termsFile: str | None = None,
+        ngramMax: int | None = None,
     ):
         """
         初始化 BM25+ 检索器
@@ -730,10 +759,12 @@ class BM25PlusRetriever:
             corpusFile: 语料文件路径（JSONL 格式）
             indexFile: 索引文件路径（pickle 格式）
             termsFile: 术语文件路径（用于查询扩展）
+            ngramMax: 字符 n-gram 最大长度（None=读取配置，0/1=禁用，2=+2-gram，3=+3-gram）
         """
         self.corpusFile = corpusFile
         self.indexFile = indexFile
         self.termsFile = termsFile
+        self.ngramMax = ngramMax if ngramMax is not None else _DEFAULT_BM25_NGRAM_MAX
         self.corpus = []
         self.bm25 = None
         self.tokenizedCorpus = []
@@ -831,11 +862,13 @@ class BM25PlusRetriever:
         chars = [c for c in text if c.strip()]
         charTokens = list(chars)
         # 2-gram
-        for i in range(len(chars) - 1):
-            charTokens.append(chars[i] + chars[i + 1])
+        if self.ngramMax >= 2:
+            for i in range(len(chars) - 1):
+                charTokens.append(chars[i] + chars[i + 1])
         # 3-gram
-        for i in range(len(chars) - 2):
-            charTokens.append(chars[i] + chars[i + 1] + chars[i + 2])
+        if self.ngramMax >= 3:
+            for i in range(len(chars) - 2):
+                charTokens.append(chars[i] + chars[i + 1] + chars[i + 2])
 
         # 合并两种分词结果
         return wordTokens + charTokens
@@ -1149,7 +1182,7 @@ class HybridRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "BAAI/bge-base-zh-v1.5",
+        modelName: str = _DEFAULT_VECTOR_MODEL,
     ):
         """
         初始化混合检索器
@@ -1443,7 +1476,7 @@ class HybridPlusRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "BAAI/bge-base-zh-v1.5",
+        modelName: str = _DEFAULT_VECTOR_MODEL,
         termsFile: str | None = None,
     ):
         """
@@ -1801,7 +1834,7 @@ class RerankerRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "BAAI/bge-base-zh-v1.5",
+        modelName: str = _DEFAULT_VECTOR_MODEL,
         rerankerModel: str = "bge-reranker-base",
     ):
         """
@@ -2065,8 +2098,8 @@ class AdvancedRetriever:
         bm25IndexFile: str,
         vectorIndexFile: str,
         vectorEmbeddingFile: str,
-        modelName: str = "BAAI/bge-base-zh-v1.5",
-        rerankerModel: str = "BAAI/bge-reranker-v2-mixed",
+        modelName: str = _DEFAULT_VECTOR_MODEL,
+        rerankerModel: str = _DEFAULT_RERANKER_MODEL,
         termsFile: str | None = None,
     ):
         """
