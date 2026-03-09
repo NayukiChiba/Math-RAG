@@ -24,10 +24,15 @@ def bootstrap_ci(
     arr = np.array(scores, dtype=np.float32)
     rng = np.random.default_rng(42)
     # 分批次避免内存溢出（每批 500 次）
-    batch = 500
+    batch = min(500, n_resamples)
     means = []
-    for _ in range(n_resamples // batch):
+    n_full = n_resamples // batch
+    remainder = n_resamples % batch
+    for _ in range(n_full):
         idx = rng.integers(0, len(arr), size=(batch, len(arr)))
+        means.append(arr[idx].mean(axis=1))
+    if remainder:
+        idx = rng.integers(0, len(arr), size=(remainder, len(arr)))
         means.append(arr[idx].mean(axis=1))
     means_arr = np.concatenate(means)
     alpha = (1.0 - ci) / 2.0
@@ -49,6 +54,10 @@ def paired_t_test(a: list[float], b: list[float]) -> dict:
     Returns:
         dict: t_stat / p_value / significant (p<0.05)
     """
+    if len(a) != len(b):
+        raise ValueError(
+            f"配对 t 检验要求两组得分长度相同，但 len(a)={len(a)}, len(b)={len(b)}"
+        )
     t_stat, p_value = stats.ttest_rel(a, b)
     return {
         "t_stat": round(float(t_stat), 6),
@@ -108,18 +117,21 @@ def run_significance_test(
                 comparison["metrics"][metric] = paired_t_test(a_scores, b_scores)
         t_test_results.append(comparison)
 
+    first_result = next(iter(results_map.values()))
+    first_r5 = first_result.get("recall@5", [])
+    default_total = len(first_r5) if isinstance(first_r5, list) else 0
     report = {
         "source_file": os.path.basename(input_path),
-        "total_queries": data.get(
-            "total_queries", len(next(iter(results_map.values()))["recall@5"])
-        ),
+        "total_queries": data.get("total_queries", default_total),
         "n_resamples": n_resamples,
         "methods_tested": list(results_map.keys()),
         "bootstrap_ci": bootstrap_results,
         "paired_t_tests": t_test_results,
     }
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    dir_name = os.path.dirname(output_path)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
 
@@ -131,19 +143,29 @@ def run_significance_test(
     print("-" * 60)
     for m in results_map:
         ci = bootstrap_results[m].get("recall@5", {})
-        mean = ci.get("mean", "N/A")
-        lo = ci.get("ci_lower", "?")
-        hi = ci.get("ci_upper", "?")
-        print(f"{m:<22} {mean:>14.4f} [{lo:.4f}, {hi:.4f}]")
+        mean = ci.get("mean")
+        lo = ci.get("ci_lower")
+        hi = ci.get("ci_upper")
+        if (
+            isinstance(mean, (int, float))
+            and isinstance(lo, (int, float))
+            and isinstance(hi, (int, float))
+        ):
+            print(f"{m:<22} {mean:>14.4f} [{lo:.4f}, {hi:.4f}]")
+        else:
+            print(f"{m:<22} {'N/A':>14} [?, ?]")
 
     print(f"\n{'对比':<35} {'Recall@5 p值':>14} {'显著(p<0.05)':>14}")
     print("-" * 65)
     for comp in t_test_results:
         label = f"{comp['method_a']} vs {comp['method_b']}"
         r5 = comp["metrics"].get("recall@5", {})
-        pv = r5.get("p_value", "N/A")
-        sig = "✅ 是" if r5.get("significant_at_0.05") else "❌ 否"
-        print(f"{label:<35} {pv:>14.2e} {sig:>14}")
+        pv = r5.get("p_value")
+        sig = "[yes]" if r5.get("significant_at_0.05") else "[no]"
+        if isinstance(pv, (int, float)):
+            print(f"{label:<35} {pv:>14.2e} {sig:>14}")
+        else:
+            print(f"{label:<35} {'N/A':>14} {sig:>14}")
 
     print(f"\n✅ 显著性检验报告已保存: {output_path}")
 
