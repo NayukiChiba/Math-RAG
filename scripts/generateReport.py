@@ -504,8 +504,8 @@ def generate_report(
         try:
             comparison_data = _load_json(comparison_path)
             print(f"[数据] 生成对比: {len(comparison_data.get('groups', []))} 组")
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[警告] 生成对比结果加载失败: {comparison_path} ({exc})")
 
     os.makedirs(figures_dir, exist_ok=True)
     dir_name = os.path.dirname(output_path)

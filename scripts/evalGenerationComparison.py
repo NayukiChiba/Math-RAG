@@ -243,6 +243,13 @@ def run_norag_baseline(
 
 def build_comparison_report(groups: list[dict[str, Any]]) -> dict[str, Any]:
     """组合各实验组结果，生成对比报告 JSON。"""
+    if not groups:
+        return {
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "total_groups": 0,
+            "groups": [],
+            "comparison": {},
+        }
     best_term = max(groups, key=lambda g: g["generation_metrics"]["term_hit_rate"])
     best_src = max(
         groups, key=lambda g: g["generation_metrics"]["source_citation_rate"]
@@ -344,6 +351,12 @@ def main() -> None:
     print("🔬 Math-RAG 生成质量对比实验")
     print("=" * 60)
 
+    # 文件存在性检查
+    for label, path in [("RAG结果", args.rag_results), ("查询集", args.queries)]:
+        if not os.path.isfile(path):
+            print(f"[错误] {label}文件不存在: {path}")
+            sys.exit(1)
+
     # 加载数据
     rag_results = _load_rag_results(args.rag_results)
     gold_map = _load_queries(args.queries)
@@ -361,7 +374,7 @@ def main() -> None:
     # 2. 无检索基线
     run_norag = not args.skip_norag and args.norag_limit > 0
     if run_norag:
-        all_queries = list(gold_map.values())
+        all_queries = sorted(gold_map.values(), key=lambda q: q["query"])
         norag_queries = all_queries[: args.norag_limit]
         norag_group = run_norag_baseline(norag_queries, gold_map)
         groups.append(norag_group)
