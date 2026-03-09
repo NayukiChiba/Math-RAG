@@ -212,6 +212,9 @@ def evaluateMethod(
     retriever: Any,
     queries: list[dict],
     topK: int = 10,
+    alpha: float = 0.7,
+    beta: float = 0.3,
+    recallFactor: int = 10,
 ) -> dict[str, Any]:
     """
     评测单个检索方法
@@ -221,6 +224,9 @@ def evaluateMethod(
         retriever: 检索器实例
         queries: 查询列表
         topK: TopK 阈值
+        alpha: 混合检索 BM25 权重（仅 Hybrid+）
+        beta: 混合检索向量权重（仅 Hybrid+）
+        recallFactor: 混合检索召回因子（仅 Hybrid+）
 
     Returns:
         评测结果字典
@@ -263,9 +269,9 @@ def evaluateMethod(
                     queryText,
                     topK=topK,
                     strategy=strategy,
-                    alpha=0.85,
-                    beta=0.15,
-                    recallFactor=10,
+                    alpha=alpha,
+                    beta=beta,
+                    recallFactor=recallFactor,
                     expandQuery=True,
                     useDirectLookup=True,
                 )
@@ -480,6 +486,25 @@ def main():
         default=os.path.join(config.getReportsDir(), "retrieval_metrics.json"),
         help="输出报告路径",
     )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.7,
+        help="混合检索 BM25 权重（默认 0.7）",
+    )
+    parser.add_argument(
+        "--beta",
+        type=float,
+        default=0.3,
+        help="混合检索向量权重（默认 0.3）",
+    )
+    parser.add_argument(
+        "--recall-factor",
+        type=int,
+        default=10,
+        dest="recallFactor",
+        help="混合检索召回因子（默认 10）",
+    )
 
     args = parser.parse_args()
 
@@ -489,6 +514,9 @@ def main():
     print(f"查询集: {args.queries}")
     print(f"评测方法: {', '.join(args.methods)}")
     print(f"TopK: {args.topk}")
+    print(
+        f"Hybrid alpha/beta: {args.alpha}/{args.beta}  recallFactor: {args.recallFactor}"
+    )
     print("=" * 60)
 
     # 加载查询集
@@ -596,7 +624,15 @@ def main():
     allMetrics = []
     for methodName, retriever in retrievers.items():
         try:
-            metrics = evaluateMethod(methodName, retriever, queries, args.topk)
+            metrics = evaluateMethod(
+                methodName,
+                retriever,
+                queries,
+                args.topk,
+                alpha=args.alpha,
+                beta=args.beta,
+                recallFactor=args.recallFactor,
+            )
             allMetrics.append(metrics)
         except Exception as e:
             print(f"❌ 评测 {methodName} 失败: {e}")
