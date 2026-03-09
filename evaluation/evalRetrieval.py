@@ -275,6 +275,15 @@ def evaluateMethod(
                     expandQuery=True,
                     useDirectLookup=True,
                 )
+            elif method == "Hybrid-Weighted":
+                results = retriever.search(
+                    queryText,
+                    topK=topK,
+                    strategy="weighted",
+                    alpha=alpha,
+                    beta=beta,
+                    verbose=False,
+                )
             elif method == "BM25+":
                 results = retriever.search(
                     queryText, topK=topK, expandQuery=True, injectDirectLookup=True
@@ -466,7 +475,14 @@ def main():
         "--methods",
         nargs="+",
         default=["bm25plus", "vector", "hybrid-plus-weighted", "hybrid-plus-rrf"],
-        choices=["bm25plus", "vector", "hybrid-plus-weighted", "hybrid-plus-rrf"],
+        choices=[
+            "bm25",
+            "bm25plus",
+            "vector",
+            "hybrid-weighted",
+            "hybrid-plus-weighted",
+            "hybrid-plus-rrf",
+        ],
         help="要评测的检索方法",
     )
     parser.add_argument(
@@ -538,6 +554,7 @@ def main():
     corpusPath = os.path.join(config.PROCESSED_DIR, "retrieval", "corpus.jsonl")
 
     # 定义索引文件路径
+    bm25IndexFile = os.path.join(config.PROCESSED_DIR, "retrieval", "bm25_index.pkl")
     bm25PlusIndexFile = os.path.join(
         config.PROCESSED_DIR, "retrieval", "bm25plus_index.pkl"
     )
@@ -555,7 +572,16 @@ def main():
     for method in args.methods:
         print(f"\n🔄 初始化检索器: {method.upper()}")
         try:
-            if method == "bm25plus":
+            if method == "bm25":
+                from retrieval.retrievers import BM25Retriever
+
+                retriever = BM25Retriever(corpusPath, bm25IndexFile)
+                if not retriever.loadIndex():
+                    print("  索引不存在，开始构建...")
+                    retriever.buildIndex()
+                    retriever.saveIndex()
+                retrievers["BM25"] = retriever
+            elif method == "bm25plus":
                 from retrieval.retrievers import BM25PlusRetriever
 
                 retriever = BM25PlusRetriever(corpusPath, bm25PlusIndexFile, termsFile)
@@ -606,6 +632,17 @@ def main():
                     termsFile,
                 )
                 retrievers["Hybrid+-RRF"] = retriever
+            elif method == "hybrid-weighted":
+                from retrieval.retrievers import HybridRetriever
+
+                retriever = HybridRetriever(
+                    corpusPath,
+                    bm25IndexFile,
+                    vectorIndexFile,
+                    vectorEmbeddingFile,
+                    embeddingModel,
+                )
+                retrievers["Hybrid-Weighted"] = retriever
         except (ImportError, SystemExit) as e:
             # P1-2 修复：捕获 SystemExit，避免进程退出（如 faiss 缺失时）
             print(f"❌ 初始化失败（缺少依赖）: {e}")
