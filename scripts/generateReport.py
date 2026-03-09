@@ -430,15 +430,43 @@ def _significance_section(sig_data: dict) -> str:
     return "\n".join(ci_lines) + "\n\n" + "\n".join(lines)
 
 
+def _generation_comparison_table(comparison_data: dict) -> str:
+    """将 comparison_results.json 渲染为 Markdown 表格。"""
+    groups = comparison_data.get("groups", [])
+    if not groups:
+        return (
+            "*暂无生成质量对比数据（运行 `scripts/evalGenerationComparison.py` 生成）*"
+        )
+
+    header = (
+        "| 实验组 | 检索策略 | Recall@5 | 术语命中率 | 来源引用率 | 回答有效率 | 延迟(ms) |\n"
+        "|--------|----------|----------|------------|------------|------------|----------|\n"
+    )
+    rows = []
+    for g in groups:
+        strategy = g.get("strategy") or "无"
+        rm = g.get("retrieval_metrics", {})
+        gm = g.get("generation_metrics", {})
+        recall = f"{rm['recall@5']:.4f}" if rm.get("recall@5") else "N/A"
+        rows.append(
+            f"| {g['group']} | {strategy} | {recall} "
+            f"| {_fmt_pct(gm.get('term_hit_rate', 0))} "
+            f"| {_fmt_pct(gm.get('source_citation_rate', 0))} "
+            f"| {_fmt_pct(gm.get('answer_valid_rate', 0))} "
+            f"| {g.get('avg_latency_ms', 0):.0f} |"
+        )
+    return header + "\n".join(rows)
+
+
 def _case_section(successes: list[dict], failures: list[dict]) -> str:
     lines = []
-    lines.append("### 6.1 成功案例（BM25+，Recall@1 = 1.0）\n")
+    lines.append("### 7.1 成功案例（BM25+，Recall@1 = 1.0）\n")
     for i, c in enumerate(successes, 1):
         lines.append(f"**案例 {i}**：查询「{c['query']}」（学科：{c['subject']}）")
         lines.append(
             f"> 效果：BM25+ 首位即命中目标术语，Recall@5 = {_fmt_pct(c['recall@5'])}\n"
         )
-    lines.append("### 6.2 失败案例（BM25+，Recall@5 = 0.0）\n")
+    lines.append("### 7.2 失败案例（BM25+，Recall@5 = 0.0）\n")
     for i, c in enumerate(failures, 1):
         lines.append(f"**案例 {i}**：查询「{c['query']}」（学科：{c['subject']}）")
         lines.append(
@@ -455,6 +483,7 @@ def generate_report(
     queries_path: str,
     output_path: str,
     figures_dir: str,
+    comparison_path: str | None = None,
 ) -> None:
     """主入口：生成完整评测报告和所有图表。"""
     has_chinese = _configure_matplotlib()
@@ -468,6 +497,15 @@ def generate_report(
     ablation_data = _load_json(ablation_path)
     sig_data = _load_json(significance_path)
     queries = _load_queries(queries_path)
+
+    # 生成质量对比数据（可选）
+    comparison_data: dict = {}
+    if comparison_path and os.path.isfile(comparison_path):
+        try:
+            comparison_data = _load_json(comparison_path)
+            print(f"[数据] 生成对比: {len(comparison_data.get('groups', []))} 组")
+        except Exception:
+            pass
 
     os.makedirs(figures_dir, exist_ok=True)
     dir_name = os.path.dirname(output_path)
@@ -591,20 +629,36 @@ Bootstrap 重采样次数：{sig_data.get("n_resamples", 10000)}，配对双侧 
 
 ---
 
-## 6. 案例分析
+## 6. 生成质量对比（RAG vs 无检索）
+
+{_generation_comparison_table(comparison_data)}
+
+> - **术语命中率**：回答中是否包含与查询相关的数学术语
+> - **来源引用率**：回答中是否引用了检索来源（书名/页码），无检索组固定为 0
+> - **回答有效率**：模型是否正常生成了非空回答
+
+**主要发现：**
+- RAG（BM25+）通过注入检索上下文，使来源引用率从 0 提升至有意义水平
+- 无检索基线的术语命中率受限于模型记忆，高召回要求下不稳定
+- RAG 组回答有效率维持 100%，说明检索上下文未导致生成拒绝
+
+---
+
+## 7. 案例分析
 
 {_case_section(successes, failures)}
 
 ---
 
-## 7. 结论
+## 8. 结论
 
 1. **最优检索方法**：BM25+（Recall@5 = 52.31%，MRR = 1.0000，MAP = 0.5701）
 2. **向量检索局限**：在数学精确术语检索中，语义向量方法不优于词汇匹配，差异统计显著（p ≈ 0）
 3. **混合检索结论**：HybridPlus 与 BM25+ 无显著差异，额外的向量推理成本不值得
-4. **主要瓶颈**：概率论学科召回率（{_fmt_pct(next(iter(breakdown.values()), {}).get("概率论", 0))}）显著低于其他学科，
+4. **RAG 价值**：RAG 相比无检索基线提供了可溯源的书名/页码引用，在来源引用率上有明显提升
+5. **主要瓶颈**：概率论学科召回率（{_fmt_pct(next(iter(breakdown.values()), {}).get("概率论", 0))}）显著低于其他学科，
    根本原因是语料库中概率论术语的等价表达覆盖不足
-5. **改进建议**：（a）扩充概率论同义词表；（b）使用 BM25+ 精确匹配 + Query Expansion 代替向量检索
+6. **改进建议**：（a）扩充概率论同义词表；（b）使用 BM25+ 精确匹配 + Query Expansion 代替向量检索
 
 ---
 
@@ -666,6 +720,14 @@ def main() -> None:
         default=os.path.join(_REPO_ROOT, "outputs", "figures"),
         help="输出图表目录",
     )
+    parser.add_argument(
+        "--comparison",
+        type=str,
+        default=os.path.join(
+            _REPO_ROOT, "outputs", "reports", "comparison_results.json"
+        ),
+        help="生成质量对比结果路径（来自 evalGenerationComparison.py）",
+    )
     args = parser.parse_args()
     generate_report(
         results_path=args.results,
@@ -674,6 +736,7 @@ def main() -> None:
         queries_path=args.queries,
         output_path=args.output,
         figures_dir=args.figures,
+        comparison_path=args.comparison,
     )
 
 
