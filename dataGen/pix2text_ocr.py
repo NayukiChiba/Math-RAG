@@ -150,7 +150,7 @@ def _worker_process_pages(
         # 渲染
         page = doc.load_page(page_idx)
         pix = page.get_pixmap(dpi=render_dpi)
-        img_data = pix.tobytes(output="jpg", jpg_quality=200)
+        img_data = pix.tobytes(output="jpg", jpg_quality=95)
         image = Image.open(io.BytesIO(img_data)).convert("RGB")
 
         # OCR
@@ -285,25 +285,41 @@ def _save_page_md(page_obj, page_idx, book_dir, pages_dir):
     return True
 
 
+def _render_page(pdf_path, page_idx):
+    """将 PDF 单页渲染为 PIL Image。"""
+    import fitz
+    from PIL import Image
+
+    doc = fitz.open(pdf_path)
+    page = doc.load_page(page_idx)
+    pix = page.get_pixmap(dpi=RENDER_DPI)
+    img_data = pix.tobytes(output="jpg", jpg_quality=95)
+    image = Image.open(io.BytesIO(img_data)).convert("RGB")
+    doc.close()
+    return image
+
+
 def _process_pages_sequential(
     pdf_path, p2t, todo_pages, total_pages, book_dir, pages_dir, ocr_kwargs
 ):
-    """原始逻辑：逐页调用 recognize_pdf。"""
+    """顺序模式：逐页渲染并 OCR。"""
     processed = 0
     for page in todo_pages:
         page_no = page + 1
         print(f"  处理页码：{page_no}/{total_pages or '?'}")
-        doc = p2t.recognize_pdf(pdf_path, page_numbers=[page], **ocr_kwargs)
-        if doc.pages and _save_page_md(doc.pages[0], page, book_dir, pages_dir):
+        image = _render_page(pdf_path, page)
+        page_obj = p2t.recognize_page(
+            image, page_number=page, page_id=str(page), **ocr_kwargs
+        )
+        if _save_page_md(page_obj, page, book_dir, pages_dir):
             processed += 1
-        del doc
     return processed
 
 
 def _process_pages_batched(
     pdf_path, p2t, todo_pages, total_pages, book_dir, pages_dir, ocr_kwargs
 ):
-    """批量模式：每次向 recognize_pdf 传入一批页码，减少 PDF 重复打开。"""
+    """批量模式：按批次渲染并 OCR，减少日志输出频率。"""
     processed = 0
     batch_size = max(1, BATCH_PAGES)
 
@@ -316,14 +332,14 @@ def _process_pages_batched(
             f"({len(batch)} 页, 总进度 {i + len(batch)}/{len(todo_pages)})"
         )
 
-        doc = p2t.recognize_pdf(pdf_path, page_numbers=batch, **ocr_kwargs)
-
-        for page_obj in doc.pages:
-            page_idx = page_obj.number
+        for page_idx in batch:
+            image = _render_page(pdf_path, page_idx)
+            page_obj = p2t.recognize_page(
+                image, page_number=page_idx, page_id=str(page_idx), **ocr_kwargs
+            )
             if _save_page_md(page_obj, page_idx, book_dir, pages_dir):
                 processed += 1
 
-        del doc
         gc.collect()
 
     return processed
