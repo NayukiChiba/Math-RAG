@@ -119,6 +119,15 @@ def get_ocr_config():
         "max_pages_per_term", defaults["max_pages_per_term"]
     )
 
+    # 加速相关配置
+    result["device"] = ocr_cfg.get("device", "") or None
+    result["mfr_batch_size"] = ocr_cfg.get("mfr_batch_size", 1)
+    result["render_dpi"] = ocr_cfg.get("render_dpi", 300)
+    result["resized_shape"] = ocr_cfg.get("resized_shape", 768)
+    result["text_contain_formula"] = ocr_cfg.get("text_contain_formula", True)
+    result["batch_pages"] = ocr_cfg.get("batch_pages", 0)
+    result["ocr_workers"] = ocr_cfg.get("ocr_workers", 0)
+
     return result
 
 
