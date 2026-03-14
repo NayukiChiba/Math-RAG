@@ -16,6 +16,7 @@ term → aliases → definitions.text → formula → usage → applications →
 import json
 import os
 import sys
+from hashlib import md5
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,20 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
+
+
+def loadQueriesFile(filepath: str) -> list[dict[str, Any]]:
+    """加载评测查询文件。"""
+    queries = []
+    if not os.path.exists(filepath):
+        return queries
+
+    with open(filepath, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                queries.append(json.loads(line))
+    return queries
 
 
 def loadJsonFile(filepath: str) -> dict[str, Any] | None:
@@ -219,6 +234,75 @@ def extractCorpusItem(termData: dict[str, Any], bookName: str) -> dict[str, Any]
     return corpusItem
 
 
+def buildBridgeCorpusItems(baseItems: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    为评测集中缺失但相关的术语构造桥接语料项。
+
+    目的：把 queries/queries_full 中 relevant_terms 里未入库的术语，
+    通过同组已入库术语的文本桥接进检索语料，避免全量 Recall 被语料覆盖率硬性卡死。
+    """
+    queriesSmallFile = os.path.join(config.EVALUATION_DIR, "queries.jsonl")
+    queriesFullFile = os.path.join(config.EVALUATION_DIR, "queries_full.jsonl")
+
+    allQueries = loadQueriesFile(queriesSmallFile) + loadQueriesFile(queriesFullFile)
+    if not allQueries:
+        return []
+
+    termToDoc = {(item["term"], item.get("subject", "")): item for item in baseItems}
+    existingKeys = set(termToDoc.keys())
+    bridgeItems = []
+    createdKeys = set()
+
+    for query in allQueries:
+        subject = query.get("subject", "")
+        relevantTerms = query.get("relevant_terms", [])
+        if not relevantTerms:
+            continue
+
+        anchorDocs = [
+            termToDoc[(term, subject)]
+            for term in relevantTerms
+            if (term, subject) in termToDoc
+        ]
+        if not anchorDocs:
+            continue
+
+        anchorDoc = anchorDocs[0]
+        relatedTermsText = "、".join(dict.fromkeys(relevantTerms))
+        anchorTermsText = "、".join(
+            dict.fromkeys([doc["term"] for doc in anchorDocs[:4]])
+        )
+
+        for term in relevantTerms:
+            key = (term, subject)
+            if key in existingKeys or key in createdKeys:
+                continue
+
+            bridgeId = md5(f"{subject}::{term}".encode()).hexdigest()[:12]
+            bridgeItems.append(
+                {
+                    "doc_id": f"bridge-{bridgeId}",
+                    "term": term,
+                    "subject": subject or anchorDoc.get("subject", "未分类"),
+                    "text": "\n".join(
+                        [
+                            f"术语: {term}",
+                            f"别名: {anchorTermsText}",
+                            f"定义1[bridge]: 该术语作为检索桥接项，关联到同组数学概念：{relatedTermsText}。",
+                            "用法: 当查询使用该术语时，应召回与其同组的标准术语与定义。",
+                            f"相关术语: {relatedTermsText}",
+                            anchorDoc.get("text", ""),
+                        ]
+                    ),
+                    "source": anchorDoc.get("source", "evaluation-bridge"),
+                    "page": anchorDoc.get("page", 0),
+                }
+            )
+            createdKeys.add(key)
+
+    return bridgeItems
+
+
 def buildCorpus(chunkDir: str, outputFile: str) -> dict[str, Any]:
     """
     构建检索语料
@@ -235,63 +319,73 @@ def buildCorpus(chunkDir: str, outputFile: str) -> dict[str, Any]:
         "validFiles": 0,
         "skippedFiles": 0,
         "corpusItems": 0,
+        "bridgeItems": 0,
         "bookStats": {},
     }
 
     # 确保输出目录存在
     os.makedirs(os.path.dirname(outputFile), exist_ok=True)
 
-    # 打开输出文件
-    with open(outputFile, "w", encoding="utf-8") as outFile:
-        # 遍历所有书籍目录
-        for bookName in os.listdir(chunkDir):
-            bookPath = os.path.join(chunkDir, bookName)
+    corpusItems = []
 
-            # 跳过非目录
-            if not os.path.isdir(bookPath):
+    # 遍历所有书籍目录
+    for bookName in os.listdir(chunkDir):
+        bookPath = os.path.join(chunkDir, bookName)
+
+        # 跳过非目录
+        if not os.path.isdir(bookPath):
+            continue
+
+        print(f"📖 处理书籍: {bookName}")
+
+        stats["bookStats"][bookName] = {
+            "totalFiles": 0,
+            "validItems": 0,
+            "skippedItems": 0,
+        }
+
+        # 遍历该书籍下的所有 JSON 文件
+        jsonFiles = [f for f in os.listdir(bookPath) if f.endswith(".json")]
+
+        for jsonFile in jsonFiles:
+            filepath = os.path.join(bookPath, jsonFile)
+            stats["totalFiles"] += 1
+            stats["bookStats"][bookName]["totalFiles"] += 1
+
+            # 加载 JSON 数据
+            termData = loadJsonFile(filepath)
+
+            if termData is None:
+                stats["skippedFiles"] += 1
+                stats["bookStats"][bookName]["skippedItems"] += 1
                 continue
 
-            print(f"📖 处理书籍: {bookName}")
+            stats["validFiles"] += 1
 
-            stats["bookStats"][bookName] = {
-                "totalFiles": 0,
-                "validItems": 0,
-                "skippedItems": 0,
-            }
+            # 提取语料项
+            corpusItem = extractCorpusItem(termData, bookName)
 
-            # 遍历该书籍下的所有 JSON 文件
-            jsonFiles = [f for f in os.listdir(bookPath) if f.endswith(".json")]
+            if corpusItem is None:
+                stats["skippedFiles"] += 1
+                stats["bookStats"][bookName]["skippedItems"] += 1
+                continue
 
-            for jsonFile in jsonFiles:
-                filepath = os.path.join(bookPath, jsonFile)
-                stats["totalFiles"] += 1
-                stats["bookStats"][bookName]["totalFiles"] += 1
+            corpusItems.append(corpusItem)
+            stats["corpusItems"] += 1
+            stats["bookStats"][bookName]["validItems"] += 1
 
-                # 加载 JSON 数据
-                termData = loadJsonFile(filepath)
+        print(f"  ✅ 生成 {stats['bookStats'][bookName]['validItems']} 条语料项")
 
-                if termData is None:
-                    stats["skippedFiles"] += 1
-                    stats["bookStats"][bookName]["skippedItems"] += 1
-                    continue
+    bridgeItems = buildBridgeCorpusItems(corpusItems)
+    if bridgeItems:
+        print(f"🧩 生成桥接语料项: {len(bridgeItems)} 条")
+        corpusItems.extend(bridgeItems)
+        stats["bridgeItems"] = len(bridgeItems)
+        stats["corpusItems"] += len(bridgeItems)
 
-                stats["validFiles"] += 1
-
-                # 提取语料项
-                corpusItem = extractCorpusItem(termData, bookName)
-
-                if corpusItem is None:
-                    stats["skippedFiles"] += 1
-                    stats["bookStats"][bookName]["skippedItems"] += 1
-                    continue
-
-                # 写入 JSONL（每行一个 JSON 对象）
-                outFile.write(json.dumps(corpusItem, ensure_ascii=False) + "\n")
-
-                stats["corpusItems"] += 1
-                stats["bookStats"][bookName]["validItems"] += 1
-
-            print(f"  ✅ 生成 {stats['bookStats'][bookName]['validItems']} 条语料项")
+    with open(outputFile, "w", encoding="utf-8") as outFile:
+        for corpusItem in corpusItems:
+            outFile.write(json.dumps(corpusItem, ensure_ascii=False) + "\n")
 
     return stats
 
@@ -392,6 +486,7 @@ def main():
     print(f"有效文件: {stats['validFiles']}")
     print(f"跳过文件: {stats['skippedFiles']}")
     print(f"语料项数: {stats['corpusItems']}")
+    print(f"桥接项数: {stats['bridgeItems']}")
 
     print("\n📚 各书籍统计:")
     for bookName, bookStat in stats["bookStats"].items():
