@@ -1,6 +1,8 @@
-# scripts - 脚本入口
+# scripts - CLI 背后实现模块
 
 项目顶层脚本，覆盖完整实验流程：RAG 问答、对比实验、WebUI、数据工具。
+
+从 Issue #51 开始，推荐统一通过根命令 `math-rag` 调用这些能力；本目录文件主要保留为 CLI 背后的实现模块与调试入口。
 
 ## 模块结构
 
@@ -20,7 +22,7 @@ scripts/
 
 ```bash
 # 单条查询
-python scripts/runRag.py --query "什么是一致收敛？"
+math-rag rag --query "什么是一致收敛？"
 
 # 批量查询（从文件读取）
 python scripts/runRag.py --input data/evaluation/queries.jsonl \
@@ -80,7 +82,7 @@ python scripts/runRag.py --query "泰勒公式" --topk 5 \
 
 ```bash
 # 运行所有实验组
-python scripts/runExperiments.py
+math-rag experiments
 
 # 运行指定实验组
 python scripts/runExperiments.py --groups norag bm25 vector hybrid
@@ -120,7 +122,7 @@ python scripts/runExperiments.py --queries data/evaluation/queries.jsonl \
 基于 Gradio 的实验可视化界面，无需命令行即可配置和运行实验。
 
 ```bash
-python scripts/experimentWebUI.py
+math-rag serve --target experiment-webui
 ```
 
 访问 http://localhost:7861 使用界面。
@@ -143,7 +145,7 @@ python scripts/experimentWebUI.py
 - 相关术语 → 同组所有术语
 
 ```bash
-python scripts/buildEvalTermMapping.py
+math-rag build-term-mapping
 ```
 
 **输入**：
@@ -158,17 +160,17 @@ python scripts/buildEvalTermMapping.py
 
 ```bash
 # 1. 构建检索基础设施
-python retrieval/buildCorpus.py
-python scripts/buildEvalTermMapping.py
+math-rag build-index
+math-rag build-term-mapping
 
 # 2. 纯检索评测（不需要 Qwen 模型）
-python evaluation/quickEval.py
-python evaluation/evalRetrieval.py
+math-rag quick-eval
+math-rag eval-retrieval
 
 # 3. 完整 RAG 流程（需要 Qwen 模型）
-python scripts/runRag.py --query "什么是泰勒展开？"
-python scripts/runExperiments.py --limit 20
+math-rag rag --query "什么是泰勒展开？"
+math-rag experiments --limit 20
 
 # 4. 生成质量评测
-python evaluation/evalGeneration.py
+math-rag eval-generation
 ```

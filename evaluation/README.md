@@ -24,13 +24,13 @@ evaluation/
 
 ```bash
 # 默认：按固定数量生成（数学分析35，高等代数20，概率论20）
-python evaluation/generateQueries.py
+math-rag generate-queries
 
 # 生成所有符合条件的术语（3102条）
-python evaluation/generateQueries.py --all
+math-rag generate-queries --all
 
 # 按比例采样（如采样50%的术语）
-python evaluation/generateQueries.py --ratio 0.5
+math-rag generate-queries --ratio 0.5
 
 # 自定义各学科数量
 python evaluation/generateQueries.py --num-ma 50 --num-gd 30 --num-gl 30
@@ -88,10 +88,10 @@ python evaluation/generateQueries.py --all --no-merge
 
 ```bash
 # 评测所有方法
-python evaluation/evalRetrieval.py
+math-rag eval-retrieval
 
 # 指定评测方法
-python evaluation/evalRetrieval.py --methods bm25 vector hybrid-weighted hybrid-rrf
+math-rag eval-retrieval --methods bm25 vector hybrid-weighted hybrid-rrf
 
 # 调整 TopK
 python evaluation/evalRetrieval.py --topk 20
@@ -117,10 +117,10 @@ python evaluation/evalRetrieval.py \
 
 ```bash
 # 快速测试（默认 20 条查询）
-python evaluation/quickEval.py
+math-rag quick-eval
 
 # 指定测试数量
-python evaluation/quickEval.py --num-queries 50
+math-rag quick-eval --num-queries 50
 
 # 使用全部查询
 python evaluation/quickEval.py --all-queries
@@ -152,7 +152,7 @@ Hybrid+         9.52%    30.48%   35.24%   52.38%   0.5891   0.3812    0.012
 - BLEU / ROUGE（可选）
 
 ```bash
-python evaluation/evalGeneration.py
+math-rag eval-generation
 ```
 
 ---
@@ -180,17 +180,17 @@ python evaluation/evalGeneration.py
 
 1. 已构建检索语料和索引：
    ```bash
-   python retrieval/buildCorpus.py
+   math-rag build-index
    ```
 
 2. 已生成评测查询集：
    ```bash
-   python evaluation/generateQueries.py
+   math-rag generate-queries
    ```
 
 3. 已构建术语映射（用于检索评测）：
    ```bash
-   python scripts/buildEvalTermMapping.py
+   math-rag build-term-mapping
    ```
 
 ## 依赖

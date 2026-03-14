@@ -16,6 +16,14 @@ dataGen/
 
 ## 处理流程
 
+推荐优先使用统一 CLI：
+
+```bash
+math-rag ingest data/raw/教材.pdf
+```
+
+当你需要断点续跑或只执行某一阶段时，再直接调用本目录脚本。
+
 ```
 data/raw/**/*.pdf
         ↓
@@ -58,6 +66,8 @@ data/processed/chunk/<书名>/<term>.json
 python dataGen/pix2text_ocr.py
 ```
 
+统一 CLI 对应：`math-rag ingest <pdf>` 的 OCR 阶段。
+
 ---
 
 ### extract_terms_from_ocr.py
@@ -73,6 +83,8 @@ python dataGen/pix2text_ocr.py
 ```bash
 python dataGen/extract_terms_from_ocr.py
 ```
+
+统一 CLI 对应：`math-rag ingest <pdf>` 的术语抽取阶段。
 
 ---
 
@@ -98,6 +110,8 @@ python dataGen/extract_terms_from_ocr.py
 ```bash
 python dataGen/data_gen.py
 ```
+
+统一 CLI 对应：`math-rag ingest <pdf>` 的结构化生成阶段。
 
 ---
 

@@ -475,9 +475,7 @@ def main():
     parser.add_argument(
         "--queries",
         type=str,
-        default=os.path.join(
-            config.PROJECT_ROOT, "data", "evaluation", "queries.jsonl"
-        ),
+        default=os.path.join(config.EVALUATION_DIR, "queries.jsonl"),
         help="查询集文件路径",
     )
     parser.add_argument(

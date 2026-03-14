@@ -1,32 +1,17 @@
-"""
-检索模块
+"""检索包统一导出。"""
 
-功能：
-- 构建检索语料（buildCorpus.py）
-- BM25 / BM25+ 检索
-- 向量检索
-- 混合检索 / 改进混合检索
-- 重排序检索
-- 高级多路召回检索
-"""
-
-__version__ = "1.0.0"
-
-__all__ = [
-    "MATH_SYNONYMS",
-    "QueryRewriter",
-    "AdvancedRetriever",
-    "BM25PlusRetriever",
-    "BM25Retriever",
-    "HybridPlusRetriever",
-    "HybridRetriever",
-    "RerankerRetriever",
-    "VectorRetriever",
-    "loadQueriesFromFile",
-    "printResults",
-    "saveResults",
-]
-
+from retrieval.buildCorpus import (
+    buildBridgeCorpusItems,
+    buildCorpus,
+    buildTextFromTerm,
+    extractCorpusItem,
+    loadJsonFile,
+    loadQueriesFile,
+    validateCorpusFile,
+)
+from retrieval.buildCorpus import (
+    main as run_build_corpus,
+)
 from retrieval.queryRewrite import MATH_SYNONYMS, QueryRewriter
 from retrieval.retrievers import (
     AdvancedRetriever,
@@ -40,3 +25,29 @@ from retrieval.retrievers import (
     printResults,
     saveResults,
 )
+
+__version__ = "1.0.0"
+
+
+__all__ = [
+    "MATH_SYNONYMS",
+    "QueryRewriter",
+    "AdvancedRetriever",
+    "BM25PlusRetriever",
+    "BM25Retriever",
+    "HybridPlusRetriever",
+    "HybridRetriever",
+    "RerankerRetriever",
+    "VectorRetriever",
+    "buildBridgeCorpusItems",
+    "buildCorpus",
+    "buildTextFromTerm",
+    "extractCorpusItem",
+    "loadJsonFile",
+    "loadQueriesFile",
+    "loadQueriesFromFile",
+    "printResults",
+    "run_build_corpus",
+    "saveResults",
+    "validateCorpusFile",
+]

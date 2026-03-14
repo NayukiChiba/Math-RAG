@@ -1,3 +1,27 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "math-rag"
+version = "0.1.0"
+description = "Math-RAG unified CLI and pipeline"
+readme = "README.md"
+requires-python = ">=3.11"
+dynamic = ["dependencies"]
+
+[project.scripts]
+math-rag = "mathRag:main"
+
+[tool.setuptools]
+py-modules = ["config", "mathRag"]
+
+[tool.setuptools.packages.find]
+include = ["dataGen", "dataStat", "evaluation", "generation", "retrieval", "scripts"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
 [tool.ruff]
 target-version = "py312"
 line-length = 88

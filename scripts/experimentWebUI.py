@@ -207,6 +207,13 @@ def createUI() -> gr.Blocks:
 
 def main():
     """主函数"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Math-RAG 对比实验 WebUI")
+    parser.add_argument("--port", type=int, default=7860, help="服务端口")
+    parser.add_argument("--share", action="store_true", help="生成公网链接")
+    args = parser.parse_args()
+
     print("=" * 60)
     print("📊 Math-RAG 对比实验 WebUI")
     print("=" * 60)
@@ -214,8 +221,8 @@ def main():
     demo = createUI()
     demo.launch(
         server_name="127.0.0.1",
-        server_port=7860,
-        share=False,
+        server_port=args.port,
+        share=args.share,
         inbrowser=True,
     )
 

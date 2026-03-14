@@ -24,7 +24,7 @@ retriever = HybridRetriever(
 )
 
 # 加载有标注的评测查询
-queryFile = os.path.join(config.PROJECT_ROOT, "data", "evaluation", "queries.jsonl")
+queryFile = os.path.join(config.EVALUATION_DIR, "queries.jsonl")
 queries = []
 with open(queryFile, encoding="utf-8") as f:
     for line in f:

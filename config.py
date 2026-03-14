@@ -1,8 +1,7 @@
-"""
-项目路径配置（统一使用 os.path）。
-"""
+"""项目统一配置入口。"""
 
 import os
+from functools import lru_cache
 
 
 def _load_toml(path):
@@ -18,37 +17,73 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 CONFIG_TOML = os.path.join(PROJECT_ROOT, "config.toml")
 
 
-def _get_processed_dir():
-    default_dir = os.path.join(PROJECT_ROOT, "data", "processed")
+def _resolve_path(path_value: str) -> str:
+    if not path_value:
+        raise ValueError("配置路径不能为空")
+    if os.path.isabs(path_value):
+        return os.path.abspath(path_value)
+    return os.path.abspath(os.path.join(PROJECT_ROOT, path_value))
+
+
+@lru_cache(maxsize=1)
+def _get_config_data() -> dict:
     if not os.path.isfile(CONFIG_TOML):
-        return default_dir
+        raise FileNotFoundError(f"配置文件不存在: {CONFIG_TOML}")
+    return _load_toml(CONFIG_TOML)
 
-    try:
-        data = _load_toml(CONFIG_TOML)
-    except Exception:
-        return default_dir
 
+@lru_cache(maxsize=1)
+def getPathsConfig() -> dict[str, str]:
+    """读取并解析 [paths] 配置。"""
+    data = _get_config_data()
     paths_cfg = data.get("paths", {})
-    processed_dir = paths_cfg.get("processed_dir") or ""
-    if not processed_dir:
-        return default_dir
+    required_keys = [
+        "raw_dir",
+        "processed_dir",
+        "ocr_dir",
+        "terms_dir",
+        "chunk_dir",
+        "evaluation_dir",
+        "stats_dir",
+        "outputs_dir",
+        "reports_base_dir",
+        "figures_dir",
+        "logs_dir",
+        "rag_results_file",
+    ]
+    missing = [key for key in required_keys if not paths_cfg.get(key)]
+    if missing:
+        joined = ", ".join(missing)
+        raise KeyError(f"config.toml [paths] 缺少必填项: {joined}")
 
-    if os.path.isabs(processed_dir):
-        return os.path.abspath(processed_dir)
-    return os.path.abspath(os.path.join(PROJECT_ROOT, processed_dir))
+    resolved = {}
+    for key, value in paths_cfg.items():
+        if key.endswith("_dir") or key.endswith("_file"):
+            resolved[key] = _resolve_path(str(value).strip())
+        else:
+            resolved[key] = value
+    return resolved
 
 
-RAW_DIR = os.path.join(PROJECT_ROOT, "data", "raw")
-PROCESSED_DIR = _get_processed_dir()
-OCR_DIR = os.path.join(PROCESSED_DIR, "ocr")
-# 术语列表与映射：processed/terms/{书名}/all.json, map.json
-TERMS_DIR = os.path.join(PROCESSED_DIR, "terms")
-# 术语定义数据（每个术语一个 JSON）：processed/chunk/{书名}/{term}.json
-CHUNK_DIR = os.path.join(PROCESSED_DIR, "chunk")
-# 评测数据目录（查询集在 data/evaluation 而非 processed）
-EVALUATION_DIR = os.path.join(PROJECT_ROOT, "data", "evaluation")
-# 报告输出根目录
-REPORTS_BASE_DIR = os.path.join(PROJECT_ROOT, "outputs", "reports")
+def getPath(name: str) -> str:
+    """按名称获取已解析的路径配置。"""
+    return getPathsConfig()[name]
+
+
+_PATHS = getPathsConfig()
+
+RAW_DIR = _PATHS["raw_dir"]
+PROCESSED_DIR = _PATHS["processed_dir"]
+OCR_DIR = _PATHS["ocr_dir"]
+TERMS_DIR = _PATHS["terms_dir"]
+CHUNK_DIR = _PATHS["chunk_dir"]
+EVALUATION_DIR = _PATHS["evaluation_dir"]
+STATS_DIR = _PATHS["stats_dir"]
+OUTPUTS_DIR = _PATHS["outputs_dir"]
+REPORTS_BASE_DIR = _PATHS["reports_base_dir"]
+FIGURES_DIR = _PATHS["figures_dir"]
+LOGS_DIR = _PATHS["logs_dir"]
+RAG_RESULTS_FILE = _PATHS["rag_results_file"]
 
 # 缓存：同一进程内只生成一次时间戳目录
 _reportsDir = None
@@ -58,7 +93,7 @@ def getReportsDir() -> str:
     """
     获取当前运行对应的报告输出目录
 
-    每次运行自动在 outputs/reports/ 下创建以当前时间命名的子目录，
+    每次运行自动在 reports_base_dir 下创建以当前时间命名的子目录，
     格式为 YYYYMMDD_HHMMSS。同一进程中多次调用返回同一个目录。
 
     Returns:
@@ -87,11 +122,8 @@ def get_ocr_config():
         "max_pages_per_term": 6,
     }
 
-    if not os.path.isfile(CONFIG_TOML):
-        return defaults
-
     try:
-        data = _load_toml(CONFIG_TOML)
+        data = _get_config_data()
     except Exception:
         return defaults
 
@@ -132,26 +164,18 @@ def get_ocr_config():
 
 
 def _getQwenModelDir() -> str:
-    """从 config.toml 读取 Qwen 模型目录，默认为项目上级目录下的 Qwen-model（与 Math-RAG 同级）"""
-    defaultDir = os.path.join(PROJECT_ROOT, "..", "Qwen-model")
-
-    if not os.path.isfile(CONFIG_TOML):
-        return os.path.abspath(defaultDir)
-
+    """从 config.toml 读取 Qwen 模型目录。"""
     try:
-        data = _load_toml(CONFIG_TOML)
+        data = _get_config_data()
     except Exception:
-        return os.path.abspath(defaultDir)
+        return ""
 
     gen_cfg = data.get("generation", {})
     qwenDir = gen_cfg.get("qwen_model_dir", "").strip()
 
     if not qwenDir:
-        return os.path.abspath(defaultDir)
-
-    if os.path.isabs(qwenDir):
-        return os.path.abspath(qwenDir)
-    return os.path.abspath(os.path.join(PROJECT_ROOT, qwenDir))
+        return ""
+    return _resolve_path(qwenDir)
 
 
 # Qwen 模型本地路径
@@ -174,11 +198,8 @@ def getGenerationConfig() -> dict:
         "max_new_tokens": 512,
     }
 
-    if not os.path.isfile(CONFIG_TOML):
-        return defaults
-
     try:
-        data = _load_toml(CONFIG_TOML)
+        data = _get_config_data()
     except Exception:
         return defaults
 
@@ -229,11 +250,8 @@ def getRetrievalConfig() -> dict:
         "eval_hybrid_beta": 0.15,
     }
 
-    if not os.path.isfile(CONFIG_TOML):
-        return defaults
-
     try:
-        data = _load_toml(CONFIG_TOML)
+        data = _get_config_data()
     except Exception:
         return defaults
 

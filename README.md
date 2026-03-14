@@ -11,12 +11,13 @@
 - 可复现、可对比的实验流程
 - 代码清晰易读
 
-**基础模型**：Qwen2.5-Math-1.5B-Instruct（本地运行）
+**基础模型**：Qwen2.5-Math 系列本地模型（具体目录由 `config.toml [generation].qwen_model_dir` 指定）
 
 ## 项目结构
 
 ```
 Math-RAG/
+├── mathRag.py                 # 统一 CLI 入口（math-rag）
 ├── config.py                  # Python 配置接口
 ├── config.toml                # TOML 配置文件（全局参数）
 ├── requirements.txt           # 项目依赖
@@ -84,38 +85,78 @@ Math-RAG/
 conda create -n MathRag python=3.11
 conda activate MathRag
 pip install -r requirements.txt
+pip install -e .
 ```
 
-### 2. 数据处理流程
+安装后可直接使用统一命令：`math-rag`。
+
+### 2. 统一 CLI
+
+Issue #51 对应的主工作流现已统一到一个入口下：
 
 ```bash
-# 1) OCR 处理（将 PDF 放入 data/raw/）
+# PDF 入库：OCR → 术语抽取 → 结构化生成 → 语料/索引构建
+math-rag ingest data/raw/数学分析.pdf
+
+# 重建检索语料与索引
+math-rag build-index
+
+# 正式检索评测
+math-rag eval-retrieval --visualize
+
+# 生成质量评测
+math-rag eval-generation --results outputs/rag_results.jsonl
+
+# 生成论文/汇总报告
+math-rag report
+
+# 启动 WebUI
+math-rag serve --port 7860
+```
+
+补充命令：
+
+```bash
+# 生成评测查询集与术语映射
+math-rag generate-queries
+math-rag build-term-mapping
+
+# 快速检索评测 / RAG 问答 / 端到端实验
+math-rag quick-eval --all-queries
+math-rag rag --query "什么是一致收敛？"
+math-rag experiments --limit 10
+
+# 数据统计
+math-rag stats
+```
+
+### 3. 数据处理流程
+
+```bash
+# 一键入库推荐走统一入口
+math-rag ingest data/raw/数学分析.pdf
+
+# 如需拆分执行，保留原模块脚本调用方式
 python dataGen/pix2text_ocr.py
-
-# 2) 提取术语映射
 python dataGen/extract_terms_from_ocr.py
-
-# 3) 生成术语定义 JSON
 python dataGen/data_gen.py
-
-# 4) 数据统计与可视化
-python dataStat/chunkStatistics.py
+math-rag stats
 ```
 
-### 3. 检索系统
+### 4. 检索系统
 
 ```bash
-# 构建检索语料
-python retrieval/buildCorpus.py
+# 构建检索语料与索引
+math-rag build-index
 
 # 生成评测查询集
-python evaluation/generateQueries.py
+math-rag generate-queries
 
 # 构建术语映射（评测用）
-python scripts/buildEvalTermMapping.py
+math-rag build-term-mapping
 ```
 
-### 4. 评测与实验
+### 5. 评测与实验
 
 详见下方 [评测与实验指南](#评测与实验指南) 章节。
 
@@ -140,13 +181,13 @@ python scripts/buildEvalTermMapping.py
 
 ```bash
 # 快速抽样（20 条查询，调试用）
-python evaluation/quickEval.py
+math-rag quick-eval
 
 # 全量评测（论文数据用这个）
-python evaluation/quickEval.py --all-queries
+math-rag quick-eval --all-queries
 
 # 只测指定方法
-python evaluation/quickEval.py --methods bm25plus hybrid_rrf advanced --all-queries
+math-rag quick-eval --methods bm25plus hybrid_rrf advanced --all-queries
 ```
 
 ### 步骤 2：正式检索评测（出论文表格和图）
@@ -155,10 +196,10 @@ python evaluation/quickEval.py --methods bm25plus hybrid_rrf advanced --all-quer
 
 ```bash
 # 全量评测 + 生成对比图表
-python evaluation/evalRetrieval.py --visualize
+math-rag eval-retrieval --visualize
 
 # 只测指定方法
-python evaluation/evalRetrieval.py --methods bm25plus vector hybrid-plus-weighted hybrid-plus-rrf --visualize
+math-rag eval-retrieval --methods bm25plus vector hybrid-plus-weighted hybrid-plus-rrf --visualize
 ```
 
 ### 步骤 3：端到端对比实验（核心消融实验）
@@ -167,13 +208,13 @@ python evaluation/evalRetrieval.py --methods bm25plus vector hybrid-plus-weighte
 
 ```bash
 # 运行所有实验组（⚠ 需要 Qwen 模型，耗时较长）
-python scripts/runExperiments.py
+math-rag experiments
 
 # 指定实验组
-python scripts/runExperiments.py --groups norag bm25 vector hybrid hybrid-rrf
+math-rag experiments --groups norag bm25 vector hybrid hybrid-rrf
 
 # 限制查询数量（调试用）
-python scripts/runExperiments.py --limit 10
+math-rag experiments --limit 10
 ```
 
 ### 步骤 4：生成质量评测（事后分析）
@@ -182,10 +223,10 @@ python scripts/runExperiments.py --limit 10
 
 ```bash
 # 基本评测
-python evaluation/evalGeneration.py
+math-rag eval-generation
 
 # 加 BLEU + ROUGE 分数
-python evaluation/evalGeneration.py --bleu --rouge
+math-rag eval-generation --bleu --rouge
 ```
 
 ### 补充：检索权重测试 / WebUI
@@ -195,10 +236,10 @@ python evaluation/evalGeneration.py --bleu --rouge
 python tests/testRetrievalWeights.py
 
 # RAG 问答界面
-python generation/webui.py
+math-rag serve
 
 # 对比实验界面
-python scripts/experimentWebUI.py
+math-rag serve --target experiment-webui
 ```
 
 ## 主要模块
@@ -255,7 +296,7 @@ python scripts/experimentWebUI.py
 | 脚本 | 功能 |
 |------|------|
 | `promptTemplates.py` | RAG 提示模板（f-string + Jinja2） |
-| `qwenInference.py` | Qwen2.5-Math-1.5B 本地推理封装 |
+| `qwenInference.py` | Qwen2.5-Math 本地推理封装 |
 | `ragPipeline.py` | 端到端 RAG 流程（查询 → 检索 → 生成） |
 | `webui.py` | Gradio 交互界面 |
 

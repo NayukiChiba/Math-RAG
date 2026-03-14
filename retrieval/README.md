@@ -29,6 +29,16 @@ retrieval/
 
 ## 使用方法
 
+推荐通过统一 CLI 管理检索语料与索引：
+
+```bash
+math-rag build-index
+math-rag quick-eval --all-queries
+math-rag eval-retrieval --visualize
+```
+
+直接导入类或运行模块脚本仍然可用，适合调试单个检索器。
+
 ### 基本用法
 
 ```python
@@ -147,12 +157,12 @@ expanded = rewriter.rewrite("泰勒展开")
 从术语 JSON 生成统一检索语料（JSONL 格式）。
 
 ```bash
-python retrieval/buildCorpus.py
+math-rag build-index
 ```
 
 **输入**：`data/processed/chunk/**/*.json`
 
-**输出**：`data/processed/retrieval/corpus.jsonl`
+**输出**：`data/processed/retrieval/corpus.jsonl`，并可进一步构建 BM25 / BM25+ / 向量索引。
 
 **文本拼接顺序**：
 ```

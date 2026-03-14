@@ -577,15 +577,13 @@ def main():
     parser.add_argument(
         "--results",
         type=str,
-        default=os.path.join(config.PROJECT_ROOT, "outputs", "rag_results.jsonl"),
+        default=config.RAG_RESULTS_FILE,
         help="RAG 问答结果文件路径",
     )
     parser.add_argument(
         "--gold",
         type=str,
-        default=os.path.join(
-            config.PROJECT_ROOT, "data", "evaluation", "queries.jsonl"
-        ),
+        default=os.path.join(config.EVALUATION_DIR, "queries.jsonl"),
         help="黄金测试集文件路径",
     )
     parser.add_argument(

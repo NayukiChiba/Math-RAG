@@ -14,6 +14,12 @@ dataStat/
 
 对 `data/processed/chunk/` 下的所有术语 JSON 文件进行全面统计。
 
+推荐入口：
+
+```bash
+math-rag stats
+```
+
 **统计维度**：
 
 | 维度 | 内容 |
@@ -36,6 +42,8 @@ dataStat/
 ```bash
 python dataStat/chunkStatistics.py
 ```
+
+上述脚本仍可直接运行，但统一入口优先推荐使用 `math-rag stats`。
 
 **输出**：
 

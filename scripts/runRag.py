@@ -22,7 +22,6 @@ RAG 问答命令行入口
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -219,9 +218,7 @@ def main():
                 printResult(result)
 
         # 保存结果
-        outputFile = args.output or os.path.join(
-            config.PROJECT_ROOT, "outputs", "rag_results.jsonl"
-        )
+        outputFile = args.output or config.RAG_RESULTS_FILE
         saveResults(results, outputFile)
 
         # 统计信息

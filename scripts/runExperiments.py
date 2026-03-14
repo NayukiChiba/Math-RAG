@@ -53,10 +53,10 @@ class ExperimentRunner:
             logDir: 日志目录
         """
         self.queryFile = queryFile or os.path.join(
-            config.PROJECT_ROOT, "data", "evaluation", "queries.jsonl"
+            config.EVALUATION_DIR, "queries.jsonl"
         )
         self.outputDir = outputDir or config.getReportsDir()
-        self.logDir = logDir or os.path.join(config.PROJECT_ROOT, "outputs", "logs")
+        self.logDir = logDir or config.LOGS_DIR
 
         # 确保目录存在
         os.makedirs(self.outputDir, exist_ok=True)
