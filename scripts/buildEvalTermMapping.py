@@ -218,6 +218,7 @@ def main():
     allQueries = []
     # 第一步：全量加载评测集，不去重（同一查询可能有多个 subject/relevant_terms 组合）
     evalQueryKeys: set[tuple] = set()  # (query, subject, frozenset(relevant_terms))
+    queryIndexBySubject: dict[tuple[str, str], int] = {}
     if os.path.exists(queriesSmallFile):
         loaded = loadQueries(queriesSmallFile)
         for q in loaded:
@@ -228,24 +229,38 @@ def main():
             )
             if key not in evalQueryKeys:
                 evalQueryKeys.add(key)
+                queryIndexBySubject[(q["query"], q.get("subject", ""))] = len(
+                    allQueries
+                )
                 allQueries.append(q)
         print(
             f"  加载查询文件: {queriesSmallFile} ({len(loaded)} 条，去重后保留 {len(allQueries)} 条)"
         )
 
-    # 第二步：从 queries_full.jsonl 补充（跳过已有 (query, subject) 组合）
+    # 第二步：从 queries_full.jsonl 补充；若已存在相同 (query, subject)，则合并 relevant_terms
     seenQueryKeys: set[tuple] = {(q["query"], q.get("subject", "")) for q in allQueries}
     if os.path.exists(queriesFullFile):
         loaded = loadQueries(queriesFullFile)
         added = 0
+        merged = 0
         for q in loaded:
             key = (q["query"], q.get("subject", ""))
             if key not in seenQueryKeys:
                 seenQueryKeys.add(key)
+                queryIndexBySubject[key] = len(allQueries)
                 allQueries.append(q)
                 added += 1
+            else:
+                existingIndex = queryIndexBySubject[key]
+                existingTerms = allQueries[existingIndex].get("relevant_terms", [])
+                mergedTerms = list(
+                    dict.fromkeys(existingTerms + q.get("relevant_terms", []))
+                )
+                if len(mergedTerms) != len(existingTerms):
+                    allQueries[existingIndex]["relevant_terms"] = mergedTerms
+                    merged += 1
         print(
-            f"  加载查询文件: {queriesFullFile} ({len(loaded)} 条，新增补充 {added} 条)"
+            f"  加载查询文件: {queriesFullFile} ({len(loaded)} 条，新增补充 {added} 条，合并扩充 {merged} 条)"
         )
     queries = allQueries
     print(f"  合并后查询总数: {len(queries)} 条")

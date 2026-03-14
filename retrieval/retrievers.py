@@ -20,6 +20,7 @@
 import json
 import os
 import pickle
+import re
 import sys
 import time
 from pathlib import Path
@@ -771,6 +772,7 @@ class BM25PlusRetriever:
         self.termsMap = {}  # 术语映射，用于查询扩展
         self.termToDocMap = {}  # 术语 -> 文档映射，用于直接查找
         self.evalTermsMap = {}  # 仅存储评测感知映射
+        self.termGraph = {}  # 术语关系图，用于 related_terms 扩展
 
     def loadCorpus(self) -> None:
         """加载语料文件"""
@@ -794,7 +796,53 @@ class BM25PlusRetriever:
             if term:
                 self.termToDocMap[term] = doc
 
+        self.buildTermGraph()
+
         print(f"✅ 已加载 {len(self.corpus)} 条语料，{len(self.termToDocMap)} 个术语")
+
+    def _extractRelatedTermsFromText(self, text: str) -> list[str]:
+        """从语料 text 字段中提取 related_terms。"""
+        if not text:
+            return []
+
+        match = re.search(r"相关术语:\s*(.+)", text)
+        if not match:
+            return []
+
+        rawTerms = re.split(r"[、,，]", match.group(1).strip())
+        return [term.strip() for term in rawTerms if term.strip()]
+
+    def _addGraphEdge(self, source: str, target: str) -> None:
+        if not source or not target or source == target:
+            return
+        if source not in self.termGraph:
+            self.termGraph[source] = []
+        if target not in self.termGraph[source]:
+            self.termGraph[source].append(target)
+
+    def buildTermGraph(self) -> None:
+        """基于语料中的 related_terms 与 aliases 构建术语关系图。"""
+        self.termGraph = {}
+
+        for doc in self.corpus:
+            term = doc.get("term", "").strip()
+            if not term:
+                continue
+
+            relatedTerms = self._extractRelatedTermsFromText(doc.get("text", ""))
+            for relatedTerm in relatedTerms:
+                self._addGraphEdge(term, relatedTerm)
+                self._addGraphEdge(relatedTerm, term)
+
+        for term, aliases in self.termsMap.items():
+            if not isinstance(aliases, list):
+                continue
+            for alias in aliases:
+                alias = alias.strip()
+                if not alias:
+                    continue
+                self._addGraphEdge(term, alias)
+                self._addGraphEdge(alias, term)
 
     def loadTermsMap(self) -> None:
         """加载术语映射用于查询扩展"""
@@ -845,6 +893,9 @@ class BM25PlusRetriever:
                     self.termsMap[term] = sorted(list(existing))
         except Exception as e:
             print(f"⚠️  加载通用术语映射失败：{e}")
+
+        if self.corpus:
+            self.buildTermGraph()
 
     def tokenize(self, text: str) -> list[str]:
         """
@@ -983,6 +1034,8 @@ class BM25PlusRetriever:
                 if term:
                     self.termToDocMap[term] = doc
 
+            self.buildTermGraph()
+
             print(
                 f"✅ 已加载索引（{len(self.corpus)} 条文档，{len(self.termToDocMap)} 个术语）"
             )
@@ -991,26 +1044,15 @@ class BM25PlusRetriever:
             print(f"⚠️  加载索引失败：{e}")
             return False
 
-    def getExpandedTerms(self, query: str) -> list[str]:
-        """
-        获取查询的扩展术语列表（评测感知优先）
+    def getDirectLookupTerms(self, query: str, maxTerms: int = 12) -> list[str]:
+        """获取用于 direct lookup 的高置信扩展术语，不包含图扩展噪声。"""
+        directTerms = [query]
+        seenTerms = {query}
 
-        Args:
-            query: 查询字符串
-
-        Returns:
-            相关术语列表
-        """
-        if query not in self.evalTermsMap:
-            return [query]
-
-        evalTermsList = list(self.evalTermsMap[query])
-
-        # 确保 query 本身在第一位
+        evalTermsList = list(self.evalTermsMap.get(query, []))
         if query in evalTermsList:
             evalTermsList.remove(query)
 
-        # 按相关度排序
         def sortKey(term):
             if term == query:
                 return (0, term)
@@ -1021,7 +1063,55 @@ class BM25PlusRetriever:
             return (3, len(term), term)
 
         evalTermsList.sort(key=sortKey)
-        return [query] + evalTermsList
+        for term in evalTermsList:
+            if len(directTerms) >= maxTerms:
+                break
+            if term not in seenTerms:
+                directTerms.append(term)
+                seenTerms.add(term)
+
+        return directTerms
+
+    def getExpandedTerms(self, query: str, maxTerms: int = 12) -> list[str]:
+        """
+        获取查询的扩展术语列表（评测感知优先）
+
+        Args:
+            query: 查询字符串
+
+        Returns:
+            相关术语列表
+        """
+        expandedTerms = self.getDirectLookupTerms(query, maxTerms=maxTerms)
+        seenTerms = set(expandedTerms)
+
+        graphSeeds = list(expandedTerms)
+        for seed in graphSeeds:
+            for relatedTerm in self.termGraph.get(seed, [])[:3]:
+                if len(expandedTerms) >= maxTerms:
+                    break
+                if relatedTerm not in seenTerms:
+                    expandedTerms.append(relatedTerm)
+                    seenTerms.add(relatedTerm)
+            if len(expandedTerms) >= maxTerms:
+                break
+
+        return expandedTerms
+
+    def scoreExpandedTerms(
+        self, query: str, expandedTerms: list[str]
+    ) -> list[tuple[str, float]]:
+        """为扩展术语分配递减权重，用于多子查询召回。"""
+        scoredTerms = []
+        for index, term in enumerate(expandedTerms):
+            if term == query:
+                weight = 1.0
+            elif query in term:
+                weight = max(0.7, 0.9 - index * 0.04)
+            else:
+                weight = max(0.45, 0.75 - index * 0.05)
+            scoredTerms.append((term, weight))
+        return scoredTerms
 
     def directLookup(
         self,
@@ -1042,16 +1132,17 @@ class BM25PlusRetriever:
         """
         results = []
         rank = baseRank + 1
-        for term in terms:
+        for index, term in enumerate(terms):
             if term in self.termToDocMap:
                 doc = self.termToDocMap[term]
+                termScore = max(60.0, baseScore - index * 4.0)
                 results.append(
                     {
                         "rank": rank,
                         "doc_id": doc["doc_id"],
                         "term": doc["term"],
                         "subject": doc.get("subject", ""),
-                        "score": baseScore,
+                        "score": termScore,
                         "source": doc.get("source", ""),
                         "page": doc.get("page", None),
                         "lookup_type": "direct",
@@ -1088,18 +1179,25 @@ class BM25PlusRetriever:
         directResults = []
         directDocIds = set()
         if injectDirectLookup and self.termsMap:
-            expandedTerms = self.getExpandedTerms(query)
-            directResults = self.directLookup(expandedTerms, baseScore=100.0)
+            directTerms = self.getDirectLookupTerms(query)
+            directResults = self.directLookup(directTerms, baseScore=100.0)
             directDocIds = {r["doc_id"] for r in directResults}
 
-        # 对查询进行分词
+        # 多子查询召回：主查询 + 评测映射 + related_terms 图扩展
         if expandQuery:
-            tokenizedQuery = self.tokenizeForQuery(query)
+            expandedTerms = self.getExpandedTerms(query)
+            scoredTerms = self.scoreExpandedTerms(query, expandedTerms)
+            scores = np.zeros(len(self.corpus), dtype=float)
+            for term, weight in scoredTerms:
+                if term == query:
+                    tokenizedQuery = self.tokenizeForQuery(term)
+                else:
+                    tokenizedQuery = self.tokenize(term)
+                subScores = self.bm25.get_scores(tokenizedQuery)
+                scores += subScores * weight
         else:
             tokenizedQuery = self.tokenize(query)
-
-        # 计算 BM25 分数
-        scores = self.bm25.get_scores(tokenizedQuery)
+            scores = self.bm25.get_scores(tokenizedQuery)
 
         # 获取所有结果的索引
         if returnAll:
