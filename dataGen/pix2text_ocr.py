@@ -8,10 +8,22 @@
 
 输出：每一页单独一个 Markdown，并在文件中标注页码。
 配置项在 config.toml 的 [ocr] 部分。
+
+加速配置（config.toml [ocr] 段）：
+    device               = "cuda"    # 显式指定 GPU
+    mfr_batch_size       = 8         # 公式识别批量大小，GPU 上建议 8~16
+    render_dpi           = 200       # 降 DPI 可加速 ~30%
+    resized_shape        = 512       # 图像缩放宽度，越小越快（512 比 768 快 ~30%）
+    text_contain_formula = true      # 是否检测行内公式，关闭可加速 ~33%
+    batch_pages          = 10        # 每次批量处理页数，减少 PDF 重复打开
+    ocr_workers          = 0         # 多进程并行 OCR（单 GPU 建议 0）
 """
 
+import gc
+import io
 import os
 import sys
+import time
 from pathlib import Path
 
 # 规范模块搜索路径，保证能定位项目根目录
@@ -24,15 +36,16 @@ import config
 _ocr_cfg = config.get_ocr_config()
 PAGE_START = _ocr_cfg.get("page_start", 0)
 PAGE_END = _ocr_cfg.get("page_end")
-
-# pix2text 的 resized_shape 需要单一整数值，取元组的最大值
-_max_image_size = _ocr_cfg["max_image_size"]
-OCR_MAX_IMAGE_SIZE = (
-    max(_max_image_size)
-    if isinstance(_max_image_size, (tuple, list))
-    else _max_image_size
-)
 SKIP_EXISTING = _ocr_cfg.get("skip_existing", True)
+
+# 加速参数
+DEVICE = _ocr_cfg.get("device", None)
+MFR_BATCH_SIZE = _ocr_cfg.get("mfr_batch_size", 1)
+RENDER_DPI = _ocr_cfg.get("render_dpi", 300)
+RESIZED_SHAPE = _ocr_cfg.get("resized_shape", 768)
+TEXT_CONTAIN_FORMULA = _ocr_cfg.get("text_contain_formula", True)
+BATCH_PAGES = _ocr_cfg.get("batch_pages", 0)
+OCR_WORKERS = _ocr_cfg.get("ocr_workers", 0)
 
 
 def _collect_pdfs():
@@ -82,6 +95,84 @@ def _iter_pages(total_pages, page_start=None, page_end=None):
     return list(range(start, end + 1))
 
 
+def _worker_process_pages(
+    worker_id,
+    pdf_path,
+    page_indices,
+    book_dir,
+    pages_dir,
+    device,
+    mfr_batch_size,
+    resized_shape,
+    render_dpi,
+    text_contain_formula=True,
+):
+    """在独立进程中加载 pix2text 并处理分配的页面。
+
+    Args:
+        worker_id:       worker 编号
+        pdf_path:        PDF 文件路径
+        page_indices:    待处理的页码列表 (0-based)
+        book_dir:        书籍输出目录
+        pages_dir:       分页输出目录
+        device:          推理设备
+        mfr_batch_size:  公式批量大小
+        resized_shape:   图像缩放宽度
+        render_dpi:      渲染 DPI
+        text_contain_formula: 是否检测行内公式
+
+    Returns:
+        已处理的页数
+    """
+    import fitz
+    from PIL import Image
+    from pix2text import Pix2Text
+
+    init_kwargs = {}
+    if device:
+        init_kwargs["device"] = device
+    p2t = Pix2Text.from_config(**init_kwargs)
+
+    ocr_kwargs = {
+        "table_as_image": True,
+        "resized_shape": resized_shape,
+        "mfr_batch_size": mfr_batch_size,
+        "text_contain_formula": text_contain_formula,
+    }
+
+    doc = fitz.open(pdf_path)
+    processed = 0
+
+    for page_idx in page_indices:
+        page_no = page_idx + 1
+        page_file = os.path.join(pages_dir, f"page_{page_no:04d}.md")
+
+        # 渲染
+        page = doc.load_page(page_idx)
+        pix = page.get_pixmap(dpi=render_dpi)
+        img_data = pix.tobytes(output="jpg", jpg_quality=95)
+        image = Image.open(io.BytesIO(img_data)).convert("RGB")
+
+        # OCR
+        page_obj = p2t.recognize_page(
+            image, page_number=page_idx, page_id=str(page_idx), **ocr_kwargs
+        )
+        content = page_obj.to_markdown(book_dir, markdown_fn=None)
+
+        if content:
+            with open(page_file, "w", encoding="utf-8") as f:
+                f.write(f"<!-- page: {page_no} -->\n\n")
+                f.write(content)
+            processed += 1
+
+        print(
+            f"  [Worker {worker_id}] 页 {page_no} 完成 ({processed}/{len(page_indices)})"
+        )
+
+    doc.close()
+    return processed
+
+
 def _process_single_pdf(pdf_path, p2t, page_start_override=None):
     """处理单个 PDF 文件的 OCR。
 
@@ -98,6 +189,12 @@ def _process_single_pdf(pdf_path, p2t, page_start_override=None):
     print(f"\n{'=' * 60}")
     print(f"开始处理: {pdf_name}")
     print(f"输出目录: {pages_dir}")
+    print(
+        f"加速配置: device={DEVICE}  mfr_batch_size={MFR_BATCH_SIZE}  "
+        f"dpi={RENDER_DPI}  resized_shape={RESIZED_SHAPE}  "
+        f"text_contain_formula={TEXT_CONTAIN_FORMULA}  "
+        f"batch_pages={BATCH_PAGES}  workers={OCR_WORKERS}"
+    )
     print(f"{'=' * 60}")
 
     if not os.path.isfile(pdf_path):
@@ -122,52 +219,181 @@ def _process_single_pdf(pdf_path, p2t, page_start_override=None):
         print("未找到可处理的页码范围，请检查 page_start/page_end 配置。")
         return
 
+    # 过滤已存在的页面
     skipped = 0
-    processed = 0
-
+    todo_pages = []
     for page in pages:
         page_no = page + 1
         page_file = os.path.join(pages_dir, f"page_{page_no:04d}.md")
-
-        # 跳过已存在的页面
         if SKIP_EXISTING and os.path.isfile(page_file):
             skipped += 1
-            continue
+        else:
+            todo_pages.append(page)
 
-        print(f"  处理页码：{page_no}/{total_pages or '?'}")
-        doc = p2t.recognize_pdf(
-            pdf_path,
-            page_numbers=[page],
-            table_as_image=True,
-            resized_shape=OCR_MAX_IMAGE_SIZE,
+    if not todo_pages:
+        print(f"本书 OCR 完成: 处理 0 页, 跳过 {skipped} 页")
+        return
+
+    print(f"  待处理: {len(todo_pages)} 页, 已跳过: {skipped} 页")
+
+    # OCR kwargs
+    ocr_kwargs = {
+        "table_as_image": True,
+        "resized_shape": RESIZED_SHAPE,
+        "mfr_batch_size": MFR_BATCH_SIZE,
+        "text_contain_formula": TEXT_CONTAIN_FORMULA,
+    }
+
+    t0 = time.time()
+    processed = 0
+
+    # 决定是用批量模式还是多 worker
+    if OCR_WORKERS > 0:
+        processed = _process_pages_parallel(
+            pdf_path, p2t, todo_pages, total_pages, book_dir, pages_dir, ocr_kwargs
+        )
+    elif BATCH_PAGES > 0:
+        processed = _process_pages_batched(
+            pdf_path, p2t, todo_pages, total_pages, book_dir, pages_dir, ocr_kwargs
+        )
+    else:
+        processed = _process_pages_sequential(
+            pdf_path, p2t, todo_pages, total_pages, book_dir, pages_dir, ocr_kwargs
         )
 
-        # Pix2Text 默认输出 output.md
-        doc.to_markdown(book_dir)
-        temp_output = os.path.join(book_dir, "output.md")
-        if not os.path.isfile(temp_output):
-            print(f"  未生成 output.md：{temp_output}")
-            continue
-
-        with open(temp_output, encoding="utf-8", errors="ignore") as f:
-            content = f.read()
-        with open(page_file, "w", encoding="utf-8") as f:
-            f.write(f"<!-- page: {page_no} -->\n\n")
-            f.write(content)
-
-        processed += 1
-
-        # 尽量释放内存
-        del doc
-        try:
-            import gc
-
-            gc.collect()
-        except Exception:
-            pass
-
-    print(f"本书 OCR 完成: 处理 {processed} 页, 跳过 {skipped} 页")
+    elapsed = time.time() - t0
+    speed = processed / elapsed if elapsed > 0 else 0
+    print(
+        f"\n本书 OCR 完成: 处理 {processed} 页, 跳过 {skipped} 页, "
+        f"耗时 {elapsed:.1f}s ({speed:.2f} 页/s)"
+    )
     print(f"输出目录: {pages_dir}")
+
+
+def _save_page_md(page_obj, page_idx, book_dir, pages_dir):
+    """将单页 Page 对象保存为 Markdown 文件。"""
+    page_no = page_idx + 1
+    page_file = os.path.join(pages_dir, f"page_{page_no:04d}.md")
+
+    content = page_obj.to_markdown(book_dir, markdown_fn=None)
+    if not content:
+        return False
+
+    with open(page_file, "w", encoding="utf-8") as f:
+        f.write(f"<!-- page: {page_no} -->\n\n")
+        f.write(content)
+    return True
+
+
+def _render_page(pdf_path, page_idx):
+    """将 PDF 单页渲染为 PIL Image。"""
+    import fitz
+    from PIL import Image
+
+    doc = fitz.open(pdf_path)
+    page = doc.load_page(page_idx)
+    pix = page.get_pixmap(dpi=RENDER_DPI)
+    img_data = pix.tobytes(output="jpg", jpg_quality=95)
+    image = Image.open(io.BytesIO(img_data)).convert("RGB")
+    doc.close()
+    return image
+
+
+def _process_pages_sequential(
+    pdf_path, p2t, todo_pages, total_pages, book_dir, pages_dir, ocr_kwargs
+):
+    """顺序模式：逐页渲染并 OCR。"""
+    processed = 0
+    for page in todo_pages:
+        page_no = page + 1
+        print(f"  处理页码：{page_no}/{total_pages or '?'}")
+        image = _render_page(pdf_path, page)
+        page_obj = p2t.recognize_page(
+            image, page_number=page, page_id=str(page), **ocr_kwargs
+        )
+        if _save_page_md(page_obj, page, book_dir, pages_dir):
+            processed += 1
+    return processed
+
+
+def _process_pages_batched(
+    pdf_path, p2t, todo_pages, total_pages, book_dir, pages_dir, ocr_kwargs
+):
+    """批量模式：按批次渲染并 OCR，减少日志输出频率。"""
+    processed = 0
+    batch_size = max(1, BATCH_PAGES)
+
+    for i in range(0, len(todo_pages), batch_size):
+        batch = todo_pages[i : i + batch_size]
+        first_no = batch[0] + 1
+        last_no = batch[-1] + 1
+        print(
+            f"  批量处理: 页 {first_no}~{last_no} "
+            f"({len(batch)} 页, 总进度 {i + len(batch)}/{len(todo_pages)})"
+        )
+
+        for page_idx in batch:
+            image = _render_page(pdf_path, page_idx)
+            page_obj = p2t.recognize_page(
+                image, page_number=page_idx, page_id=str(page_idx), **ocr_kwargs
+            )
+            if _save_page_md(page_obj, page_idx, book_dir, pages_dir):
+                processed += 1
+
+        gc.collect()
+
+    return processed
+
+
+def _process_pages_parallel(
+    pdf_path, p2t, todo_pages, total_pages, book_dir, pages_dir, ocr_kwargs
+):
+    """多进程模式：启动多个独立 pix2text 实例并行 OCR 不同页面。
+
+    每个 worker 进程独立加载模型，分摊页面处理。
+    适用于 GPU 显存充足（每个实例约 1GB）的场景。
+    """
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+
+    workers = max(1, OCR_WORKERS)
+    print(f"  多进程并行 OCR: {workers} workers, 共 {len(todo_pages)} 页")
+
+    # 均匀分配页面给各 worker
+    chunks = [[] for _ in range(workers)]
+    for i, pg in enumerate(todo_pages):
+        chunks[i % workers].append(pg)
+
+    # 过滤掉空的 worker
+    chunks = [c for c in chunks if c]
+
+    processed = 0
+    with ProcessPoolExecutor(max_workers=len(chunks)) as pool:
+        futures = {
+            pool.submit(
+                _worker_process_pages,
+                wid,
+                pdf_path,
+                chunk,
+                book_dir,
+                pages_dir,
+                DEVICE,
+                MFR_BATCH_SIZE,
+                RESIZED_SHAPE,
+                RENDER_DPI,
+                TEXT_CONTAIN_FORMULA,
+            ): wid
+            for wid, chunk in enumerate(chunks)
+        }
+        for fut in as_completed(futures):
+            wid = futures[fut]
+            try:
+                n = fut.result()
+                processed += n
+                print(f"  Worker {wid} 完成: {n} 页")
+            except Exception as e:
+                print(f"  Worker {wid} 异常: {e}")
+
+    return processed
 
 
 def main():
@@ -210,8 +436,11 @@ def main():
         for p in pdf_list:
             print(f"  - {os.path.basename(p)}")
 
-    # 初始化 Pix2Text（只初始化一次）
-    p2t = Pix2Text.from_config()
+    # 初始化 Pix2Text（只初始化一次，显式指定 device）
+    init_kwargs = {}
+    if DEVICE:
+        init_kwargs["device"] = DEVICE
+    p2t = Pix2Text.from_config(**init_kwargs)
 
     # 按顺序处理每个 PDF
     for pdf_path in pdf_list:

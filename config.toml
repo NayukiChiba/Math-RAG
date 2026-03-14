@@ -15,6 +15,21 @@ page_end = -1
 skip_existing = true
 # 图像最大尺寸（宽, 高），用于限制内存占用
 max_image_size = [1280, 1280]
+# ---- 加速相关 ----
+# 推理设备："cuda" / "cpu"，留空自动选择
+device = "cuda"
+# 公式识别批量大小，GPU 上建议 8~16
+mfr_batch_size = 8
+# PDF 渲染 DPI，默认 300，降至 200 可加速约 30%
+render_dpi = 200
+# resized_shape：图像缩放宽度，768 精度最高，512 速度快约 30% 且质量损失很小
+resized_shape = 512
+# 是否检测行内公式（嵌在文本中的公式），关闭可加速 ~33%，独立公式仍保留
+text_contain_formula = true
+# 每次批量处理的页数（减少 PDF 重复打开），0 表示不分批
+batch_pages = 10
+# 多进程并行 worker 数，0 表示在主进程顺序处理（单GPU下建议保持0）
+ocr_workers = 0
 # 文本分块最大字符数
 max_page_chars = 1800
 # 术语最大长度
