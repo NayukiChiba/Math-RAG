@@ -28,16 +28,33 @@ def _resolve_path(path_value: str) -> str:
 @lru_cache(maxsize=1)
 def _get_config_data() -> dict:
     if not os.path.isfile(CONFIG_TOML):
-        raise FileNotFoundError(f"配置文件不存在: {CONFIG_TOML}")
-    return _load_toml(CONFIG_TOML)
+        return {}
+    try:
+        return _load_toml(CONFIG_TOML)
+    except Exception:
+        return {}
 
 
 @lru_cache(maxsize=1)
 def getPathsConfig() -> dict[str, str]:
     """读取并解析 [paths] 配置。"""
     data = _get_config_data()
-    paths_cfg = data.get("paths", {})
-    required_keys = [
+    paths_cfg = data.get("paths", {}) if isinstance(data, dict) else {}
+    defaults = {
+        "raw_dir": "data/raw",
+        "processed_dir": "data/processed",
+        "ocr_dir": "data/processed/ocr",
+        "terms_dir": "data/processed/terms",
+        "chunk_dir": "data/processed/chunks",
+        "evaluation_dir": "data/evaluation",
+        "stats_dir": "data/stats",
+        "outputs_dir": "outputs",
+        "reports_base_dir": "outputs/reports",
+        "figures_dir": "outputs/figures",
+        "logs_dir": "outputs/logs",
+        "rag_results_file": "outputs/rag_results.jsonl",
+    }
+    supported_keys = [
         "raw_dir",
         "processed_dir",
         "ocr_dir",
@@ -51,15 +68,12 @@ def getPathsConfig() -> dict[str, str]:
         "logs_dir",
         "rag_results_file",
     ]
-    missing = [key for key in required_keys if not paths_cfg.get(key)]
-    if missing:
-        joined = ", ".join(missing)
-        raise KeyError(f"config.toml [paths] 缺少必填项: {joined}")
 
     resolved = {}
-    for key, value in paths_cfg.items():
+    for key in supported_keys:
+        value = str(paths_cfg.get(key, defaults[key])).strip()
         if key.endswith("_dir") or key.endswith("_file"):
-            resolved[key] = _resolve_path(str(value).strip())
+            resolved[key] = _resolve_path(value)
         else:
             resolved[key] = value
     return resolved

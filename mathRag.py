@@ -53,6 +53,11 @@ def _materialize_pdf(pdf_arg: str) -> tuple[str, str]:
             raise SystemExit(f"仅支持 PDF 文件: {source}")
         target = raw_dir / source.name
         if source.resolve() != target.resolve():
+            if target.exists():
+                raise SystemExit(
+                    f"目标文件已存在，拒绝覆盖: {target}。"
+                    "请改名后重试，或直接传入 raw 目录中的现有文件名。"
+                )
             shutil.copy2(source, target)
             print(f"📥 已复制 PDF 到原始目录: {target}")
         else:
@@ -67,9 +72,13 @@ def _materialize_pdf(pdf_arg: str) -> tuple[str, str]:
     return target.name, target.stem
 
 
-def _ensure_corpus() -> str:
-    run_build_corpus()
-    return os.path.join(config.PROCESSED_DIR, "retrieval", "corpus.jsonl")
+def _ensure_corpus(*, rebuild: bool) -> str:
+    corpus_file = os.path.join(config.PROCESSED_DIR, "retrieval", "corpus.jsonl")
+    if rebuild or not os.path.exists(corpus_file):
+        run_build_corpus()
+    else:
+        print(f"✅ 复用已有语料文件: {corpus_file}")
+    return corpus_file
 
 
 def _build_indexes(
@@ -81,7 +90,7 @@ def _build_indexes(
     vector_model: str,
     batch_size: int,
 ) -> None:
-    corpus_file = _ensure_corpus()
+    corpus_file = _ensure_corpus(rebuild=rebuild)
     retrieval_dir = os.path.join(config.PROCESSED_DIR, "retrieval")
     terms_file = os.path.join(config.TERMS_DIR, "all_terms.json")
     terms_path = terms_file if os.path.exists(terms_file) else None
