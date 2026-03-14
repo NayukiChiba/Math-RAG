@@ -2,7 +2,18 @@
 
 [paths]
 # 目录路径均相对项目根目录
+raw_dir = "data/raw"
 processed_dir = "data/processed"
+ocr_dir = "data/processed/ocr"
+terms_dir = "data/processed/terms"
+chunk_dir = "data/processed/chunk"
+evaluation_dir = "data/evaluation"
+stats_dir = "data/stats"
+outputs_dir = "outputs"
+reports_base_dir = "outputs/reports"
+figures_dir = "outputs/figures"
+logs_dir = "outputs/logs"
+rag_results_file = "outputs/rag_results.jsonl"
 model_output_json = "data/processed/ma_terms_model.json"
 # OCR 分页输出：processed/ocr/{书名}/pages/
 # 术语列表/映射：processed/terms/{书名}/all.json, map.json

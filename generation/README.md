@@ -2,6 +2,13 @@
 
 RAG 生成层：提示模板、Qwen 推理封装、端到端流程、WebUI。
 
+推荐入口：
+
+```bash
+math-rag rag --query "什么是一致收敛？"
+math-rag serve --port 7860
+```
+
 ## 模块结构
 
 ```
@@ -41,7 +48,7 @@ python generation/promptTemplates.py --query "什么是一致收敛？"
 
 ## qwenInference.py
 
-Qwen2.5-Math-1.5B-Instruct 本地推理封装。
+Qwen2.5-Math 本地推理封装。
 
 **类**：`QwenInference`
 
@@ -70,8 +77,8 @@ model = QwenInference(modelDir=config.QWEN_MODEL_DIR)
 | `max_new_tokens` | 512 | 最大生成 token 数 |
 
 **前置条件**：
-- 模型文件位于 `../Qwen-model/`（与项目同级）
-- 路径通过 `config.QWEN_MODEL_DIR` 管理
+- 模型目录通过 `config.toml [generation].qwen_model_dir` 管理
+- 运行时通过 `config.QWEN_MODEL_DIR` 读取
 - 支持 GPU 加速（`device_map="auto"`），自动 CPU fallback
 
 ---
@@ -128,13 +135,13 @@ print(result["answer"])
 基于 Gradio 的交互界面，支持实时 RAG 问答。
 
 ```bash
-python generation/webui.py
+math-rag serve
 
 # 指定端口
-python generation/webui.py --port 7860
+math-rag serve --port 7860
 
 # 生成公网链接
-python generation/webui.py --share
+math-rag serve --share
 ```
 
 访问 http://localhost:7860 使用界面。
@@ -153,6 +160,6 @@ python generation/webui.py --share
 ## 前置条件
 
 运行生成模块前需：
-1. 下载 Qwen2.5-Math-1.5B-Instruct 到 `../Qwen-model/`
+1. 在 `config.toml [generation].qwen_model_dir` 指定本地模型目录
 2. 构建检索索引（见 [retrieval/README.md](../retrieval/README.md)）
 3. 配置 `config.toml [generation]` 参数

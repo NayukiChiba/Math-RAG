@@ -1,26 +1,61 @@
-"""
-生成模块
+"""生成包统一导出。"""
 
-包含 RAG 问答流程所需的提示模板、Qwen 推理封装和端到端流程。
-"""
+from __future__ import annotations
 
 from generation.promptTemplates import (
     SYSTEM_PROMPT,
     buildContext,
     buildMessages,
     buildPrompt,
+    buildPromptJinja2,
     formatTermContext,
 )
 from generation.qwenInference import QwenInference
 
 
-# 延迟导入 RagPipeline，避免在导入时触发 faiss 依赖
-def __getattr__(name):
-    if name == "RagPipeline":
-        from generation.ragPipeline import RagPipeline
+def _raise_optional_import_error(feature: str, error: Exception) -> None:
+    raise RuntimeError(
+        f"{feature} 依赖未安装或导入失败，请先安装可选依赖后再使用。"
+    ) from error
 
-        return RagPipeline
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+try:
+    from generation.ragPipeline import RagPipeline, loadQueries, saveResults
+
+    _RAG_IMPORT_ERROR: Exception | None = None
+except Exception as error:  # noqa: BLE001
+    _RAG_IMPORT_ERROR = error
+
+    class RagPipeline:  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):
+            _raise_optional_import_error("RagPipeline", _RAG_IMPORT_ERROR)
+
+    def loadQueries(*args, **kwargs):  # type: ignore[no-redef]
+        _raise_optional_import_error("loadQueries", _RAG_IMPORT_ERROR)
+
+    def saveResults(*args, **kwargs):  # type: ignore[no-redef]
+        _raise_optional_import_error("saveResults", _RAG_IMPORT_ERROR)
+
+
+try:
+    from generation.webui import chat, createUI, getQwenInstance
+    from generation.webui import main as run_webui
+
+    _WEBUI_IMPORT_ERROR: Exception | None = None
+except Exception as error:  # noqa: BLE001
+    _WEBUI_IMPORT_ERROR = error
+
+    def getQwenInstance(*args, **kwargs):  # type: ignore[no-redef]
+        _raise_optional_import_error("getQwenInstance", _WEBUI_IMPORT_ERROR)
+
+    def chat(*args, **kwargs):  # type: ignore[no-redef]
+        _raise_optional_import_error("chat", _WEBUI_IMPORT_ERROR)
+
+    def createUI(*args, **kwargs):  # type: ignore[no-redef]
+        _raise_optional_import_error("createUI", _WEBUI_IMPORT_ERROR)
+
+    def run_webui(*args, **kwargs):  # type: ignore[no-redef]
+        _raise_optional_import_error("run_webui", _WEBUI_IMPORT_ERROR)
 
 
 __all__ = [
@@ -28,7 +63,14 @@ __all__ = [
     "buildPrompt",
     "buildMessages",
     "buildContext",
+    "buildPromptJinja2",
     "formatTermContext",
     "QwenInference",
     "RagPipeline",
+    "loadQueries",
+    "saveResults",
+    "getQwenInstance",
+    "chat",
+    "createUI",
+    "run_webui",
 ]

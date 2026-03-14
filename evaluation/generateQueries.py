@@ -357,9 +357,7 @@ def main():
 
     # 配置
     chunkDir = config.CHUNK_DIR
-    outputFile = args.output or os.path.join(
-        config.PROJECT_ROOT, "data", "evaluation", "queries.jsonl"
-    )
+    outputFile = args.output or os.path.join(config.EVALUATION_DIR, "queries.jsonl")
 
     # 设置随机种子保证可复现
     random.seed(42)

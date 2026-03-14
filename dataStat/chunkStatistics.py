@@ -771,7 +771,7 @@ def main():
 
     # 输入输出路径
     chunkDir = config.CHUNK_DIR
-    statsDir = os.path.join(config.PROJECT_ROOT, "data", "stats")
+    statsDir = config.STATS_DIR
     outputFile = os.path.join(statsDir, "chunkStatistics.json")
 
     # 确保输出目录存在
