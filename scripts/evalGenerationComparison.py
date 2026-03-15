@@ -29,32 +29,24 @@ from evaluation.evalGeneration import (
     calculateTermHitRate,
     isAnswerValid,
 )
+from utils import getFileLoader
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_LOADER = getFileLoader()
 
 
 # ── 数据加载 ────────────────────────────────────────────────────
 
 
 def _load_rag_results(path: str) -> list[dict[str, Any]]:
-    results = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                results.append(json.loads(line))
-    return results
+    return _LOADER.jsonl(path)
 
 
 def _load_queries(path: str) -> dict[str, dict[str, Any]]:
     """返回 query -> record 映射。"""
     gold: dict[str, dict[str, Any]] = {}
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                rec = json.loads(line)
-                gold[rec["query"]] = rec
+    for rec in _LOADER.jsonl(path):
+        gold[rec["query"]] = rec
     return gold
 
 
@@ -63,8 +55,7 @@ def _load_retrieval_metrics(
 ) -> dict[str, float]:
     """从 all_methods.json 中提取指定方法的检索指标。"""
     try:
-        with open(all_methods_path, encoding="utf-8") as f:
-            data = json.load(f)
+        data = _LOADER.json(all_methods_path)
         for r in data.get("results", []):
             if r["method"] == method:
                 am = r.get("avg_metrics", {})

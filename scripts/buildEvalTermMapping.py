@@ -19,29 +19,21 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 
 def loadQueries(queriesFile: str) -> list[dict]:
     """加载查询文件"""
-    queries = []
-    with open(queriesFile, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                item = json.loads(line)
-                queries.append(item)
-    return queries
+    return _LOADER.jsonl(queriesFile)
 
 
 def loadCorpusTerms(corpusFile: str) -> set[str]:
     """加载语料库中所有术语"""
     terms = set()
-    with open(corpusFile, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                item = json.loads(line)
-                terms.add(item["term"])
+    for item in _LOADER.jsonl(corpusFile):
+        terms.add(item["term"])
     return terms
 
 
@@ -149,8 +141,7 @@ def mergeWithExistingMapping(
     if existingFile is None or not os.path.exists(existingFile):
         return newMapping
 
-    with open(existingFile, encoding="utf-8") as f:
-        existing = json.load(f)
+    existing = _LOADER.json(existingFile)
 
     # 合并：对于已存在的键，扩展其值；对于新键，直接添加
     merged = dict(existing)

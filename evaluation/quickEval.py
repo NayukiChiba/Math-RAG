@@ -43,6 +43,9 @@ if sys.platform == "win32":
     sys.stderr = codecs.getwriter("utf-8")(sys.stderr.buffer, "strict")
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 # ==================== 指标计算函数 ====================
 
@@ -124,20 +127,16 @@ def loadQueries(
     Returns:
         查询列表
     """
-    queries = []
     try:
-        with open(filepath, encoding="utf-8") as f:
-            for line in f:
-                try:
-                    query = json.loads(line.strip())
-                    if all(k in query for k in ["query", "relevant_terms", "subject"]):
-                        if (
-                            isinstance(query["relevant_terms"], list)
-                            and query["relevant_terms"]
-                        ):
-                            queries.append(query)
-                except json.JSONDecodeError:
-                    pass
+        rawQueries = _LOADER.jsonl(filepath)
+        queries = []
+        for query in rawQueries:
+            if all(k in query for k in ["query", "relevant_terms", "subject"]):
+                if (
+                    isinstance(query["relevant_terms"], list)
+                    and query["relevant_terms"]
+                ):
+                    queries.append(query)
     except FileNotFoundError:
         print(f"❌ 查询集文件不存在：{filepath}")
         return []
@@ -155,22 +154,8 @@ def loadQueries(
 
 def loadCorpus(filepath: str) -> list[dict]:
     """加载语料库"""
-    corpus = []
-    skipped = 0
     try:
-        with open(filepath, encoding="utf-8") as f:
-            for lineNum, line in enumerate(f, 1):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    corpus.append(json.loads(line))
-                except json.JSONDecodeError as e:
-                    # 跳过格式损坏的行，保持与 loadQueries 一致的容错行为
-                    skipped += 1
-                    print(f"⚠️  第 {lineNum} 行 JSON 解析失败，已跳过：{e}")
-        if skipped:
-            print(f"⚠️  共跳过 {skipped} 行损坏数据")
+        corpus = _LOADER.jsonl(filepath)
         print(f"✅ 加载了 {len(corpus)} 条语料")
     except FileNotFoundError:
         print(f"⚠️  语料文件不存在：{filepath}")

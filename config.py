@@ -3,16 +3,11 @@
 import os
 from functools import lru_cache
 
-from utils import OutputFileController
+from utils import OutputManager, getFileLoader, getOutputManager
 
 
 def _load_toml(path):
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        import tomli as tomllib
-    with open(path, "rb") as f:
-        return tomllib.load(f)
+    return getFileLoader().toml(path)
 
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -121,17 +116,14 @@ _textLogDir = None
 _outputController = None
 
 
-def _get_output_controller() -> OutputFileController:
+def _get_output_controller() -> OutputManager:
     """获取全局输出控制器（若基础目录变化则自动刷新）。"""
     global _outputController
-    if _outputController is None:
-        _outputController = OutputFileController(LOG_BASE_DIR)
-    else:
-        _outputController.set_base_dir(LOG_BASE_DIR)
+    _outputController = getOutputManager(LOG_BASE_DIR)
     return _outputController
 
 
-def getOutputController() -> OutputFileController:
+def getOutputController() -> OutputManager:
     """对外暴露统一输出控制器。"""
     return _get_output_controller()
 

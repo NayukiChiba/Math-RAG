@@ -31,6 +31,9 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 
 def loadRagResults(filepath: str) -> list[dict[str, Any]]:
@@ -43,18 +46,8 @@ def loadRagResults(filepath: str) -> list[dict[str, Any]]:
     Returns:
         结果列表
     """
-    results = []
     try:
-        with open(filepath, encoding="utf-8") as f:
-            for i, line in enumerate(f, 1):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    result = json.loads(line)
-                    results.append(result)
-                except json.JSONDecodeError as e:
-                    print(f"⚠️ 第 {i} 行 JSON 解析失败: {e}")
+        results = _LOADER.jsonl(filepath)
         print(f"✅ 加载了 {len(results)} 条 RAG 结果")
         return results
     except FileNotFoundError:
@@ -77,18 +70,10 @@ def loadGoldQueries(filepath: str) -> dict[str, dict[str, Any]]:
     """
     goldMap = {}
     try:
-        with open(filepath, encoding="utf-8") as f:
-            for i, line in enumerate(f, 1):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    gold = json.loads(line)
-                    query = gold.get("query", "")
-                    if query:
-                        goldMap[query] = gold
-                except json.JSONDecodeError as e:
-                    print(f"⚠️ 黄金集第 {i} 行 JSON 解析失败: {e}")
+        for gold in _LOADER.jsonl(filepath):
+            query = gold.get("query", "")
+            if query:
+                goldMap[query] = gold
         print(f"✅ 加载了 {len(goldMap)} 条黄金测试数据")
         return goldMap
     except FileNotFoundError:

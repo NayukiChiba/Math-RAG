@@ -15,8 +15,10 @@ import numpy as np
 from scipy import stats
 
 import config
+from utils import getFileLoader
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_LOADER = getFileLoader()
 
 
 def bootstrap_ci(
@@ -73,8 +75,7 @@ def run_significance_test(
     input_path: str, output_path: str, n_resamples: int = 10000
 ) -> None:
     """读取全量方法对比文件，输出显著性检验报告。"""
-    with open(input_path, encoding="utf-8") as f:
-        data = json.load(f)
+    data = _LOADER.json(input_path)
 
     results_map: dict[str, dict] = {r["method"]: r for r in data["results"]}
 

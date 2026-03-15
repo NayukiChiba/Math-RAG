@@ -34,6 +34,9 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 
 def loadQueries(filepath: str) -> list[dict[str, Any]]:
@@ -46,27 +49,21 @@ def loadQueries(filepath: str) -> list[dict[str, Any]]:
     Returns:
         查询列表
     """
-    queries = []
     try:
-        with open(filepath, encoding="utf-8") as f:
-            for i, line in enumerate(f, 1):
-                try:
-                    query = json.loads(line.strip())
-                    # 验证必需字段
-                    if not all(
-                        k in query for k in ["query", "relevant_terms", "subject"]
-                    ):
-                        print(f"⚠️  第 {i} 行缺少必需字段，跳过")
-                        continue
-                    if (
-                        not isinstance(query["relevant_terms"], list)
-                        or not query["relevant_terms"]
-                    ):
-                        print(f"⚠️  第 {i} 行 relevant_terms 格式错误，跳过")
-                        continue
-                    queries.append(query)
-                except json.JSONDecodeError as e:
-                    print(f"⚠️  第 {i} 行 JSON 解析失败: {e}")
+        rawQueries = _LOADER.jsonl(filepath)
+        queries = []
+        for i, query in enumerate(rawQueries, 1):
+            # 验证必需字段
+            if not all(k in query for k in ["query", "relevant_terms", "subject"]):
+                print(f"⚠️  第 {i} 行缺少必需字段，跳过")
+                continue
+            if (
+                not isinstance(query["relevant_terms"], list)
+                or not query["relevant_terms"]
+            ):
+                print(f"⚠️  第 {i} 行 relevant_terms 格式错误，跳过")
+                continue
+            queries.append(query)
         print(f"✅ 加载了 {len(queries)} 条查询")
         return queries
     except FileNotFoundError:

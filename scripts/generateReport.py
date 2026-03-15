@@ -10,7 +10,6 @@
 """
 
 import argparse
-import json
 import os
 from datetime import datetime
 
@@ -21,8 +20,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import config
+from utils import getFileLoader
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_LOADER = getFileLoader()
 
 # ── 中文字体配置 ─────────────────────────────────────────────────
 _CHINESE_FONTS = [
@@ -52,18 +53,11 @@ def _configure_matplotlib() -> bool:
 
 
 def _load_json(path: str) -> dict:
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    return _LOADER.json(path)
 
 
 def _load_queries(path: str) -> list[dict]:
-    queries = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                queries.append(json.loads(line))
-    return queries
+    return _LOADER.jsonl(path)
 
 
 def _subject_breakdown(

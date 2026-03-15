@@ -1,5 +1,11 @@
 """utils 对外接口。"""
 
-from .output_file import OutputFileController
+from .fileLoader import FileLoader, getFileLoader
+from .outputManager import OutputManager, getOutputManager
 
-__all__ = ["OutputFileController"]
+__all__ = [
+    "FileLoader",
+    "getFileLoader",
+    "OutputManager",
+    "getOutputManager",
+]

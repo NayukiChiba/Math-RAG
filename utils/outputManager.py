@@ -1,10 +1,10 @@
-"""统一输出路径控制。"""
+"""统一输出路径管理。"""
 
 import os
 import time
 
 
-class OutputFileController:
+class OutputManager:
     """控制一次运行内的输出目录与文件路径。"""
 
     def __init__(self, base_dir: str):
@@ -57,3 +57,16 @@ class OutputFileController:
         """将任意路径归一化到 text 目录。"""
         filename = os.path.basename(path or "").strip() or default_name
         return os.path.join(self.get_text_dir(), filename)
+
+
+_DEFAULT_OUTPUT_MANAGER: OutputManager | None = None
+
+
+def getOutputManager(base_dir: str) -> OutputManager:
+    """获取可复用的全局 OutputManager 实例。"""
+    global _DEFAULT_OUTPUT_MANAGER
+    if _DEFAULT_OUTPUT_MANAGER is None:
+        _DEFAULT_OUTPUT_MANAGER = OutputManager(base_dir)
+    else:
+        _DEFAULT_OUTPUT_MANAGER.set_base_dir(base_dir)
+    return _DEFAULT_OUTPUT_MANAGER
