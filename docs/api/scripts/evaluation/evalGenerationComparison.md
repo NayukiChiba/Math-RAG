@@ -1,0 +1,4 @@
+# evalGenerationComparison.py
+
+## 概述
+`scripts/evaluation/evalGenerationComparison.py` 它往往作为在对比评测流水线测试（例如基座模型直出和增加 RAG 以及换用了特化了的大规模参数数学模型三者之间生成质量的对比）上的自动化脚手架任务运行总入口暴露组件端。它会读取评测所必须的几组测试记录或是打分后直接产出的元文件信息并拉起例如统计显著性或是大体分布图谱的综合生成流程报告脚本。
