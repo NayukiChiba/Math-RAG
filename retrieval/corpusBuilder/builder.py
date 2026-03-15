@@ -7,11 +7,7 @@
 
 import json
 import os
-import sys
-from pathlib import Path
 from typing import Any
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from retrieval.corpusBuilder.bridge import buildBridgeCorpusItems
 from retrieval.corpusBuilder.io import loadJsonFile

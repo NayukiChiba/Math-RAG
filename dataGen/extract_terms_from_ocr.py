@@ -15,12 +15,8 @@ import os
 import re
 import sys
 import time
-from pathlib import Path
 
 # 规范模块搜索路径，保证能定位项目根目录
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 import config
 from utils import getFileLoader
 

@@ -14,11 +14,8 @@ Qwen2.5-Math Gradio WebUI
     python -m answerGeneration.webui --port 7860
 """
 
-import sys
-from pathlib import Path
 
 # 路径调整
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import gradio as gr
 

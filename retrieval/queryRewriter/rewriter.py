@@ -1,10 +1,6 @@
 """查询改写器：基于同义词典对数学查询进行术语扩展。"""
 
 import os
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from retrieval.queryRewriter.synonyms import MATH_SYNONYMS
 from utils import getFileLoader

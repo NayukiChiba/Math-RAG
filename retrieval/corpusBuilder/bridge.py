@@ -1,12 +1,8 @@
 """语料桥接项：为评测集中缺失但相关的术语生成桥接语料项。"""
 
 import os
-import sys
 from hashlib import md5
-from pathlib import Path
 from typing import Any
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import config
 from retrieval.corpusBuilder.io import loadQueriesFile

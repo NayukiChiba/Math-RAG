@@ -28,9 +28,7 @@ Qwen2.5-Math 本地推理封装模块
 """
 
 import os
-import sys
 import warnings
-from pathlib import Path
 
 import config
 from utils import getFileLoader
@@ -42,7 +40,6 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module=r"awq\.")
 warnings.filterwarnings("ignore", message=r".*torch\.jit\.script.*is deprecated.*")
 
 # 路径调整，支持直接运行和模块导入两种方式
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 class QwenInference:

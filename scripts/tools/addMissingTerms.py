@@ -10,13 +10,9 @@
 
 import json
 import os
-import sys
-from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(_REPO_ROOT))
-import config  # noqa: E402
-from utils import getFileLoader  # noqa: E402
+import config
+from utils import getFileLoader
 
 _LOADER = getFileLoader()
 

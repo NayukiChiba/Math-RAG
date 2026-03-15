@@ -4,10 +4,8 @@
 """
 
 import os
-import sys
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import config
 from retrieval.retrieverModules import HybridRetriever

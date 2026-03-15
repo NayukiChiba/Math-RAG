@@ -11,9 +11,7 @@
 
 import argparse
 import os
-import sys
 from datetime import datetime
-from pathlib import Path
 
 import matplotlib
 
@@ -21,11 +19,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-_REPO_ROOT = str(Path(__file__).resolve().parents[2])
-sys.path.insert(0, _REPO_ROOT)
-
-import config  # noqa: E402
-from utils import getFileLoader  # noqa: E402
+import config
+from utils import getFileLoader
 
 _LOADER = getFileLoader()
 
@@ -702,7 +697,7 @@ def main() -> None:
     parser.add_argument(
         "--queries",
         type=str,
-        default=os.path.join(_REPO_ROOT, "data", "evaluation", "queries_full.jsonl"),
+        default=os.path.join(config.EVALUATION_DIR, "queries_full.jsonl"),
         help="查询集路径（含 subject 字段）",
     )
     parser.add_argument(
@@ -714,7 +709,7 @@ def main() -> None:
     parser.add_argument(
         "--figures",
         type=str,
-        default=os.path.join(_REPO_ROOT, "outputs", "figures"),
+        default=config.FIGURES_DIR,
         help="输出图表目录",
     )
     parser.add_argument(

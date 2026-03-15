@@ -5,14 +5,9 @@
 
 import json
 import os
-import sys
-from pathlib import Path
 
-# 项目根目录（脚本位于 scripts/，上级为根目录）
-_REPO_ROOT = str(Path(__file__).resolve().parents[2])
-sys.path.insert(0, _REPO_ROOT)
-
-from utils import getFileLoader  # noqa: E402
+import config
+from utils import getFileLoader
 
 _LOADER = getFileLoader()
 
@@ -26,9 +21,7 @@ def _load_entries(corpus_path: str) -> dict:
 
 
 # 模块级加载，供 get_def 使用（路径和编码均已显式指定）
-entries = _load_entries(
-    os.path.join(_REPO_ROOT, "data", "processed", "retrieval", "corpus.jsonl")
-)
+entries = _load_entries(os.path.join(config.PROCESSED_DIR, "retrieval", "corpus.jsonl"))
 
 
 def get_def(term: str) -> str:
@@ -541,7 +534,7 @@ if __name__ == "__main__":
     print(f"  概率论:   {sum(1 for q in golden if q['subject'] == '概率论')}")
     print(f"  高等代数: {sum(1 for q in golden if q['subject'] == '高等代数')}")
 
-    output_path = os.path.join(_REPO_ROOT, "data", "evaluation", "golden_set.jsonl")
+    output_path = os.path.join(config.EVALUATION_DIR, "golden_set.jsonl")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         for item in golden:

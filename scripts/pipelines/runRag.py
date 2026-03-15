@@ -20,13 +20,6 @@ RAG 问答命令行入口
     python scripts/pipelines/runRag.py --query "什么是导数？" --topk 5 --temperature 0.1
 """
 
-import sys
-from pathlib import Path
-
-# 路径调整
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(_REPO_ROOT))
-
 
 def printResult(result: dict) -> None:
     """

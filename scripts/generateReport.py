@@ -34,9 +34,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--queries",
         type=str,
-        default=os.path.join(
-            report._REPO_ROOT, "data", "evaluation", "queries_full.jsonl"
-        ),
+        default=os.path.join(report.config.EVALUATION_DIR, "queries_full.jsonl"),
         help="查询集路径（含 subject 字段）",
     )
     parser.add_argument(
@@ -48,7 +46,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--figures",
         type=str,
-        default=os.path.join(report._REPO_ROOT, "outputs", "figures"),
+        default=report.config.FIGURES_DIR,
         help="输出图表目录",
     )
     parser.add_argument(

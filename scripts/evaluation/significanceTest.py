@@ -10,17 +10,12 @@
 import argparse
 import json
 import os
-import sys
-from pathlib import Path
 
 import numpy as np
 from scipy import stats
 
-_REPO_ROOT = str(Path(__file__).resolve().parents[2])
-sys.path.insert(0, _REPO_ROOT)
-
-import config  # noqa: E402
-from utils import getFileLoader  # noqa: E402
+import config
+from utils import getFileLoader
 
 _LOADER = getFileLoader()
 

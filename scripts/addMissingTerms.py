@@ -4,14 +4,9 @@ from __future__ import annotations
 
 import json
 import os
-import sys
-from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_REPO_ROOT))
-
-import config  # noqa: E402
-from scripts.tools import addMissingTerms as terms  # noqa: E402
+import config
+from scripts.tools import addMissingTerms as terms
 
 
 def main(argv: list[str] | None = None) -> None:

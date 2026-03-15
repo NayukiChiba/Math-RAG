@@ -6,13 +6,9 @@ import argparse
 import json
 import os
 import sys
-from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_REPO_ROOT))
-
-import config  # noqa: E402
-from scripts.evaluation import evalGenerationComparison as egc  # noqa: E402
+import config
+from scripts.evaluation import evalGenerationComparison as egc
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -20,12 +16,12 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="生成质量对比：RAG vs 无检索")
     parser.add_argument(
         "--rag-results",
-        default=os.path.join(egc._REPO_ROOT, "outputs", "rag_results.jsonl"),
+        default=config.RAG_RESULTS_FILE,
         help="RAG 生成结果文件（JSONL）",
     )
     parser.add_argument(
         "--queries",
-        default=os.path.join(egc._REPO_ROOT, "data", "evaluation", "queries.jsonl"),
+        default=os.path.join(config.EVALUATION_DIR, "queries.jsonl"),
         help="查询集文件（含 relevant_terms）",
     )
     parser.add_argument(

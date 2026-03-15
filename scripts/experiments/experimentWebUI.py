@@ -13,11 +13,6 @@
 import json
 import os
 import sys
-from pathlib import Path
-
-# 路径调整：添加项目根目录和 scripts 目录
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(_REPO_ROOT))
 
 try:
     import gradio as gr

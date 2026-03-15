@@ -4,14 +4,9 @@ from __future__ import annotations
 
 import json
 import os
-import sys
-from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_REPO_ROOT))
-
-import config  # noqa: E402
-from scripts.evaluation import buildEvalTermMapping as mapping  # noqa: E402
+import config
+from scripts.evaluation import buildEvalTermMapping as mapping
 
 
 def main(argv: list[str] | None = None) -> None:
