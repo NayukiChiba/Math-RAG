@@ -6,7 +6,7 @@ from modelEvaluation.common.paths import RetrievalAssets
 
 
 def createBM25Retriever(assets: RetrievalAssets):
-    from retrieval.retrievers import BM25Retriever
+    from retrieval.retrieverModules import BM25Retriever
 
     retriever = BM25Retriever(assets.corpus_file, assets.bm25_index_file)
     if not retriever.loadIndex():
@@ -17,7 +17,7 @@ def createBM25Retriever(assets: RetrievalAssets):
 
 
 def createBM25PlusRetriever(assets: RetrievalAssets):
-    from retrieval.retrievers import BM25PlusRetriever
+    from retrieval.retrieverModules import BM25PlusRetriever
 
     retriever = BM25PlusRetriever(
         assets.corpus_file, assets.bm25plus_index_file, assets.terms_file
@@ -31,7 +31,7 @@ def createBM25PlusRetriever(assets: RetrievalAssets):
 
 
 def createVectorRetriever(assets: RetrievalAssets):
-    from retrieval.retrievers import VectorRetriever
+    from retrieval.retrieverModules import VectorRetriever
 
     retriever = VectorRetriever(
         assets.corpus_file,
@@ -47,7 +47,7 @@ def createVectorRetriever(assets: RetrievalAssets):
 
 
 def createHybridPlusRetriever(assets: RetrievalAssets):
-    from retrieval.retrievers import HybridPlusRetriever
+    from retrieval.retrieverModules import HybridPlusRetriever
 
     return HybridPlusRetriever(
         assets.corpus_file,
@@ -60,7 +60,7 @@ def createHybridPlusRetriever(assets: RetrievalAssets):
 
 
 def createAdvancedRetriever(assets: RetrievalAssets):
-    from retrieval.retrievers import AdvancedRetriever
+    from retrieval.retrieverModules import AdvancedRetriever
 
     return AdvancedRetriever(
         assets.corpus_file,

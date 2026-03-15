@@ -10,7 +10,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import config
-from retrieval.retrievers import HybridRetriever
+from retrieval.retrieverModules import HybridRetriever
 from utils import getFileLoader
 
 _LOADER = getFileLoader()

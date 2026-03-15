@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
 from answerGeneration.promptTemplates import buildMessages
 from answerGeneration.qwenInference import QwenInference
-from retrieval.retrievers import (
+from retrieval.retrieverModules import (
     BM25Retriever,
     HybridPlusRetriever,
     VectorRetriever,

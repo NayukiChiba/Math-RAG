@@ -119,7 +119,7 @@ class ExperimentRunner:
         print(f"🔧 初始化检索器（策略: {strategy}）...")
 
         if strategy == "bm25":
-            from retrieval.retrievers import BM25PlusRetriever
+            from retrieval.retrieverModules import BM25PlusRetriever
 
             retriever = BM25PlusRetriever(corpusFile, bm25PlusIndexFile, termsFile)
             if not retriever.loadIndex():
@@ -129,7 +129,7 @@ class ExperimentRunner:
             retriever.loadTermsMap()
 
         elif strategy == "vector":
-            from retrieval.retrievers import VectorRetriever
+            from retrieval.retrieverModules import VectorRetriever
 
             retriever = VectorRetriever(
                 corpusFile,
@@ -142,7 +142,7 @@ class ExperimentRunner:
                 retriever.saveIndex()
 
         elif strategy in ("hybrid", "hybrid-rrf"):
-            from retrieval.retrievers import HybridPlusRetriever
+            from retrieval.retrieverModules import HybridPlusRetriever
 
             retriever = HybridPlusRetriever(
                 corpusFile,

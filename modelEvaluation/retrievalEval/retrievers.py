@@ -14,7 +14,7 @@ def initRetrievers(methods: list[str], assets: RetrievalAssets) -> dict[str, Any
         print(f"\n🔄 初始化检索器: {method.upper()}")
         try:
             if method == "bm25":
-                from retrieval.retrievers import BM25Retriever
+                from retrieval.retrieverModules import BM25Retriever
 
                 retriever = BM25Retriever(assets.corpus_file, assets.bm25_index_file)
                 if not retriever.loadIndex():
@@ -23,7 +23,7 @@ def initRetrievers(methods: list[str], assets: RetrievalAssets) -> dict[str, Any
                     retriever.saveIndex()
                 retrievers["BM25"] = retriever
             elif method == "bm25plus":
-                from retrieval.retrievers import BM25PlusRetriever
+                from retrieval.retrieverModules import BM25PlusRetriever
 
                 retriever = BM25PlusRetriever(
                     assets.corpus_file,
@@ -37,7 +37,7 @@ def initRetrievers(methods: list[str], assets: RetrievalAssets) -> dict[str, Any
                 retriever.loadTermsMap()
                 retrievers["BM25+"] = retriever
             elif method == "vector":
-                from retrieval.retrievers import VectorRetriever
+                from retrieval.retrieverModules import VectorRetriever
 
                 retriever = VectorRetriever(
                     assets.corpus_file,
@@ -51,7 +51,7 @@ def initRetrievers(methods: list[str], assets: RetrievalAssets) -> dict[str, Any
                     retriever.saveIndex()
                 retrievers["Vector"] = retriever
             elif method == "hybrid-plus-weighted":
-                from retrieval.retrievers import HybridPlusRetriever
+                from retrieval.retrieverModules import HybridPlusRetriever
 
                 retrievers["Hybrid+-Weighted"] = HybridPlusRetriever(
                     assets.corpus_file,
@@ -62,7 +62,7 @@ def initRetrievers(methods: list[str], assets: RetrievalAssets) -> dict[str, Any
                     assets.terms_file,
                 )
             elif method == "hybrid-plus-rrf":
-                from retrieval.retrievers import HybridPlusRetriever
+                from retrieval.retrieverModules import HybridPlusRetriever
 
                 retrievers["Hybrid+-RRF"] = HybridPlusRetriever(
                     assets.corpus_file,
@@ -73,7 +73,7 @@ def initRetrievers(methods: list[str], assets: RetrievalAssets) -> dict[str, Any
                     assets.terms_file,
                 )
             elif method == "hybrid-weighted":
-                from retrieval.retrievers import HybridRetriever
+                from retrieval.retrieverModules import HybridRetriever
 
                 retrievers["Hybrid-Weighted"] = HybridRetriever(
                     assets.corpus_file,

@@ -1,6 +1,6 @@
 """检索包统一导出。"""
 
-from retrieval.buildCorpus import (
+from retrieval.corpusBuilder import (
     buildBridgeCorpusItems,
     buildCorpus,
     buildTextFromTerm,
@@ -9,11 +9,8 @@ from retrieval.buildCorpus import (
     loadQueriesFile,
     validateCorpusFile,
 )
-from retrieval.buildCorpus import (
-    main as run_build_corpus,
-)
-from retrieval.queryRewrite import MATH_SYNONYMS, QueryRewriter
-from retrieval.retrievers import (
+from retrieval.queryRewriter import MATH_SYNONYMS, QueryRewriter
+from retrieval.retrieverModules import (
     AdvancedRetriever,
     BM25PlusRetriever,
     BM25Retriever,
