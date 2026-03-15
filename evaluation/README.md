@@ -7,69 +7,11 @@
 ```
 evaluation/
 ├── __init__.py           # 模块初始化
-├── generateQueries.py    # 评测查询自动生成
 ├── evalRetrieval.py      # 检索评测
 ├── evalGeneration.py     # 生成质量评测
 ├── quickEval.py          # 快速检索评测
 └── README.md             # 本文档
 ```
-
-## generateQueries.py - 评测查询生成
-
-从术语库智能采样并生成评测数据。
-
-**生成策略**：80% 高质量术语（相关术语丰富）+ 20% 随机术语（保证多样性）
-
-**使用方法**：
-
-```bash
-# 默认：按固定数量生成（数学分析35，高等代数20，概率论20）
-math-rag generate-queries
-
-# 生成所有符合条件的术语（3102条）
-math-rag generate-queries --all
-
-# 按比例采样（如采样50%的术语）
-math-rag generate-queries --ratio 0.5
-
-# 自定义各学科数量
-python evaluation/generateQueries.py --num-ma 50 --num-gd 30 --num-gl 30
-
-# 提高质量阈值（要求至少2个相关术语）
-python evaluation/generateQueries.py --all --min-related 2
-
-# 不合并现有数据，直接覆盖
-python evaluation/generateQueries.py --all --no-merge
-```
-
-**参数**：
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--all` | 使用所有符合条件的术语 | False |
-| `--ratio` | 采样比例 (0-1) | None |
-| `--num-ma` | 数学分析生成数量 | 35 |
-| `--num-gd` | 高等代数生成数量 | 20 |
-| `--num-gl` | 概率论生成数量 | 20 |
-| `--min-related` | 最少相关术语数量阈值 | 1 |
-| `--output` | 输出文件路径 | `data/evaluation/queries.jsonl` |
-| `--no-merge` | 不合并现有数据 | False |
-
-**输出格式**：
-
-```json
-{"query": "牛顿-莱布尼茨公式", "relevant_terms": ["牛顿-莱布尼茨公式", "微积分基本定理", "原函数"], "subject": "数学分析"}
-```
-
-**生成规模**：
-
-| 模式 | 数学分析 | 高等代数 | 概率论 | 总计 |
-|------|----------|----------|--------|------|
-| 默认 | 35 | 20 | 20 | 75 |
-| 50%采样 | ~773 | ~322 | ~455 | ~1550 |
-| 全量 | 1547 | 645 | 910 | 3102 |
-
----
 
 ## evalRetrieval.py - 检索评测
 

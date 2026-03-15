@@ -8,12 +8,12 @@
 
 ## 生成方式
 
-使用 `evaluation/generateQueries.py` 生成：
+使用 `generation/generateQueries.py` 生成：
 
 ```bash
 # 快速验证集（保留人工标注）
-python evaluation/generateQueries.py
+python generation/generateQueries.py
 
 # 完整评测集
-python evaluation/generateQueries.py --all --no-merge --output data/evaluation/queries_full.jsonl
+python generation/generateQueries.py --all --no-merge --output data/evaluation/queries_full.jsonl
 ```

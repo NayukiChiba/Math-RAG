@@ -114,7 +114,7 @@
 - ✅ nDCG@K（K=3,5,10）
 - ✅ MAP（Mean Average Precision）
 
-**脚本**：`evaluation/evalRetrieval.py`、`evaluation/generateQueries.py`  
+**脚本**：`evaluation/evalRetrieval.py`、`generation/generateQueries.py`  
 
 **验收标准**：
 - ✅ 固定格式输出，结果可复现
@@ -311,7 +311,7 @@
 - `retrieval/queryRewrite.py` - 查询改写（144 条同义词映射）
 - `evaluation/evalRetrieval.py` - 检索评测
 - `evaluation/evalGeneration.py` - 生成质量评测
-- `evaluation/generateQueries.py` - 评测查询生成
+- `generation/generateQueries.py` - 评测查询生成
 - `evaluation/quickEval.py` - 快速检索评测
 - `generation/promptTemplates.py` - RAG 提示模板
 - `generation/qwenInference.py` - Qwen 推理封装

@@ -252,7 +252,7 @@ def build_parser() -> argparse.ArgumentParser:
     build_index.set_defaults(handler=_handle_build_index)
 
     for command, module_name, help_text in [
-        ("generate-queries", "evaluation.generateQueries", "生成评测查询集"),
+        ("generate-queries", "generation.generateQueries", "生成评测查询集"),
         ("build-term-mapping", "scripts.buildEvalTermMapping", "构建评测术语映射"),
         ("quick-eval", "evaluation.quickEval", "运行快速检索评测"),
         ("eval-retrieval", "evaluation.evalRetrieval", "运行正式检索评测"),

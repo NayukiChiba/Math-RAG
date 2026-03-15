@@ -11,7 +11,7 @@ from evaluation.evalGeneration import (
     printSummary,
 )
 from evaluation.evalGeneration import (
-    main as run_eval_generation,
+    main as runEvalGeneration,
 )
 from evaluation.evalRetrieval import (
     calculateAP,
@@ -27,18 +27,7 @@ from evaluation.evalRetrieval import (
     evaluateMethod as evaluateRetrievalMethod,
 )
 from evaluation.evalRetrieval import (
-    main as run_eval_retrieval,
-)
-from evaluation.generateQueries import (
-    generateQueries,
-    loadAllTerms,
-    loadExistingQueries,
-    mergeQueries,
-    normalizeSubject,
-    saveQueries,
-)
-from evaluation.generateQueries import (
-    main as run_generate_queries,
+    main as runEvalRetrieval,
 )
 from evaluation.quickEval import (
     calculateMAP,
@@ -68,21 +57,14 @@ __all__ = [
     "evaluateRetrievalMethod",
     "findBestWorstExamples",
     "generateComparisonChart",
-    "generateQueries",
-    "loadAllTerms",
-    "loadExistingQueries",
     "loadGoldQueries",
     "loadQueries",
     "loadRagResults",
-    "mergeQueries",
-    "normalizeSubject",
     "printExamples",
     "printSummary",
-    "run_eval_generation",
-    "run_eval_retrieval",
-    "run_generate_queries",
+    "runEvalGeneration",
+    "runEvalRetrieval",
     "run_quick_eval",
     "runEval",
-    "saveQueries",
     "saveQuickEvalReport",
 ]

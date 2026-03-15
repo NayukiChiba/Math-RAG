@@ -2,6 +2,17 @@
 
 from __future__ import annotations
 
+from generation.generateQueries import (
+    generateQueries,
+    loadAllTerms,
+    loadExistingQueries,
+    mergeQueries,
+    normalizeSubject,
+    saveQueries,
+)
+from generation.generateQueries import (
+    main as runGenerateQueries,
+)
 from generation.promptTemplates import (
     SYSTEM_PROMPT,
     buildContext,
@@ -66,6 +77,13 @@ __all__ = [
     "buildPromptJinja2",
     "formatTermContext",
     "QwenInference",
+    "generateQueries",
+    "loadAllTerms",
+    "loadExistingQueries",
+    "mergeQueries",
+    "normalizeSubject",
+    "runGenerateQueries",
+    "saveQueries",
     "RagPipeline",
     "loadQueries",
     "saveResults",

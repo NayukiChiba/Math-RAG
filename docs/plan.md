@@ -129,7 +129,7 @@
 - 子任务：
   - ✅ 数据核验与统计（dataStat/chunkStatistics.py）
   - ✅ 构建检索语料（retrieval/buildCorpus.py → data/processed/retrieval/corpus.jsonl）
-  - ✅ 评测查询集构建（evaluation/generateQueries.py → data/evaluation/queries.jsonl）
+  - ✅ 评测查询集构建（generation/generateQueries.py → data/evaluation/queries.jsonl）
 
 ### 任务3：教材 OCR + LLM 构建数学名词数据（✅ 已完成）
 - 目标：遍历 `data/raw/` 下的 PDF 教材，OCR 后生成数学相关术语与结构化 JSON
@@ -183,7 +183,7 @@
 - 目标：构建可复现的评测流程
 - 子任务：
   - ✅ 检索指标实现（Recall@K, MRR, nDCG，evaluation/evalRetrieval.py）
-  - ✅ 评测查询集自动生成（evaluation/generateQueries.py）
+  - ✅ 评测查询集自动生成（generation/generateQueries.py）
   - ✅ 生成质量评估（Task-10 #26）
   - ✅ 对比实验（RAG vs 无检索，Task-11 #27）
   - 🔄 黄金测试集构建（Task-12 #33）
