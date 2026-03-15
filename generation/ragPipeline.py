@@ -79,6 +79,14 @@ class RagPipeline:
         self.modelName = modelName
         self.hybridAlpha = hybridAlpha
         self.hybridBeta = hybridBeta
+        retrievalCfg = config.getRetrievalConfig()
+        self.outOfScopeScoreThreshold = float(
+            retrievalCfg.get("out_of_scope_score_threshold", 0.80)
+        )
+        self.noOverlapStrictScoreThreshold = float(
+            retrievalCfg.get("no_overlap_strict_score_threshold", 0.88)
+        )
+        self.overlapMinChars = int(retrievalCfg.get("overlap_min_chars", 2))
 
         # 默认路径
         retrievalDir = os.path.join(config.PROCESSED_DIR, "retrieval")
@@ -97,6 +105,56 @@ class RagPipeline:
         self._retriever = None
         self._qwen = None
         self._corpus = None
+
+    def _cleanTextForOverlap(self, text: str) -> str:
+        """清洗文本，仅保留中英文与数字用于重叠判断。"""
+        return "".join(
+            ch for ch in text.lower() if ch.isalnum() or "\u4e00" <= ch <= "\u9fff"
+        )
+
+    def _hasLexicalOverlap(
+        self, queryText: str, retrievalResults: list[dict[str, Any]]
+    ) -> bool:
+        """判断查询与检索术语是否有最小字符重叠。"""
+        minChars = max(1, self.overlapMinChars)
+        cleanedQuery = self._cleanTextForOverlap(queryText)
+        if len(cleanedQuery) < minChars:
+            return False
+
+        queryChunks = {
+            cleanedQuery[i : i + minChars]
+            for i in range(len(cleanedQuery) - minChars + 1)
+        }
+
+        for item in retrievalResults:
+            term = self._cleanTextForOverlap(str(item.get("term", "")))
+            if len(term) < minChars:
+                continue
+            for i in range(len(term) - minChars + 1):
+                if term[i : i + minChars] in queryChunks:
+                    return True
+        return False
+
+    def _shouldRefuseOutOfScope(
+        self, queryText: str, retrievalResults: list[dict[str, Any]]
+    ) -> bool:
+        """
+        判断是否拒答：
+        - 检索不到可靠数学证据，直接拒答
+        - 查询与术语无重叠时使用更严格阈值
+        """
+        if not retrievalResults:
+            return True
+
+        topScore = max(float(r.get("score", 0.0)) for r in retrievalResults)
+        if topScore < self.outOfScopeScoreThreshold:
+            return True
+
+        hasOverlap = self._hasLexicalOverlap(queryText, retrievalResults)
+        if (not hasOverlap) and topScore < self.noOverlapStrictScoreThreshold:
+            return True
+
+        return False
 
     def _loadCorpus(self) -> dict[str, dict[str, Any]]:
         """加载语料文件，构建 doc_id 到文档的映射"""
@@ -310,6 +368,12 @@ class RagPipeline:
             for r in retrievalResults
             if r.get("source")
         ]
+
+        if self._shouldRefuseOutOfScope(queryText, retrievalResults):
+            result["answer"] = "我不知道。"
+            totalEnd = time.time()
+            result["latency"]["total_ms"] = int((totalEnd - totalStart) * 1000)
+            return result
 
         # 生成阶段
         generationStart = time.time()

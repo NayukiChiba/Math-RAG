@@ -172,6 +172,13 @@ advanced_recall_topk = 200
 # 重排序候选数量
 rerank_candidates = 100
 
+# 域外拒答阈值：当检索证据不足时直接回答“我不知道。”
+out_of_scope_score_threshold = 0.80
+# 当查询与检索术语几乎无重叠时，使用更严格阈值
+no_overlap_strict_score_threshold = 0.88
+# 查询与术语最小重叠字符数（用于判断术语相关性）
+overlap_min_chars = 2
+
 # RRF 参数
 rrf_k = 60
 rrf_min_k = 30
