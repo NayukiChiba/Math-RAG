@@ -59,15 +59,15 @@ def _materialize_pdf(pdf_arg: str) -> tuple[str, str]:
                     "请改名后重试，或直接传入 raw 目录中的现有文件名。"
                 )
             shutil.copy2(source, target)
-            print(f"📥 已复制 PDF 到原始目录: {target}")
+            print(f" 已复制 PDF 到原始目录: {target}")
         else:
-            print(f"📂 使用 raw 目录中的 PDF: {target}")
+            print(f" 使用 raw 目录中的 PDF: {target}")
     else:
         target_name = pdf_arg if pdf_arg.lower().endswith(".pdf") else f"{pdf_arg}.pdf"
         target = raw_dir / target_name
         if not target.exists():
             raise SystemExit(f"未找到 PDF: {pdf_arg}")
-        print(f"📂 使用 raw 目录中的 PDF: {target}")
+        print(f" 使用 raw 目录中的 PDF: {target}")
 
     return target.name, target.stem
 
@@ -77,7 +77,7 @@ def _ensure_corpus(*, rebuild: bool) -> str:
     if rebuild or not os.path.exists(corpus_file):
         run_build_corpus()
     else:
-        print(f"✅ 复用已有语料文件: {corpus_file}")
+        print(f" 复用已有语料文件: {corpus_file}")
     return corpus_file
 
 
@@ -102,7 +102,7 @@ def _build_indexes(
             retriever.buildIndex()
             retriever.saveIndex()
         else:
-            print(f"✅ 复用已有 BM25 索引: {bm25_index}")
+            print(f" 复用已有 BM25 索引: {bm25_index}")
 
     if not skip_bm25plus:
         bm25plus_index = os.path.join(retrieval_dir, "bm25plus_index.pkl")
@@ -113,7 +113,7 @@ def _build_indexes(
             retriever.buildIndex()
             retriever.saveIndex()
         else:
-            print(f"✅ 复用已有 BM25+ 索引: {bm25plus_index}")
+            print(f" 复用已有 BM25+ 索引: {bm25plus_index}")
 
     if not skip_vector:
         vector_index = os.path.join(retrieval_dir, "vector_index.faiss")
@@ -128,7 +128,7 @@ def _build_indexes(
             retriever.buildIndex(batchSize=batch_size)
             retriever.saveIndex()
         else:
-            print(f"✅ 复用已有向量索引: {vector_index}")
+            print(f" 复用已有向量索引: {vector_index}")
 
 
 def _handle_ingest(args: argparse.Namespace) -> None:
@@ -178,7 +178,7 @@ def _handle_passthrough(module_name: str, passthrough_args: list[str]) -> None:
 
 def _handle_serve(args: argparse.Namespace) -> None:
     if args.target == "webui":
-        module_name = "generation.webui"
+        module_name = "answerGeneration.webui"
     elif args.target == "experiment-webui":
         module_name = "scripts.experimentWebUI"
     else:
@@ -252,13 +252,13 @@ def build_parser() -> argparse.ArgumentParser:
     build_index.set_defaults(handler=_handle_build_index)
 
     for command, module_name, help_text in [
-        ("generate-queries", "evaluation.generateQueries", "生成评测查询集"),
-        ("build-term-mapping", "scripts.buildEvalTermMapping", "构建评测术语映射"),
-        ("quick-eval", "evaluation.quickEval", "运行快速检索评测"),
-        ("eval-retrieval", "evaluation.evalRetrieval", "运行正式检索评测"),
+        ("generate-queries", "evaluationData.generateQueries", "生成评测查询集"),
+        ("build-term-mapping", "scripts.buildTermMapping", "构建评测术语映射"),
+        ("quick-eval", "modelEvaluation.quickEval", "运行快速检索评测"),
+        ("eval-retrieval", "modelEvaluation.evalRetrieval", "运行正式检索评测"),
         ("rag", "scripts.runRag", "运行 RAG 问答"),
         ("experiments", "scripts.runExperiments", "运行端到端对比实验"),
-        ("eval-generation", "evaluation.evalGeneration", "运行生成质量评测"),
+        ("eval-generation", "modelEvaluation.evalGeneration", "运行生成质量评测"),
         ("report", "scripts.generateReport", "生成最终评测报告"),
     ]:
         subparser = subparsers.add_parser(command, help=help_text)

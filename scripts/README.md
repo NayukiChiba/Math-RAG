@@ -8,10 +8,42 @@
 
 ```
 scripts/
-├── runRag.py                # RAG 问答命令行入口
-├── runExperiments.py        # 四组对比实验
-├── experimentWebUI.py       # 实验 WebUI
-└── buildEvalTermMapping.py  # 构建评测术语映射
+├── runRag.py                    # RAG 命令行正式入口
+├── runExperiments.py            # 实验命令行正式入口
+├── experimentWebUI.py           # 实验 WebUI 正式入口
+├── buildTermMapping.py          # 术语映射构建正式入口
+├── evalGenerationComparison.py
+├── significanceTest.py
+├── generateReport.py
+├── addMissingTerms.py
+├── pipelines/
+│   └── runRag.py                # RAG 问答命令行入口
+├── experiments/
+│   ├── runExperiments.py        # 四组对比实验
+│   └── experimentWebUI.py       # 实验 WebUI
+├── evaluation/
+│   ├── buildEvalTermMapping.py  # 构建评测术语映射
+│   ├── evalGenerationComparison.py
+│   ├── significanceTest.py
+│   └── generateReport.py
+└── tools/
+  ├── addMissingTerms.py
+  └── buildGoldenSet.py
+```
+
+## scripts 根目录入口
+
+这些是当前推荐的直接入口（不依赖旧文件名）：
+
+```bash
+python scripts/runRag.py --help
+python scripts/runExperiments.py --help
+python scripts/experimentWebUI.py
+python scripts/buildTermMapping.py --help
+python scripts/evalGenerationComparison.py --help
+python scripts/significanceTest.py --help
+python scripts/generateReport.py --help
+python scripts/addMissingTerms.py --help
 ```
 
 ## runRag.py
@@ -25,14 +57,14 @@ scripts/
 math-rag rag --query "什么是一致收敛？"
 
 # 批量查询（从文件读取）
-python scripts/runRag.py --input data/evaluation/queries.jsonl \
+python scripts/pipelines/runRag.py --input data/evaluation/queries.jsonl \
                          --output outputs/rag_results.jsonl
 
 # 指定检索策略
-python scripts/runRag.py --query "泰勒公式" --retrieval hybrid
+python scripts/pipelines/runRag.py --query "泰勒公式" --retrieval hybrid
 
 # 指定生成参数
-python scripts/runRag.py --query "泰勒公式" --topk 5 \
+python scripts/pipelines/runRag.py --query "泰勒公式" --topk 5 \
                          --max-new-tokens 256 --temperature 0.1
 ```
 
@@ -85,13 +117,13 @@ python scripts/runRag.py --query "泰勒公式" --topk 5 \
 math-rag experiments
 
 # 运行指定实验组
-python scripts/runExperiments.py --groups norag bm25 vector hybrid
+python scripts/experiments/runExperiments.py --groups norag bm25 vector hybrid
 
 # 限制查询数量（调试用）
-python scripts/runExperiments.py --limit 10
+python scripts/experiments/runExperiments.py --limit 10
 
 # 指定查询文件和输出目录
-python scripts/runExperiments.py --queries data/evaluation/queries.jsonl \
+python scripts/experiments/runExperiments.py --queries data/evaluation/queries.jsonl \
                                  --output outputs/reports/
 ```
 

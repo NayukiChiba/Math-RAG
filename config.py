@@ -3,14 +3,11 @@
 import os
 from functools import lru_cache
 
+from utils import OutputManager, getFileLoader, getOutputManager
+
 
 def _load_toml(path):
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        import tomli as tomllib
-    with open(path, "rb") as f:
-        return tomllib.load(f)
+    return getFileLoader().toml(path)
 
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -49,9 +46,10 @@ def getPathsConfig() -> dict[str, str]:
         "evaluation_dir": "data/evaluation",
         "stats_dir": "data/stats",
         "outputs_dir": "outputs",
-        "reports_base_dir": "outputs/reports",
+        "log_base_dir": "outputs/log",
+        "reports_base_dir": "outputs/log",
         "figures_dir": "outputs/figures",
-        "logs_dir": "outputs/logs",
+        "logs_dir": "outputs/log",
         "rag_results_file": "outputs/rag_results.jsonl",
     }
     supported_keys = [
@@ -63,6 +61,7 @@ def getPathsConfig() -> dict[str, str]:
         "evaluation_dir",
         "stats_dir",
         "outputs_dir",
+        "log_base_dir",
         "reports_base_dir",
         "figures_dir",
         "logs_dir",
@@ -71,11 +70,21 @@ def getPathsConfig() -> dict[str, str]:
 
     resolved = {}
     for key in supported_keys:
-        value = str(paths_cfg.get(key, defaults[key])).strip()
+        if key == "log_base_dir":
+            rawValue = paths_cfg.get(
+                "log_base_dir",
+                paths_cfg.get("reports_base_dir", defaults["log_base_dir"]),
+            )
+        else:
+            rawValue = paths_cfg.get(key, defaults[key])
+        value = str(rawValue).strip()
         if key.endswith("_dir") or key.endswith("_file"):
             resolved[key] = _resolve_path(value)
         else:
             resolved[key] = value
+
+    # 兼容旧代码中对 REPORTS_BASE_DIR 的读取，统一映射到 log_base_dir
+    resolved["reports_base_dir"] = resolved["log_base_dir"]
     return resolved
 
 
@@ -94,33 +103,76 @@ CHUNK_DIR = _PATHS["chunk_dir"]
 EVALUATION_DIR = _PATHS["evaluation_dir"]
 STATS_DIR = _PATHS["stats_dir"]
 OUTPUTS_DIR = _PATHS["outputs_dir"]
+LOG_BASE_DIR = _PATHS["log_base_dir"]
 REPORTS_BASE_DIR = _PATHS["reports_base_dir"]
 FIGURES_DIR = _PATHS["figures_dir"]
 LOGS_DIR = _PATHS["logs_dir"]
 RAG_RESULTS_FILE = _PATHS["rag_results_file"]
 
 # 缓存：同一进程内只生成一次时间戳目录
-_reportsDir = None
+_runLogDir = None
+_jsonLogDir = None
+_textLogDir = None
+_outputController = None
+
+
+def _get_output_controller() -> OutputManager:
+    """获取全局输出控制器（若基础目录变化则自动刷新）。"""
+    global _outputController
+    _outputController = getOutputManager(LOG_BASE_DIR)
+    return _outputController
+
+
+def getOutputController() -> OutputManager:
+    """对外暴露统一输出控制器。"""
+    return _get_output_controller()
+
+
+def getRunLogDir() -> str:
+    """获取当前运行目录：outputs/log/YYYYMMDD_HHMMSS。"""
+    global _runLogDir
+    _runLogDir = _get_output_controller().get_run_dir()
+    return _runLogDir
+
+
+def getJsonLogDir() -> str:
+    """获取当前运行 JSON 输出目录：outputs/log/YYYYMMDD_HHMMSS/json。"""
+    global _jsonLogDir
+    _jsonLogDir = _get_output_controller().get_json_dir()
+    return _jsonLogDir
+
+
+def getTextLogDir() -> str:
+    """获取当前运行文本日志目录：outputs/log/YYYYMMDD_HHMMSS/text。"""
+    global _textLogDir
+    _textLogDir = _get_output_controller().get_text_dir()
+    return _textLogDir
+
+
+def normalizeJsonOutputPath(path: str, defaultName: str) -> str:
+    """
+    将任意输出路径归一化到当前运行 JSON 目录。
+
+    规则：outputs/log/YYYYMMDD_HHMMSS/json/<filename>
+    """
+    return _get_output_controller().normalize_json_path(path, defaultName)
+
+
+def normalizeTextLogPath(path: str, defaultName: str) -> str:
+    """将任意日志路径归一化到当前运行 text 目录。"""
+    return _get_output_controller().normalize_text_path(path, defaultName)
 
 
 def getReportsDir() -> str:
     """
-    获取当前运行对应的报告输出目录
+    兼容旧接口：返回当前运行 JSON 输出目录
 
-    每次运行自动在 reports_base_dir 下创建以当前时间命名的子目录，
-    格式为 YYYYMMDD_HHMMSS。同一进程中多次调用返回同一个目录。
+    统一输出规范：outputs/log/YYYYMMDD_HHMMSS/json
 
     Returns:
-        str: 报告输出目录的绝对路径
+        str: JSON 输出目录的绝对路径
     """
-    global _reportsDir
-    if _reportsDir is None:
-        import time
-
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        _reportsDir = os.path.join(REPORTS_BASE_DIR, timestamp)
-        os.makedirs(_reportsDir, exist_ok=True)
-    return _reportsDir
+    return getJsonLogDir()
 
 
 def get_ocr_config():

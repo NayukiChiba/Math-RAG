@@ -1,10 +1,11 @@
 """项目级统一导出。"""
 
+import answerGeneration as answerGeneration
 import config as config
 import dataGen as dataGen
 import dataStat as dataStat
-import evaluation as evaluation
-import generation as generation
+import evaluationData as evaluationData
+import modelEvaluation as modelEvaluation
 import retrieval as retrieval
 import scripts as scripts
 from mathRag import build_parser, main
@@ -17,8 +18,9 @@ __all__ = [
     "config",
     "dataGen",
     "dataStat",
-    "evaluation",
-    "generation",
+    "modelEvaluation",
+    "answerGeneration",
+    "evaluationData",
     "main",
     "retrieval",
     "scripts",

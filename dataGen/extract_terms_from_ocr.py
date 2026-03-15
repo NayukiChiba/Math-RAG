@@ -15,13 +15,12 @@ import os
 import re
 import sys
 import time
-from pathlib import Path
 
 # 规范模块搜索路径，保证能定位项目根目录
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 # 从配置文件加载 OCR 配置
 _ocr_cfg = config.get_ocr_config()
@@ -99,12 +98,7 @@ NUMBERED_TITLE_PATTERN = re.compile(r"^(定理|引理|命题|推论)\s*\d+(?:\.\
 
 def _load_toml(path):
     """读取 TOML 配置。"""
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        import tomli as tomllib
-    with open(path, "rb") as f:
-        return tomllib.load(f)
+    return _LOADER.toml(path)
 
 
 def _load_env_value(root_dir, key):
@@ -116,19 +110,18 @@ def _load_env_value(root_dir, key):
     if not os.path.isfile(env_path):
         return None
 
-    with open(env_path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            k = k.strip()
-            if k != key:
-                continue
-            v = v.strip().strip('"').strip("'")
-            return v
+    for line in _LOADER.text_lines(env_path):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        if k != key:
+            continue
+        v = v.strip().strip('"').strip("'")
+        return v
     return None
 
 
@@ -425,8 +418,7 @@ def _extract_terms_for_book(book_name, cfg, api_key, start_page=None):
     term_pages = {}
     if os.path.isfile(terms_map_path):
         try:
-            with open(terms_map_path, encoding="utf-8") as f:
-                existing = json.load(f)
+            existing = _LOADER.json(terms_map_path)
             # 将已有页码列表还原为 set
             for t, pages in existing.items():
                 term_pages[t] = set(pages)

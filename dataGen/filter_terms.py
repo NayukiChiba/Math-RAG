@@ -13,27 +13,21 @@ import json
 import os
 import sys
 import time
-from pathlib import Path
 
 import requests
 
 # 规范模块搜索路径，保证能定位项目根目录
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 CONFIG_PATH = config.CONFIG_TOML
 
 
 def _load_toml(path):
     """读取 TOML 配置。"""
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        import tomli as tomllib
-    with open(path, "rb") as f:
-        return tomllib.load(f)
+    return _LOADER.toml(path)
 
 
 def _load_env_value(root_dir, key):
@@ -45,19 +39,18 @@ def _load_env_value(root_dir, key):
     if not os.path.isfile(env_path):
         return None
 
-    with open(env_path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            k = k.strip()
-            if k != key:
-                continue
-            v = v.strip().strip('"').strip("'")
-            return v
+    for line in _LOADER.text_lines(env_path):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        if k != key:
+            continue
+        v = v.strip().strip('"').strip("'")
+        return v
     return None
 
 
@@ -216,11 +209,9 @@ def filter_terms_file(book_name: str):
     print(f"{'=' * 60}")
 
     # 加载原始术语
-    with open(all_json, encoding="utf-8") as f:
-        all_terms = json.load(f)
+    all_terms = _LOADER.json(all_json)
 
-    with open(map_json, encoding="utf-8") as f:
-        term_map = json.load(f)
+    term_map = _LOADER.json(map_json)
 
     print(f"原始术语数量: {len(all_terms)}")
 
@@ -259,11 +250,11 @@ def filter_terms_file(book_name: str):
     if not os.path.exists(all_original_json):
         shutil.copy2(all_json, all_original_json)
         shutil.copy2(map_json, map_original_json)
-        print("✓ 已备份原始文件:")
+        print(" 已备份原始文件:")
         print(f"  - {all_original_json}")
         print(f"  - {map_original_json}")
     else:
-        print("✓ 原始备份已存在，跳过备份步骤")
+        print(" 原始备份已存在，跳过备份步骤")
 
     # 保存过滤后的结果，覆盖原文件
     with open(all_json, "w", encoding="utf-8") as f:
@@ -272,7 +263,7 @@ def filter_terms_file(book_name: str):
     with open(map_json, "w", encoding="utf-8") as f:
         json.dump(filtered_map, f, ensure_ascii=False, indent=2)
 
-    print("✓ 已保存过滤结果:")
+    print(" 已保存过滤结果:")
     print(f"  - {all_json}")
     print(f"  - {map_json}")
 
