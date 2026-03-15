@@ -14,17 +14,27 @@ Qwen2.5-Math Gradio WebUI
     python -m answerGeneration.webui --port 7860
 """
 
-
 # 路径调整
+import re
 
 import gradio as gr
 
 import config
-from answerGeneration.promptTemplates import SYSTEM_PROMPT, buildMessages
 from answerGeneration.qwenInference import QwenInference
+from answerGeneration.ragPipeline import RagPipeline
 
 # 全局模型实例（延迟加载）
 _qwenInstance: QwenInference | None = None
+_ragInstance: RagPipeline | None = None
+
+PURE_SYSTEM_PROMPT = """你是一位专业的数学教学助手，专注于大学数学课程（数学分析、高等代数、概率论等）。
+
+回答要求：
+1. 优先给出清晰定义，再补充关键性质或直观解释
+2. 数学公式使用 LaTeX（行内 $...$，行间 $$...$$）
+3. 当问题是数学问题时，可基于通用数学知识直接作答
+4. 仅当你确实无法确定答案时，才回答“我不知道。”
+5. 不回答与数学无关的话题"""
 
 
 def getQwenInstance() -> QwenInference:
@@ -33,6 +43,73 @@ def getQwenInstance() -> QwenInference:
     if _qwenInstance is None:
         _qwenInstance = QwenInference()
     return _qwenInstance
+
+
+def getRagInstance() -> RagPipeline:
+    """获取或创建 RAG 流水线实例（单例模式）"""
+    global _ragInstance
+    if _ragInstance is None:
+        retrievalCfg = config.getRetrievalConfig()
+        _ragInstance = RagPipeline(
+            strategy="hybrid",
+            topK=5,
+            modelName=retrievalCfg.get("default_vector_model", "BAAI/bge-base-zh-v1.5"),
+            hybridAlpha=float(retrievalCfg.get("bm25_default_weight", 0.7)),
+            hybridBeta=float(retrievalCfg.get("vector_default_weight", 0.3)),
+        )
+    return _ragInstance
+
+
+def _extractFieldFromText(text: str, fieldLabel: str) -> str:
+    """从语料拼接文本中提取指定字段（如 用法/应用/区分/相关术语）。"""
+    if not text:
+        return ""
+    pattern = f"(?:^|\\n){re.escape(fieldLabel)}:\\s*(.*?)(?=\\n[^\\n:]+:\\s|$)"
+    match = re.search(pattern, text, flags=re.S)
+    if not match:
+        return ""
+    return match.group(1).strip()
+
+
+def _renderRagCitations(ragResult: dict) -> str:
+    """将 RAG 检索结果渲染为可读引用信息。"""
+    items = ragResult.get("retrieved_terms", []) or []
+    if not items:
+        return ""
+
+    lines: list[str] = ["", "---", "", "### 参考依据（RAG 引用）"]
+    for idx, item in enumerate(items, 1):
+        rank = item.get("rank") or idx
+        term = item.get("term", "（未知术语）")
+        subject = item.get("subject", "")
+        source = item.get("source", "（未知来源）")
+        page = item.get("page")
+        score = float(item.get("score", 0.0))
+        text = item.get("text", "")
+
+        usage = _extractFieldFromText(text, "用法")
+        applications = _extractFieldFromText(text, "应用")
+        disambiguation = _extractFieldFromText(text, "区分")
+        related = _extractFieldFromText(text, "相关术语")
+
+        pageText = f"第{page}页" if page is not None else "页码未知"
+        header = (
+            f"{rank}. 术语：{term}"
+            f"（{subject if subject else '未分类'}，得分 {score:.3f}）\n"
+            f"   来源：{source}，{pageText}"
+        )
+        lines.append(header)
+
+        if usage:
+            lines.append(f"   用处/用法：{usage}")
+        if applications:
+            lines.append(f"   应用：{applications}")
+        if disambiguation:
+            lines.append(f"   区分：{disambiguation}")
+        if related:
+            lines.append(f"   关联术语：{related}")
+
+    return "\n".join(lines)
 
 
 def chat(
@@ -60,22 +137,24 @@ def chat(
     if not message.strip():
         return "请输入问题"
 
-    qwen = getQwenInstance()
-
     if useRag:
-        # RAG 模式：使用检索结果构建上下文
-        # 这里暂时用空检索结果，后续集成检索模块
-        messages = buildMessages(query=message, retrievalResults=None)
-        response = qwen.generateFromMessages(
-            messages=messages,
+        # RAG 模式：严格依赖检索增强结果，不做纯模型回退，避免域外回答
+        rag = getRagInstance()
+        if getattr(rag, "_qwen", None) is None:
+            rag._qwen = getQwenInstance()
+        ragResult = rag.query(
+            queryText=message,
             temperature=temperature,
             topP=topP,
             maxNewTokens=maxNewTokens,
         )
+        response = ragResult.get("answer", "").strip() or "我不知道。"
+        response += _renderRagCitations(ragResult)
     else:
         # 纯模型模式：直接问答
+        qwen = getQwenInstance()
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": PURE_SYSTEM_PROMPT},
             {"role": "user", "content": message},
         ]
         response = qwen.generateFromMessages(

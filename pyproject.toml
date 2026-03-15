@@ -17,7 +17,7 @@ math-rag = "mathRag:main"
 py-modules = ["config", "mathRag"]
 
 [tool.setuptools.packages.find]
-include = ["dataGen", "dataStat", "modelEvaluation", "answerGeneration", "evaluationData", "retrieval", "scripts"]
+include = ["dataGen", "dataStat", "modelEvaluation", "answerGeneration", "evaluationData", "retrieval", "scripts", "utils"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }

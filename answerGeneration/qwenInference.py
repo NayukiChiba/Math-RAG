@@ -119,11 +119,31 @@ class QwenInference:
         if not os.path.isdir(self.modelDir):
             raise FileNotFoundError(f"模型目录不存在: {self.modelDir}")
 
-        # 检测设备
+        # 先读取模型配置，识别是否 AWQ 量化模型
+        cfgPath = os.path.join(self.modelDir, "config.json")
+        modelCfg = _LOADER.json(cfgPath) if os.path.isfile(cfgPath) else {}
+        quantCfg = (
+            modelCfg.get("quantization_config", {})
+            if isinstance(modelCfg, dict)
+            else {}
+        )
+        quantMethod = str(quantCfg.get("quant_method", "")).lower()
+        isAwqModel = quantMethod == "awq"
+
+        # 检测设备并决定 device_map
         if torch.cuda.is_available():
             print(" 检测到 CUDA，使用 GPU 加速")
-            deviceMap = self.deviceMap
+            if isAwqModel:
+                # AWQ 不支持 device_map 含 CPU/disk，强制整模型放到单卡
+                deviceMap = "cuda:0"
+            else:
+                deviceMap = self.deviceMap
         else:
+            if isAwqModel:
+                raise RuntimeError(
+                    "当前模型为 AWQ 量化模型，必须使用 CUDA GPU 推理。"
+                    "请切换到非 AWQ 模型，或在有 GPU 的环境运行。"
+                )
             print("  未检测到 CUDA，使用 CPU 推理（速度较慢）")
             deviceMap = "cpu"
 
@@ -139,12 +159,11 @@ class QwenInference:
             "trust_remote_code": True,
         }
         # 非量化模型需要指定 dtype
-        if not os.path.isfile(os.path.join(self.modelDir, "config.json")):
+        if not os.path.isfile(cfgPath):
             loadKwargs["torch_dtype"] = (
                 torch.float16 if torch.cuda.is_available() else torch.float32
             )
         else:
-            modelCfg = _LOADER.json(os.path.join(self.modelDir, "config.json"))
             if "quantization_config" not in modelCfg:
                 loadKwargs["torch_dtype"] = (
                     torch.float16 if torch.cuda.is_available() else torch.float32

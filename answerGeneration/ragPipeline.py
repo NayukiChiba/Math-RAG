@@ -24,6 +24,7 @@
 
 import json
 import os
+import re
 import time
 from typing import Any, Literal
 
@@ -82,6 +83,9 @@ class RagPipeline:
         self.outOfScopeScoreThreshold = float(
             retrievalCfg.get("out_of_scope_score_threshold", 0.80)
         )
+        self.inDomainRelaxedScoreThreshold = float(
+            retrievalCfg.get("in_domain_relaxed_score_threshold", 0.45)
+        )
         self.noOverlapStrictScoreThreshold = float(
             retrievalCfg.get("no_overlap_strict_score_threshold", 0.88)
         )
@@ -104,6 +108,61 @@ class RagPipeline:
         self._retriever = None
         self._qwen = None
         self._corpus = None
+
+    def _isMathDomainQuery(self, queryText: str) -> bool:
+        """粗粒度判断是否为数学领域问题，用于 RAG 严格拒答策略。"""
+        text = queryText.strip().lower()
+        if not text:
+            return False
+
+        mathKeywords = [
+            "极限",
+            "一致收敛",
+            "逐点收敛",
+            "导数",
+            "微分",
+            "积分",
+            "级数",
+            "泰勒",
+            "傅里叶",
+            "矩阵",
+            "特征值",
+            "特征向量",
+            "线性代数",
+            "概率",
+            "方差",
+            "期望",
+            "随机变量",
+            "柯西",
+            "收敛",
+            "连续",
+            "可导",
+            "函数",
+            "定理",
+            "证明",
+            "解方程",
+            "不等式",
+            "limit",
+            "derivative",
+            "integral",
+            "matrix",
+            "eigenvalue",
+            "eigenvector",
+            "probability",
+            "convergence",
+            "series",
+            "theorem",
+        ]
+        if any(k in text for k in mathKeywords):
+            return True
+
+        # 典型数学符号模式
+        if re.search(r"[∑∫∞√π≈≤≥]|\blim\b|\bsin\b|\bcos\b|\btan\b", text):
+            return True
+        if re.search(r"\b[xyzn]\b\s*\^|\b[xyzn]\s*=", text):
+            return True
+
+        return False
 
     def _cleanTextForOverlap(self, text: str) -> str:
         """清洗文本，仅保留中英文与数字用于重叠判断。"""
@@ -146,10 +205,17 @@ class RagPipeline:
             return True
 
         topScore = max(float(r.get("score", 0.0)) for r in retrievalResults)
+        hasOverlap = self._hasLexicalOverlap(queryText, retrievalResults)
+
+        # 域内且术语有重叠时，使用较宽松阈值，避免“极限”等基础问题被误拒答。
+        if hasOverlap:
+            if topScore < self.inDomainRelaxedScoreThreshold:
+                return True
+            return False
+
         if topScore < self.outOfScopeScoreThreshold:
             return True
 
-        hasOverlap = self._hasLexicalOverlap(queryText, retrievalResults)
         if (not hasOverlap) and topScore < self.noOverlapStrictScoreThreshold:
             return True
 
@@ -326,6 +392,13 @@ class RagPipeline:
 
         totalStart = time.time()
 
+        # RAG 严格模式：非数学域问题直接拒答
+        if not self._isMathDomainQuery(queryText):
+            result["answer"] = "我不知道。"
+            totalEnd = time.time()
+            result["latency"]["total_ms"] = int((totalEnd - totalStart) * 1000)
+            return result
+
         # 检索阶段
         retrievalStart = time.time()
         try:
@@ -341,11 +414,13 @@ class RagPipeline:
         # 记录检索到的术语
         result["retrieved_terms"] = [
             {
+                "rank": r.get("rank"),
                 "term": r.get("term", ""),
                 "subject": r.get("subject", ""),
                 "source": r.get("source", ""),
                 "page": r.get("page"),
                 "score": r.get("score", 0.0),
+                "text": r.get("text", ""),
             }
             for r in retrievalResults
         ]
