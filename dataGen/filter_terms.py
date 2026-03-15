@@ -254,11 +254,11 @@ def filter_terms_file(book_name: str):
     if not os.path.exists(all_original_json):
         shutil.copy2(all_json, all_original_json)
         shutil.copy2(map_json, map_original_json)
-        print("✓ 已备份原始文件:")
+        print(" 已备份原始文件:")
         print(f"  - {all_original_json}")
         print(f"  - {map_original_json}")
     else:
-        print("✓ 原始备份已存在，跳过备份步骤")
+        print(" 原始备份已存在，跳过备份步骤")
 
     # 保存过滤后的结果，覆盖原文件
     with open(all_json, "w", encoding="utf-8") as f:
@@ -267,7 +267,7 @@ def filter_terms_file(book_name: str):
     with open(map_json, "w", encoding="utf-8") as f:
         json.dump(filtered_map, f, ensure_ascii=False, indent=2)
 
-    print("✓ 已保存过滤结果:")
+    print(" 已保存过滤结果:")
     print(f"  - {all_json}")
     print(f"  - {map_json}")
 

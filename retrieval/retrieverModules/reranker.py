@@ -53,7 +53,7 @@ class RerankerRetriever:
 
     def _loadBM25Index(self, indexFile: str) -> None:
         """加载 BM25 索引"""
-        print("📂 加载 BM25 索引...")
+        print(" 加载 BM25 索引...")
 
         if not os.path.exists(indexFile):
             raise FileNotFoundError(f"BM25 索引文件不存在：{indexFile}")
@@ -63,40 +63,40 @@ class RerankerRetriever:
 
         self.bm25 = indexData["bm25"]
         self.corpus = indexData["corpus"]
-        print(f"✅ 已加载 BM25 索引（{len(self.corpus)} 条文档）")
+        print(f" 已加载 BM25 索引（{len(self.corpus)} 条文档）")
 
     def _loadVectorIndex(
         self, indexFile: str, embeddingFile: str, modelName: str
     ) -> None:
         """加载向量索引"""
-        print("📂 加载向量索引...")
+        print(" 加载向量索引...")
 
         # 加载向量模型
-        print(f"🤖 加载向量模型：{modelName}")
+        print(f" 加载向量模型：{modelName}")
         self.vectorModel = SentenceTransformer(modelName)
 
         # 加载 FAISS 索引
         if os.path.exists(indexFile):
             self.vectorIndex = faiss.read_index(indexFile)
-            print("✅ 已加载 FAISS 索引")
+            print(" 已加载 FAISS 索引")
         else:
-            print(f"⚠️  向量索引不存在：{indexFile}")
+            print(f"  向量索引不存在：{indexFile}")
             self.vectorIndex = None
 
     def _loadReranker(self) -> None:
         """加载重排序模型"""
-        print(f"🤖 加载重排序模型：{self.rerankerModelName}")
+        print(f" 加载重排序模型：{self.rerankerModelName}")
 
         try:
             from sentence_transformers import CrossEncoder
 
             self.reranker = CrossEncoder(self.rerankerModelName)
-            print("✅ 重排序模型加载完成")
+            print(" 重排序模型加载完成")
         except ImportError:
-            print("⚠️  未安装 CrossEncoder，重排序功能将不可用")
+            print("  未安装 CrossEncoder，重排序功能将不可用")
             self.reranker = None
         except Exception as e:
-            print(f"⚠️  重排序模型加载失败：{e}")
+            print(f"  重排序模型加载失败：{e}")
             self.reranker = None
 
     def _retrieveCandidates(self, query: str, topK: int = 50) -> list[dict[str, Any]]:
@@ -185,7 +185,7 @@ class RerankerRetriever:
             return []
 
         if useReranker and self.reranker is not None:
-            print(f"🔄 使用重排序模型对 {len(candidates)} 个候选进行重排序...")
+            print(f" 使用重排序模型对 {len(candidates)} 个候选进行重排序...")
 
             pairs = [[query, c["text"]] for c in candidates]
             rerankScores = self.reranker.predict(pairs)
@@ -197,7 +197,7 @@ class RerankerRetriever:
                 candidates, key=lambda x: x["reranker_score"], reverse=True
             )
         else:
-            print("📊 按综合分数排序...")
+            print(" 按综合分数排序...")
             for candidate in candidates:
                 bm25Score = candidate.get("bm25_score", 0)
                 vectorScore = candidate.get("vector_score", 0)
@@ -247,10 +247,10 @@ class RerankerRetriever:
         Returns:
             检索结果列表
         """
-        print(f"📥 召回候选文档（top{recallTopK}）...")
+        print(f" 召回候选文档（top{recallTopK}）...")
         candidates = self._retrieveCandidates(query, recallTopK)
 
-        print(f"✅ 召回 {len(candidates)} 个候选文档")
+        print(f" 召回 {len(candidates)} 个候选文档")
 
         results = self.rerank(query, candidates, topK, useReranker)
         return results

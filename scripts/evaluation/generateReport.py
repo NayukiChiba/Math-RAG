@@ -487,7 +487,7 @@ def generate_report(
     has_chinese = _configure_matplotlib()
 
     print("=" * 60)
-    print("📊 Math-RAG 评测报告生成")
+    print(" Math-RAG 评测报告生成")
     print("=" * 60)
     print(f"中文字体: {'已配置' if has_chinese else '未找到，图表使用英文标签'}")
 

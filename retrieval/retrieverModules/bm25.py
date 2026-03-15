@@ -32,14 +32,14 @@ class BM25Retriever:
 
     def loadCorpus(self) -> None:
         """加载语料文件"""
-        print(f"📂 加载语料: {self.corpusFile}")
+        print(f" 加载语料: {self.corpusFile}")
 
         if not os.path.exists(self.corpusFile):
             raise FileNotFoundError(f"语料文件不存在: {self.corpusFile}")
 
         self.corpus = _LOADER.jsonl(self.corpusFile)
 
-        print(f"✅ 已加载 {len(self.corpus)} 条语料")
+        print(f" 已加载 {len(self.corpus)} 条语料")
 
     def tokenize(self, text: str) -> list[str]:
         """
@@ -72,7 +72,7 @@ class BM25Retriever:
 
     def buildIndex(self) -> None:
         """构建 BM25 索引"""
-        print("🔨 构建 BM25 索引...")
+        print(" 构建 BM25 索引...")
 
         if not self.corpus:
             self.loadCorpus()
@@ -83,14 +83,14 @@ class BM25Retriever:
         # 构建 BM25 索引
         self.bm25 = BM25Okapi(self.tokenizedCorpus)
 
-        print("✅ 索引构建完成")
+        print(" 索引构建完成")
 
     def saveIndex(self) -> None:
         """保存索引到文件"""
         if self.indexFile is None:
             return
 
-        print(f"💾 保存索引: {self.indexFile}")
+        print(f" 保存索引: {self.indexFile}")
 
         # 确保目录存在
         os.makedirs(os.path.dirname(self.indexFile), exist_ok=True)
@@ -109,7 +109,7 @@ class BM25Retriever:
         with open(self.indexFile, "wb") as f:
             pickle.dump(indexData, f)
 
-        print("✅ 索引已保存")
+        print(" 索引已保存")
 
     def loadIndex(self) -> bool:
         """
@@ -123,10 +123,10 @@ class BM25Retriever:
 
         # 校验语料文件是否存在
         if not os.path.exists(self.corpusFile):
-            print(f"⚠️  语料文件不存在: {self.corpusFile}")
+            print(f"  语料文件不存在: {self.corpusFile}")
             return False
 
-        print(f"📂 加载索引: {self.indexFile}")
+        print(f" 加载索引: {self.indexFile}")
 
         try:
             with open(self.indexFile, "rb") as f:
@@ -137,21 +137,21 @@ class BM25Retriever:
             savedCorpusModTime = indexData.get("corpusModTime")
 
             if savedCorpusModTime is None:
-                print("⚠️  索引中缺少语料时间戳，建议重建索引")
+                print("  索引中缺少语料时间戳，建议重建索引")
                 return False
 
             if abs(currentCorpusModTime - savedCorpusModTime) > 1:
-                print("⚠️  语料文件已更新，索引已过期，需要重建")
+                print("  语料文件已更新，索引已过期，需要重建")
                 return False
 
             self.bm25 = indexData["bm25"]
             self.corpus = indexData["corpus"]
             self.tokenizedCorpus = indexData["tokenizedCorpus"]
 
-            print(f"✅ 已加载索引（{len(self.corpus)} 条文档）")
+            print(f" 已加载索引（{len(self.corpus)} 条文档）")
             return True
         except Exception as e:
-            print(f"⚠️  加载索引失败: {e}")
+            print(f"  加载索引失败: {e}")
             return False
 
     def search(self, query: str, topK: int = 10) -> list[dict[str, Any]]:

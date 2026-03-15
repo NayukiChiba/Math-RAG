@@ -79,7 +79,7 @@ def evaluate_rag_results(
 ) -> dict[str, Any]:
     """评估 rag_results.jsonl 中的 RAG 生成质量。"""
     print(f"\n{'=' * 60}")
-    print("📊 评估 RAG 生成质量（来自 rag_results.jsonl）")
+    print(" 评估 RAG 生成质量（来自 rag_results.jsonl）")
     print(f"{'=' * 60}")
 
     term_hits: list[float] = []
@@ -144,7 +144,7 @@ def run_norag_baseline(
 ) -> dict[str, Any]:
     """运行无检索基线：Qwen 直接回答，不注入任何上下文。"""
     print(f"\n{'=' * 60}")
-    print(f"📊 无检索基线推理（{len(queries)} 条查询）")
+    print(f" 无检索基线推理（{len(queries)} 条查询）")
     print(f"{'=' * 60}")
 
     # 延迟导入，避免未安装 transformers 时直接报错
@@ -181,7 +181,7 @@ def run_norag_baseline(
         try:
             answer = qwen.generateFromMessages(messages)
         except Exception as exc:
-            print(f"    ⚠️ 生成失败: {exc}")
+            print(f"     生成失败: {exc}")
             answer = ""
         lat = (time.time() - t0) * 1000
 
@@ -343,7 +343,7 @@ def main() -> None:
     )
 
     print("=" * 60)
-    print("🔬 Math-RAG 生成质量对比实验")
+    print(" Math-RAG 生成质量对比实验")
     print("=" * 60)
 
     # 文件存在性检查

@@ -116,7 +116,7 @@ def buildStatistics(chunkDir: str) -> dict[str, Any]:
         }
 
     if not os.path.exists(chunkDir):
-        print(f"❌ 目录不存在: {chunkDir}")
+        print(f" 目录不存在: {chunkDir}")
         return stats
 
     for bookName in os.listdir(chunkDir):
@@ -124,7 +124,7 @@ def buildStatistics(chunkDir: str) -> dict[str, Any]:
         if not os.path.isdir(bookPath):
             continue
 
-        print(f"📖 处理书籍: {bookName}")
+        print(f" 处理书籍: {bookName}")
         jsonFiles = [f for f in os.listdir(bookPath) if f.endswith(".json")]
 
         for jsonFile in jsonFiles:

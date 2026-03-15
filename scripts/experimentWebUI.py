@@ -14,7 +14,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     print("=" * 60)
-    print("📊 Math-RAG 对比实验 WebUI")
+    print(" Math-RAG 对比实验 WebUI")
     print("=" * 60)
 
     demo = webui.createUI()

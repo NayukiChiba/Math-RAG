@@ -10,7 +10,7 @@ def createBM25Retriever(assets: RetrievalAssets):
 
     retriever = BM25Retriever(assets.corpus_file, assets.bm25_index_file)
     if not retriever.loadIndex():
-        print("⚠️  BM25 索引不存在，正在构建...")
+        print("  BM25 索引不存在，正在构建...")
         retriever.buildIndex()
         retriever.saveIndex()
     return retriever
@@ -23,7 +23,7 @@ def createBM25PlusRetriever(assets: RetrievalAssets):
         assets.corpus_file, assets.bm25plus_index_file, assets.terms_file
     )
     if not retriever.loadIndex():
-        print("⚠️  BM25+ 索引不存在，正在构建...")
+        print("  BM25+ 索引不存在，正在构建...")
         retriever.buildIndex()
         retriever.saveIndex()
     retriever.loadTermsMap()
@@ -40,7 +40,7 @@ def createVectorRetriever(assets: RetrievalAssets):
         assets.vector_embedding_file,
     )
     if not retriever.loadIndex():
-        print("⚠️  向量索引不存在，正在构建...")
+        print("  向量索引不存在，正在构建...")
         retriever.buildIndex()
         retriever.saveIndex()
     return retriever

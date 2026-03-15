@@ -57,11 +57,11 @@
 
 | 场景 | 推荐文件 | 理由 |
 |------|----------|------|
-| 🔧 开发调试 | queries.jsonl | 快速反馈，节省时间 |
-| 🚀 算法迭代 | queries.jsonl | 快速验证改进效果 |
-| 📊 对比实验 | queries.jsonl | 快速对比多种方法 |
-| 📝 论文实验 | queries_full.jsonl | 完整数据，结果可靠 |
-| 🎯 最终评测 | queries_full.jsonl | 全面评估系统性能 |
+|  开发调试 | queries.jsonl | 快速反馈，节省时间 |
+|  算法迭代 | queries.jsonl | 快速验证改进效果 |
+|  对比实验 | queries.jsonl | 快速对比多种方法 |
+|  论文实验 | queries_full.jsonl | 完整数据，结果可靠 |
+|  最终评测 | queries_full.jsonl | 全面评估系统性能 |
 
 ## 自动生成工具
 
@@ -177,9 +177,9 @@ with open('data/evaluation/queries.jsonl', 'r', encoding='utf-8') as f:
             assert isinstance(data['relevant_terms'], list)
             assert len(data['relevant_terms']) > 0
         except Exception as e:
-            print(f'❌ 第 {i} 行格式错误: {e}')
+            print(f' 第 {i} 行格式错误: {e}')
             break
     else:
-        print(f'✅ 数据集格式正确，共 {i} 条查询')
+        print(f' 数据集格式正确，共 {i} 条查询')
 "
 ```

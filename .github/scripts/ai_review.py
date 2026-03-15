@@ -27,7 +27,7 @@ SYSTEM_PROMPT = """你是一个资深的代码审查专家。请审查以下 Pul
 - 不要过度挑剔，只关注真正重要的问题
 
 回复格式：
-### 🤖 AI Code Review
+###  AI Code Review
 
 **审查的提交:** `{commit_sha}`
 
@@ -41,7 +41,7 @@ SYSTEM_PROMPT = """你是一个资深的代码审查专家。请审查以下 Pul
 
 ---
 <details>
-<summary>ℹ️ 关于此审查</summary>
+<summary>ℹ 关于此审查</summary>
 
 此审查由 AI 自动生成，仅供参考。如有误报请忽略。
 

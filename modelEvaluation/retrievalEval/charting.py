@@ -86,8 +86,8 @@ def generateComparisonChart(all_metrics: list[dict[str, Any]], output_dir: str) 
         os.makedirs(output_dir, exist_ok=True)
         chart_path = os.path.join(output_dir, "retrieval_comparison.png")
         plt.savefig(chart_path, dpi=300, bbox_inches="tight")
-        print(f"✅ 对比图表已保存: {chart_path}")
+        print(f" 对比图表已保存: {chart_path}")
     except ImportError:
-        print("⚠️  跳过图表生成：matplotlib 未安装")
+        print("  跳过图表生成：matplotlib 未安装")
     except Exception as exc:
-        print(f"⚠️  图表生成失败: {exc}")
+        print(f"  图表生成失败: {exc}")

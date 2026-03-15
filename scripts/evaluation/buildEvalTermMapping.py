@@ -67,7 +67,7 @@ def buildEvalTermMapping(
         validTerms = [t for t in relevantTerms if t in corpusTerms]
 
         if not validTerms:
-            print(f"  ⚠️  查询 '{queryText}' 的相关术语均不在语料库中: {relevantTerms}")
+            print(f"    查询 '{queryText}' 的相关术语均不在语料库中: {relevantTerms}")
             continue
 
         queriesProcessed += 1
@@ -181,10 +181,10 @@ def analyzeMapping(
             else:
                 partiallyMissed += 1
                 missing = validRelevant - mappedTerms
-                print(f"  ⚠️  部分缺失 '{queryText}': 缺少 {missing}")
+                print(f"    部分缺失 '{queryText}': 缺少 {missing}")
         else:
             partiallyMissed += 1
-            print(f"  ❌ 查询未映射: '{queryText}'")
+            print(f"   查询未映射: '{queryText}'")
 
     print(f"\n  完全覆盖查询: {coveredQueries}/{len(queries)}")
     print(f"  部分缺失查询: {partiallyMissed}/{len(queries)}")
@@ -298,7 +298,7 @@ def main():
     with open(termMappingFile, "w", encoding="utf-8") as f:
         json.dump(combinedMapping, f, ensure_ascii=False, indent=2)
 
-    print(f"\n✅ 映射文件已保存: {termMappingFile}")
+    print(f"\n 映射文件已保存: {termMappingFile}")
 
     # 显示一些示例
     print("\n=== 映射示例 ===")

@@ -28,7 +28,7 @@ from dataStat import (
 def run_statistics() -> None:
     """统计入口。"""
     print("=" * 70)
-    print(" " * 20 + "📊 数学术语数据统计与可视化")
+    print(" " * 20 + " 数学术语数据统计与可视化")
     print("=" * 70)
 
     chunkDir = config.CHUNK_DIR
@@ -38,52 +38,52 @@ def run_statistics() -> None:
 
     os.makedirs(statsDir, exist_ok=True)
 
-    print(f"\n📂 输入目录: {chunkDir}")
-    print(f"📂 输出目录: {statsDir}\n")
-    print(f"📂 可视化目录: {vizBaseDir}\n")
+    print(f"\n 输入目录: {chunkDir}")
+    print(f" 输出目录: {statsDir}\n")
+    print(f" 可视化目录: {vizBaseDir}\n")
 
-    print("🔄 开始统计分析...\n")
+    print(" 开始统计分析...\n")
     rawStats = buildStatistics(chunkDir)
 
-    print("\n🔄 格式化统计结果...")
+    print("\n 格式化统计结果...")
     formattedStats = formatStatistics(rawStats)
 
-    print(f"💾 保存统计报告: {outputFile}")
+    print(f" 保存统计报告: {outputFile}")
     with open(outputFile, "w", encoding="utf-8") as f:
         json.dump(formattedStats, f, ensure_ascii=False, indent=2)
 
     createVisualization(rawStats, vizBaseDir)
 
     print("\n" + "=" * 70)
-    print(" " * 25 + "✅ 统计完成！")
+    print(" " * 25 + " 统计完成！")
     print("=" * 70)
-    print("\n📊 总体统计:")
+    print("\n 总体统计:")
     print(f"  • 总文件数: {formattedStats['summary']['totalFiles']:,}")
     print(f"  • 有效文件: {formattedStats['summary']['validFiles']:,}")
     print(f"  • 术语总数: {formattedStats['summary']['totalTerms']:,}")
 
-    print("\n📖 各书籍术语数量:")
+    print("\n 各书籍术语数量:")
     for book, bookStats in sorted(
         formattedStats["byBook"].items(), key=lambda x: x[1]["count"], reverse=True
     ):
         print(f"  • {book}: {bookStats['count']} 个")
 
-    print("\n📚 学科分布:")
+    print("\n 学科分布:")
     for subject, count in sorted(
         formattedStats["bySubject"].items(), key=lambda x: x[1], reverse=True
     ):
         percentage = count / formattedStats["summary"]["totalTerms"] * 100
         print(f"  • {subject}: {count} 个 ({percentage:.1f}%)")
 
-    print(f"\n🔄 重复术语: {formattedStats['duplicates']['count']} 个")
+    print(f"\n 重复术语: {formattedStats['duplicates']['count']} 个")
 
-    print("\n💡 输出文件:")
+    print("\n 输出文件:")
     print(f"  • 统计报告: {outputFile}")
     if HAS_MATPLOTLIB:
         print(f"  • 可视化图表: {os.path.join(vizBaseDir, 'visualizations')}")
 
     print("\n" + "=" * 70)
-    print(" " * 20 + "🎉 所有任务完成！")
+    print(" " * 20 + " 所有任务完成！")
     print("=" * 70)
 
 

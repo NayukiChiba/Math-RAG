@@ -44,7 +44,7 @@ class BM25PlusRetriever:
 
     def loadCorpus(self) -> None:
         """加载语料文件"""
-        print(f"📂 加载语料：{self.corpusFile}")
+        print(f" 加载语料：{self.corpusFile}")
 
         if not os.path.exists(self.corpusFile):
             raise FileNotFoundError(f"语料文件不存在：{self.corpusFile}")
@@ -60,7 +60,7 @@ class BM25PlusRetriever:
 
         self.buildTermGraph()
 
-        print(f"✅ 已加载 {len(self.corpus)} 条语料，{len(self.termToDocMap)} 个术语")
+        print(f" 已加载 {len(self.corpus)} 条语料，{len(self.termToDocMap)} 个术语")
 
     def _extractRelatedTermsFromText(self, text: str) -> list[str]:
         """从语料 text 字段中提取 related_terms。"""
@@ -116,7 +116,7 @@ class BM25PlusRetriever:
             "term_mapping.json",
         )
         if os.path.exists(evalTermsMappingFile):
-            print(f"📚 加载评测感知术语映射：{evalTermsMappingFile}")
+            print(f" 加载评测感知术语映射：{evalTermsMappingFile}")
             try:
                 evalTermsData = _LOADER.json(evalTermsMappingFile)
                 for term, termList in evalTermsData.items():
@@ -131,13 +131,13 @@ class BM25PlusRetriever:
                         self.termsMap[term] = sorted(list(existing2))
                 print(f"   已加载 {len(evalTermsData)} 个评测术语映射")
             except Exception as e:
-                print(f"⚠️  加载评测术语映射失败：{e}")
+                print(f"  加载评测术语映射失败：{e}")
 
         # 再加载通用术语映射文件
         if self.termsFile is None or not os.path.exists(self.termsFile):
             return
 
-        print(f"📚 加载通用术语映射：{self.termsFile}")
+        print(f" 加载通用术语映射：{self.termsFile}")
         try:
             termsData = _LOADER.json(self.termsFile)
 
@@ -152,7 +152,7 @@ class BM25PlusRetriever:
                     existing.update(info)
                     self.termsMap[term] = sorted(list(existing))
         except Exception as e:
-            print(f"⚠️  加载通用术语映射失败：{e}")
+            print(f"  加载通用术语映射失败：{e}")
 
         if self.corpus:
             self.buildTermGraph()
@@ -209,7 +209,7 @@ class BM25PlusRetriever:
 
     def buildIndex(self) -> None:
         """构建 BM25 索引"""
-        print("🔨 构建 BM25 索引...")
+        print(" 构建 BM25 索引...")
 
         if not self.corpus:
             self.loadCorpus()
@@ -220,14 +220,14 @@ class BM25PlusRetriever:
         # 构建 BM25 索引
         self.bm25 = BM25Okapi(self.tokenizedCorpus)
 
-        print("✅ 索引构建完成")
+        print(" 索引构建完成")
 
     def saveIndex(self) -> None:
         """保存索引到文件"""
         if self.indexFile is None:
             return
 
-        print(f"💾 保存索引：{self.indexFile}")
+        print(f" 保存索引：{self.indexFile}")
 
         # 确保目录存在
         os.makedirs(os.path.dirname(self.indexFile), exist_ok=True)
@@ -247,7 +247,7 @@ class BM25PlusRetriever:
         with open(self.indexFile, "wb") as f:
             pickle.dump(indexData, f)
 
-        print("✅ 索引已保存")
+        print(" 索引已保存")
 
     def loadIndex(self) -> bool:
         """
@@ -261,10 +261,10 @@ class BM25PlusRetriever:
 
         # 校验语料文件是否存在
         if not os.path.exists(self.corpusFile):
-            print(f"⚠️  语料文件不存在：{self.corpusFile}")
+            print(f"  语料文件不存在：{self.corpusFile}")
             return False
 
-        print(f"📂 加载索引：{self.indexFile}")
+        print(f" 加载索引：{self.indexFile}")
 
         try:
             with open(self.indexFile, "rb") as f:
@@ -275,11 +275,11 @@ class BM25PlusRetriever:
             savedCorpusModTime = indexData.get("corpusModTime")
 
             if savedCorpusModTime is None:
-                print("⚠️  索引中缺少语料时间戳，建议重建索引")
+                print("  索引中缺少语料时间戳，建议重建索引")
                 return False
 
             if abs(currentCorpusModTime - savedCorpusModTime) > 1:
-                print("⚠️  语料文件已更新，索引已过期，需要重建")
+                print("  语料文件已更新，索引已过期，需要重建")
                 return False
 
             self.bm25 = indexData["bm25"]
@@ -297,11 +297,11 @@ class BM25PlusRetriever:
             self.buildTermGraph()
 
             print(
-                f"✅ 已加载索引（{len(self.corpus)} 条文档，{len(self.termToDocMap)} 个术语）"
+                f" 已加载索引（{len(self.corpus)} 条文档，{len(self.termToDocMap)} 个术语）"
             )
             return True
         except Exception as e:
-            print(f"⚠️  加载索引失败：{e}")
+            print(f"  加载索引失败：{e}")
             return False
 
     def getDirectLookupTerms(self, query: str, maxTerms: int = 12) -> list[str]:

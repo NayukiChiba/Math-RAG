@@ -33,11 +33,11 @@ def loadJsonFile(filepath: str) -> dict[str, Any] | None:
     try:
         return _LOADER.json(filepath)
     except FileNotFoundError:
-        print(f"❌ 文件不存在: {filepath}")
+        print(f" 文件不存在: {filepath}")
         return None
     except json.JSONDecodeError as e:
-        print(f"❌ JSON 解析失败: {filepath}, 错误: {e}")
+        print(f" JSON 解析失败: {filepath}, 错误: {e}")
         return None
     except Exception as e:
-        print(f"❌ 加载文件失败: {filepath}, 错误: {e}")
+        print(f" 加载文件失败: {filepath}, 错误: {e}")
         return None

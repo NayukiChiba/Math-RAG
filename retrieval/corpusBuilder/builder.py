@@ -49,7 +49,7 @@ def buildCorpus(chunkDir: str, outputFile: str) -> dict[str, Any]:
         if not os.path.isdir(bookPath):
             continue
 
-        print(f"📖 处理书籍: {bookName}")
+        print(f" 处理书籍: {bookName}")
         stats["bookStats"][bookName] = {
             "totalFiles": 0,
             "validItems": 0,
@@ -78,11 +78,11 @@ def buildCorpus(chunkDir: str, outputFile: str) -> dict[str, Any]:
             stats["corpusItems"] += 1
             stats["bookStats"][bookName]["validItems"] += 1
 
-        print(f"  ✅ 生成 {stats['bookStats'][bookName]['validItems']} 条语料项")
+        print(f"   生成 {stats['bookStats'][bookName]['validItems']} 条语料项")
 
     bridgeItems = buildBridgeCorpusItems(corpusItems)
     if bridgeItems:
-        print(f"🧩 生成桥接语料项: {len(bridgeItems)} 条")
+        print(f" 生成桥接语料项: {len(bridgeItems)} 条")
         corpusItems.extend(bridgeItems)
         stats["bridgeItems"] = len(bridgeItems)
         stats["corpusItems"] += len(bridgeItems)

@@ -39,7 +39,7 @@ class QueryRewriter:
                 elif isinstance(info, list) and info:
                     self.termsMap[term] = info
         except Exception as e:
-            print(f"⚠️  加载术语文件失败：{e}")
+            print(f"  加载术语文件失败：{e}")
 
     def rewrite(self, query: str, maxTerms: int = 10) -> list[str]:
         """

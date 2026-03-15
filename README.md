@@ -210,7 +210,7 @@ math-rag eval-retrieval --methods bm25plus vector hybrid-plus-weighted hybrid-pl
 同时测检索 + 生成，运行完整 RAG pipeline。对比 norag / bm25 / vector / hybrid / hybrid-rrf 五组，计算检索指标和生成指标（术语命中率、来源引用率）。
 
 ```bash
-# 运行所有实验组（⚠ 需要 Qwen 模型，耗时较长）
+# 运行所有实验组（ 需要 Qwen 模型，耗时较长）
 math-rag experiments
 
 # 指定实验组

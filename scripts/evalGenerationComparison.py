@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     print("=" * 60)
-    print("🔬 Math-RAG 生成质量对比实验")
+    print(" Math-RAG 生成质量对比实验")
     print("=" * 60)
 
     for label, path in [("RAG结果", args.rag_results), ("查询集", args.queries)]:

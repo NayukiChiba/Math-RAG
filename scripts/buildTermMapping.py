@@ -104,7 +104,7 @@ def main(argv: list[str] | None = None) -> None:
     with open(termMappingFile, "w", encoding="utf-8") as f:
         json.dump(combinedMapping, f, ensure_ascii=False, indent=2)
 
-    print(f"\n✅ 映射文件已保存: {termMappingFile}")
+    print(f"\n 映射文件已保存: {termMappingFile}")
 
     print("\n=== 映射示例 ===")
     sampleQueries = [q["query"] for q in queries[:5]]

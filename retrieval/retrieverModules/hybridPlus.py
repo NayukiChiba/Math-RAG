@@ -35,10 +35,10 @@ class HybridPlusRetriever:
         self.corpusFile = corpusFile
 
         # 初始化 BM25+ 检索器（支持查询扩展）
-        print("🔧 初始化 BM25+ 检索器...")
+        print(" 初始化 BM25+ 检索器...")
         self.bm25Retriever = BM25PlusRetriever(corpusFile, bm25IndexFile, termsFile)
         if not self.bm25Retriever.loadIndex():
-            print("⚠️  BM25+ 索引不存在，正在构建...")
+            print("  BM25+ 索引不存在，正在构建...")
             self.bm25Retriever.loadTermsMap()
             self.bm25Retriever.buildIndex()
             self.bm25Retriever.saveIndex()
@@ -46,16 +46,16 @@ class HybridPlusRetriever:
         self.bm25Retriever.loadTermsMap()
 
         # 初始化向量检索器
-        print("🔧 初始化向量检索器...")
+        print(" 初始化向量检索器...")
         self.vectorRetriever = VectorRetriever(
             corpusFile, modelName, vectorIndexFile, vectorEmbeddingFile
         )
         if not self.vectorRetriever.loadIndex():
-            print("⚠️  向量索引不存在，正在构建...")
+            print("  向量索引不存在，正在构建...")
             self.vectorRetriever.buildIndex()
             self.vectorRetriever.saveIndex()
 
-        print("✅ 混合检索器初始化完成\n")
+        print(" 混合检索器初始化完成\n")
 
     def normalizeMinMax(self, scores: list[float]) -> list[float]:
         """Min-Max 归一化"""

@@ -117,17 +117,17 @@ class QwenInference:
 
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        print(f"🔄 正在加载模型: {self.modelDir}")
+        print(f" 正在加载模型: {self.modelDir}")
 
         if not os.path.isdir(self.modelDir):
             raise FileNotFoundError(f"模型目录不存在: {self.modelDir}")
 
         # 检测设备
         if torch.cuda.is_available():
-            print("✅ 检测到 CUDA，使用 GPU 加速")
+            print(" 检测到 CUDA，使用 GPU 加速")
             deviceMap = self.deviceMap
         else:
-            print("⚠️  未检测到 CUDA，使用 CPU 推理（速度较慢）")
+            print("  未检测到 CUDA，使用 CPU 推理（速度较慢）")
             deviceMap = "cpu"
 
         # 加载 tokenizer
@@ -164,7 +164,7 @@ class QwenInference:
         else:
             self._device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        print(f"✅ 模型加载完成，设备: {self._device}")
+        print(f" 模型加载完成，设备: {self._device}")
 
     @property
     def model(self):
@@ -297,7 +297,7 @@ class QwenInference:
         # 后续可优化为真正的批量推理
         results = []
         for i, prompt in enumerate(prompts):
-            print(f"🔄 推理进度: {i + 1}/{len(prompts)}")
+            print(f" 推理进度: {i + 1}/{len(prompts)}")
             response = self.generate(
                 prompt=prompt,
                 maxNewTokens=maxNewTokens,
@@ -336,9 +336,9 @@ def _testInference() -> None:
 
     # 验证输出非空
     if response and len(response) > 0:
-        print("✅ 测试通过：输出非空")
+        print(" 测试通过：输出非空")
     else:
-        print("❌ 测试失败：输出为空")
+        print(" 测试失败：输出为空")
 
     # 测试 messages 格式
     print("\n" + "=" * 60)
@@ -354,9 +354,9 @@ def _testInference() -> None:
     print(f"\n模型回复:\n{response2}")
 
     if response2 and len(response2) > 0:
-        print("✅ messages 格式测试通过")
+        print(" messages 格式测试通过")
     else:
-        print("❌ messages 格式测试失败")
+        print(" messages 格式测试失败")
 
 
 if __name__ == "__main__":

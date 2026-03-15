@@ -66,27 +66,27 @@ try:
             NUM_GPUS = faiss.get_num_gpus()
             if NUM_GPUS > 0:
                 USE_GPU = True
-                print(f"✅ FAISS 检索：检测到 {NUM_GPUS} 个 GPU，将使用 GPU 加速")
+                print(f" FAISS 检索：检测到 {NUM_GPUS} 个 GPU，将使用 GPU 加速")
             else:
                 print(
-                    "ℹ️ FAISS 检索：使用 CPU 模式（不影响 Qwen 模型推理，模型仍使用 GPU）"
+                    "ℹ FAISS 检索：使用 CPU 模式（不影响 Qwen 模型推理，模型仍使用 GPU）"
                 )
         except Exception:
-            print("ℹ️ FAISS 检索：使用 CPU 模式（不影响 Qwen 模型推理，模型仍使用 GPU）")
+            print("ℹ FAISS 检索：使用 CPU 模式（不影响 Qwen 模型推理，模型仍使用 GPU）")
     else:
-        print("ℹ️ FAISS 检索：使用 CPU 模式（faiss-cpu 版本，不影响 Qwen 模型推理）")
+        print("ℹ FAISS 检索：使用 CPU 模式（faiss-cpu 版本，不影响 Qwen 模型推理）")
     _FAISS_AVAILABLE = True
 except ImportError:
-    print("⚠️  faiss 未安装，向量检索功能不可用")
+    print("  faiss 未安装，向量检索功能不可用")
     _FAISS_AVAILABLE = False
 
 _ST_AVAILABLE = importlib.util.find_spec("sentence_transformers") is not None
 if not _ST_AVAILABLE:
-    print("⚠️  sentence-transformers 未安装，向量检索功能不可用")
+    print("  sentence-transformers 未安装，向量检索功能不可用")
 
 _BM25_AVAILABLE = importlib.util.find_spec("rank_bm25") is not None
 if not _BM25_AVAILABLE:
-    print("⚠️  rank-bm25 未安装，BM25 检索功能不可用")
+    print("  rank-bm25 未安装，BM25 检索功能不可用")
 
 
 # ============================================================
@@ -126,7 +126,7 @@ def saveResults(results: dict[str, list[dict[str, Any]]], outputFile: str) -> No
 
     with open(outputFile, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
-    print(f"💾 结果已保存：{outputFile}")
+    print(f" 结果已保存：{outputFile}")
 
 
 def printResults(
@@ -143,21 +143,21 @@ def printResults(
         strategy: 融合策略（可选，用于混合检索）
     """
     print("\n" + "=" * 80)
-    print(f"🔍 查询：{query}")
+    print(f" 查询：{query}")
     if strategy:
-        print(f"🔀 融合策略：{strategy}")
+        print(f" 融合策略：{strategy}")
     print("=" * 80)
 
     if not results:
-        print("❌ 未找到相关结果")
+        print(" 未找到相关结果")
         return
 
     for result in results:
-        print(f"\n🏆 Rank {result['rank']}")
-        print(f"  📄 Doc ID: {result['doc_id']}")
-        print(f"  📚 术语：{result['term']}")
-        print(f"  📖 学科：{result['subject']}")
-        print(f"  📊 分数：{result['score']:.4f}")
+        print(f"\n Rank {result['rank']}")
+        print(f"   Doc ID: {result['doc_id']}")
+        print(f"   术语：{result['term']}")
+        print(f"   学科：{result['subject']}")
+        print(f"   分数：{result['score']:.4f}")
 
         # 融合分数明细
         if strategy == "weighted":
@@ -173,9 +173,9 @@ def printResults(
             print(f"     ├─ BM25: {result.get('bm25_score', 0):.4f}")
             print(f"     └─ 向量：{result.get('vector_score', 0):.4f}")
 
-        print(f"  📗 来源：{result['source']}")
+        print(f"   来源：{result['source']}")
         if result.get("page"):
-            print(f"  📄 页码：{result['page']}")
+            print(f"   页码：{result['page']}")
 
 
 # 显式列出所有需要被子模块 `import *` 导入的名称（包含下划线前缀的私有变量）

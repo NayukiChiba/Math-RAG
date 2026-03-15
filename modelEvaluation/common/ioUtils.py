@@ -32,7 +32,7 @@ def loadJsonFile(filepath: str) -> dict[str, Any] | None:
     try:
         return _LOADER.json(filepath)
     except Exception as exc:
-        print(f"❌ 加载文件失败: {filepath}, 错误: {exc}")
+        print(f" 加载文件失败: {filepath}, 错误: {exc}")
         return None
 
 
@@ -55,7 +55,7 @@ def loadJsonlFile(filepath: str) -> list[dict[str, Any]]:
     except FileNotFoundError:
         return []
     except Exception as exc:
-        print(f"❌ 加载文件失败: {filepath}, 错误: {exc}")
+        print(f" 加载文件失败: {filepath}, 错误: {exc}")
         return []
 
 

@@ -22,7 +22,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 try:
     import gradio as gr
 except ImportError:
-    print("❌ 请先安装 gradio: pip install gradio")
+    print(" 请先安装 gradio: pip install gradio")
     sys.exit(1)
 
 
@@ -59,7 +59,7 @@ def runExperiment(
         (摘要文本, Markdown 表格, 图表路径)
     """
     if not groups:
-        return "❌ 请至少选择一个实验组", "", None
+        return " 请至少选择一个实验组", "", None
 
     progress(0, desc="初始化实验...")
 
@@ -166,7 +166,7 @@ def createUI() -> gr.Blocks:
                     info="检索返回的文档数量",
                 )
 
-                runBtn = gr.Button("🚀 运行实验", variant="primary")
+                runBtn = gr.Button(" 运行实验", variant="primary")
 
             with gr.Column(scale=2):
                 gr.Markdown("### 实验结果")
@@ -215,7 +215,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("📊 Math-RAG 对比实验 WebUI")
+    print(" Math-RAG 对比实验 WebUI")
     print("=" * 60)
 
     demo = createUI()

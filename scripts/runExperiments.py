@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     print("=" * 60)
-    print("📊 Math-RAG 对比实验")
+    print(" Math-RAG 对比实验")
     print("=" * 60)
     print(f"实验组: {', '.join(args.groups)}")
     print(f"Top-K: {args.topk}")
@@ -76,9 +76,9 @@ def main(argv: list[str] | None = None) -> None:
             ],
         }
         json.dump(logData, f, ensure_ascii=False, indent=2)
-    print(f"✅ 日志已保存: {logPath}")
+    print(f" 日志已保存: {logPath}")
 
-    print("\n✅ 对比实验完成！")
+    print("\n 对比实验完成！")
 
 
 if __name__ == "__main__":

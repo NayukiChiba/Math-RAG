@@ -118,20 +118,20 @@
 
 ## 构建步骤（路线图）
 
-### 任务1：任务定义与评测标准（✅ 已完成）
+### 任务1：任务定义与评测标准（ 已完成）
 - 目标：明确“数学名词”范围、检索目标与评测指标
 - 输出：统一的任务定义与评测口径
 
-### 任务2：数据准备（✅ 已完成）
+### 任务2：数据准备（ 已完成）
 - 目标：构建可复现的检索语料与黄金集
 - 输入：OCR 教材产出的术语与定义数据
 - 输出：统一语料与黄金集
 - 子任务：
-  - ✅ 数据核验与统计（dataStat/chunkStatistics.py）
-  - ✅ 构建检索语料（retrieval/buildCorpus.py → data/processed/retrieval/corpus.jsonl）
-  - ✅ 评测查询集构建（evaluationData/generateQueries.py → data/evaluation/queries.jsonl）
+  -  数据核验与统计（dataStat/chunkStatistics.py）
+  -  构建检索语料（retrieval/buildCorpus.py → data/processed/retrieval/corpus.jsonl）
+  -  评测查询集构建（evaluationData/generateQueries.py → data/evaluation/queries.jsonl）
 
-### 任务3：教材 OCR + LLM 构建数学名词数据（✅ 已完成）
+### 任务3：教材 OCR + LLM 构建数学名词数据（ 已完成）
 - 目标：遍历 `data/raw/` 下的 PDF 教材，OCR 后生成数学相关术语与结构化 JSON
 - 输入：`data/raw/` 下的多本 PDF
 - 输出：
@@ -141,12 +141,12 @@
   - `data/processed/chunk/<书名>/<术语>.json`（术语级 JSON 切分）
 - 约束：术语仅限数学相关，JSON 需标注书名与页码来源
 - **已完成**：
-  - ✅ 配置管理系统（config.py + config.toml）
-  - ✅ OCR 流程脚本（pix2text_ocr.py, ocr_to_json_all.py）
-  - ✅ 术语提取脚本（extract_terms_from_ocr.py）
-  - ✅ JSON 生成脚本（data_gen.py）
-  - ✅ 术语 JSON 切分（输出到 `data/processed/chunk/`）
-  - ✅ 数学分析(第5版) 上/下 OCR 处理
+  -  配置管理系统（config.py + config.toml）
+  -  OCR 流程脚本（pix2text_ocr.py, ocr_to_json_all.py）
+  -  术语提取脚本（extract_terms_from_ocr.py）
+  -  JSON 生成脚本（data_gen.py）
+  -  术语 JSON 切分（输出到 `data/processed/chunk/`）
+  -  数学分析(第5版) 上/下 OCR 处理
 - **使用方法**：
   ```bash
   # 配置 config.toml 中的 [ocr] 和 [model] 部分
@@ -154,43 +154,43 @@
   python scripts/ocr_to_json_all.py
   ```
 
-### 任务4：检索层构建（✅ 已完成，2026-02-24 重构）
+### 任务4：检索层构建（ 已完成，2026-02-24 重构）
 - 目标：实现多种检索策略，支持可插拔切换
 - 子任务：
-  - ✅ BM25 稀疏检索基线（`BM25Retriever`）
-  - ✅ 向量检索（sentence-transformers + FAISS，`VectorRetriever`）
-  - ✅ 混合检索（RRF / 加权融合，`HybridRetriever`）
-  - ✅ BM25+（查询扩展 + 混合分词，`BM25PlusRetriever`）
-  - ✅ HybridPlus（百分位归一化 + 自适应权重，`HybridPlusRetriever`）
-  - ✅ Reranker（Cross-Encoder 两阶段，`RerankerRetriever`）
-  - ✅ AdvancedRetriever（多路召回 + 查询改写 + 重排序）
-  - ✅ 统一检索接口（`retrieval/retrievers.py`，7 种检索器合并为单文件）
-  - ✅ 查询改写模块（`retrieval/queryRewrite.py`，144 条数学同义词映射）
-  - ✅ 配置统一到 `config.toml [retrieval]`
+  -  BM25 稀疏检索基线（`BM25Retriever`）
+  -  向量检索（sentence-transformers + FAISS，`VectorRetriever`）
+  -  混合检索（RRF / 加权融合，`HybridRetriever`）
+  -  BM25+（查询扩展 + 混合分词，`BM25PlusRetriever`）
+  -  HybridPlus（百分位归一化 + 自适应权重，`HybridPlusRetriever`）
+  -  Reranker（Cross-Encoder 两阶段，`RerankerRetriever`）
+  -  AdvancedRetriever（多路召回 + 查询改写 + 重排序）
+  -  统一检索接口（`retrieval/retrievers.py`，7 种检索器合并为单文件）
+  -  查询改写模块（`retrieval/queryRewrite.py`，144 条数学同义词映射）
+  -  配置统一到 `config.toml [retrieval]`
 - 输入：`data/processed/retrieval/corpus.jsonl`
 - 输出：`retrieval/` 检索模块，索引文件保存至 `data/processed/retrieval/`
 
-### 任务5：RAG 生成层（✅ 已完成）
+### 任务5：RAG 生成层（ 已完成）
 - 目标：集成 Qwen2.5-Math 模型，实现检索增强生成
 - 子任务：
-  - ✅ 提示模板设计（Task-7 #23）
-  - ✅ Qwen2.5-Math-1.5B 本地推理集成（Task-8 #24）
-  - ✅ 端到端问答流程（Task-9 #25）
+  -  提示模板设计（Task-7 #23）
+  -  Qwen2.5-Math-1.5B 本地推理集成（Task-8 #24）
+  -  端到端问答流程（Task-9 #25）
   - [ ] （可选）Qwen2.5-Math-7B 对比实验
 - 输出：`answerGeneration/` 生成模块
 
-### 任务6：评测体系（🔄 进行中）
+### 任务6：评测体系（ 进行中）
 - 目标：构建可复现的评测流程
 - 子任务：
-  - ✅ 检索指标实现（Recall@K, MRR, nDCG，modelEvaluation/evalRetrieval.py）
-  - ✅ 评测查询集自动生成（evaluationData/generateQueries.py）
-  - ✅ 生成质量评估（Task-10 #26）
-  - ✅ 对比实验（RAG vs 无检索，Task-11 #27）
-  - 🔄 黄金测试集构建（Task-12 #33）
-  - 🔄 检索指标实现扩展（Task-13 #34）
-  - 🔄 生成质量评估扩展（Task-14 #35）
-  - 🔄 对比实验完善（Task-15 #36）
-  - 🔄 评测报告生成（Task-16 #37）
+  -  检索指标实现（Recall@K, MRR, nDCG，modelEvaluation/evalRetrieval.py）
+  -  评测查询集自动生成（evaluationData/generateQueries.py）
+  -  生成质量评估（Task-10 #26）
+  -  对比实验（RAG vs 无检索，Task-11 #27）
+  -  黄金测试集构建（Task-12 #33）
+  -  检索指标实现扩展（Task-13 #34）
+  -  生成质量评估扩展（Task-14 #35）
+  -  对比实验完善（Task-15 #36）
+  -  评测报告生成（Task-16 #37）
 - 输出：`modelEvaluation/` 评测模块，结果保存至 `outputs/reports/`
 
 ---
@@ -239,11 +239,11 @@
 
 ## 里程碑建议（可调整）
 
-- ✅ M1：数据集与黄金集完成
-- ✅ M2：检索基线完成（BM25 + 向量 + 混合，含检索评测）
-- ✅ M3：RAG 生成完成（Task-7~9）
-- ✅ M4：基础评测完成（Task-10~11）
-- 🔄 M5：评测体系完善（Task-12~16，进行中）
+-  M1：数据集与黄金集完成
+-  M2：检索基线完成（BM25 + 向量 + 混合，含检索评测）
+-  M3：RAG 生成完成（Task-7~9）
+-  M4：基础评测完成（Task-10~11）
+-  M5：评测体系完善（Task-12~16，进行中）
 - M6：论文完成（如有 7B 结果则补充对比）
 
 ## 风险与注意事项

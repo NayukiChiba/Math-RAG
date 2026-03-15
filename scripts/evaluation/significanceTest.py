@@ -144,7 +144,7 @@ def run_significance_test(
 
     # ── 控制台摘要 ───────────────────────────────────────────────
     print("=" * 60)
-    print("📊 显著性检验结果摘要")
+    print(" 显著性检验结果摘要")
     print("=" * 60)
     print(f"\n{'方法':<22} {'Recall@5 均值':>14} {'95% CI':>22}")
     print("-" * 60)
@@ -174,7 +174,7 @@ def run_significance_test(
         else:
             print(f"{label:<35} {'N/A':>14} {sig:>14}")
 
-    print(f"\n✅ 显著性检验报告已保存: {output_path}")
+    print(f"\n 显著性检验报告已保存: {output_path}")
 
 
 def main() -> None:

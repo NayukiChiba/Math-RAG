@@ -11,7 +11,7 @@ def initRetrievers(methods: list[str], assets: RetrievalAssets) -> dict[str, Any
     retrievers: dict[str, Any] = {}
 
     for method in methods:
-        print(f"\n🔄 初始化检索器: {method.upper()}")
+        print(f"\n 初始化检索器: {method.upper()}")
         try:
             if method == "bm25":
                 from retrieval.retrieverModules import BM25Retriever
@@ -83,10 +83,10 @@ def initRetrievers(methods: list[str], assets: RetrievalAssets) -> dict[str, Any
                     assets.embedding_model,
                 )
         except (ImportError, SystemExit) as exc:
-            print(f"❌ 初始化失败（缺少依赖）: {exc}")
-            print(f"💡 提示: 请检查 {method.upper()} 所需的依赖库是否已安装")
+            print(f" 初始化失败（缺少依赖）: {exc}")
+            print(f" 提示: 请检查 {method.upper()} 所需的依赖库是否已安装")
         except Exception as exc:
-            print(f"❌ 初始化失败: {exc}")
+            print(f" 初始化失败: {exc}")
             import traceback
 
             traceback.print_exc()

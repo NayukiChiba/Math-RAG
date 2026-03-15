@@ -65,10 +65,10 @@ if HAS_MATPLOTLIB:
 def createVisualization(stats: dict[str, Any], outputDir: str) -> None:
     """生成可视化图表。"""
     if not HAS_MATPLOTLIB:
-        print("⚠️  跳过可视化：matplotlib 未安装")
+        print("  跳过可视化：matplotlib 未安装")
         return
 
-    print("\n🎨 生成可视化图表...")
+    print("\n 生成可视化图表...")
     vizDir = os.path.join(outputDir, "visualizations")
     os.makedirs(vizDir, exist_ok=True)
 
@@ -79,7 +79,7 @@ def createVisualization(stats: dict[str, Any], outputDir: str) -> None:
     createDefinitionTypeChart(stats, vizDir)
     createComprehensiveDashboard(stats, vizDir)
 
-    print(f"✅ 可视化图表已保存到: {vizDir}")
+    print(f" 可视化图表已保存到: {vizDir}")
 
 
 def createBookDistributionChart(stats: dict[str, Any], outputDir: str) -> None:
@@ -123,9 +123,9 @@ def createBookDistributionChart(stats: dict[str, Any], outputDir: str) -> None:
         plt.savefig(os.path.join(outputDir, "1_书籍术语分布.png"), bbox_inches="tight")
         plt.close()
 
-        print("  ✓ 书籍术语分布图")
+        print("   书籍术语分布图")
     except Exception as e:
-        print(f"  ✗ 书籍术语分布图生成失败: {e}")
+        print(f"   书籍术语分布图生成失败: {e}")
 
 
 def createSubjectDistributionChart(stats: dict[str, Any], outputDir: str) -> None:
@@ -161,9 +161,9 @@ def createSubjectDistributionChart(stats: dict[str, Any], outputDir: str) -> Non
         plt.savefig(os.path.join(outputDir, "2_学科分布.png"), bbox_inches="tight")
         plt.close()
 
-        print("  ✓ 学科分布图")
+        print("   学科分布图")
     except Exception as e:
-        print(f"  ✗ 学科分布图生成失败: {e}")
+        print(f"   学科分布图生成失败: {e}")
 
 
 def createFieldCoverageChart(stats: dict[str, Any], outputDir: str) -> None:
@@ -230,9 +230,9 @@ def createFieldCoverageChart(stats: dict[str, Any], outputDir: str) -> None:
         plt.savefig(os.path.join(outputDir, "3_字段覆盖率.png"), bbox_inches="tight")
         plt.close()
 
-        print("  ✓ 字段覆盖率图")
+        print("   字段覆盖率图")
     except Exception as e:
-        print(f"  ✗ 字段覆盖率图生成失败: {e}")
+        print(f"   字段覆盖率图生成失败: {e}")
 
 
 def createTermLengthDistribution(stats: dict[str, Any], outputDir: str) -> None:
@@ -294,9 +294,9 @@ def createTermLengthDistribution(stats: dict[str, Any], outputDir: str) -> None:
         plt.savefig(os.path.join(outputDir, "4_长度分布.png"), bbox_inches="tight")
         plt.close()
 
-        print("  ✓ 长度分布图")
+        print("   长度分布图")
     except Exception as e:
-        print(f"  ✗ 长度分布图生成失败: {e}")
+        print(f"   长度分布图生成失败: {e}")
 
 
 def createDefinitionTypeChart(stats: dict[str, Any], outputDir: str) -> None:
@@ -333,9 +333,9 @@ def createDefinitionTypeChart(stats: dict[str, Any], outputDir: str) -> None:
         plt.savefig(os.path.join(outputDir, "5_定义类型分布.png"), bbox_inches="tight")
         plt.close()
 
-        print("  ✓ 定义类型分布图")
+        print("   定义类型分布图")
     except Exception as e:
-        print(f"  ✗ 定义类型分布图生成失败: {e}")
+        print(f"   定义类型分布图生成失败: {e}")
 
 
 def createComprehensiveDashboard(stats: dict[str, Any], outputDir: str) -> None:
@@ -440,6 +440,6 @@ def createComprehensiveDashboard(stats: dict[str, Any], outputDir: str) -> None:
         plt.savefig(os.path.join(outputDir, "0_综合统计面板.png"), bbox_inches="tight")
         plt.close()
 
-        print("  ✓ 综合统计面板")
+        print("   综合统计面板")
     except Exception as e:
-        print(f"  ✗ 综合统计面板生成失败: {e}")
+        print(f"   综合统计面板生成失败: {e}")

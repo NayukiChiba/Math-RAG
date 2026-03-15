@@ -12,7 +12,7 @@ from modelEvaluation.common.ioUtils import loadJsonFile, loadJsonlFile, saveJson
 def loadAllTerms(chunk_dir: str) -> list[dict[str, Any]]:
     terms: list[dict[str, Any]] = []
 
-    print("📚 加载术语库...")
+    print(" 加载术语库...")
     for book_name in sorted(os.listdir(chunk_dir)):
         book_path = os.path.join(chunk_dir, book_name)
         if not os.path.isdir(book_path):
@@ -35,7 +35,7 @@ def loadAllTerms(chunk_dir: str) -> list[dict[str, Any]]:
                     }
                 )
 
-    print(f"✅ 加载 {len(terms)} 个术语")
+    print(f" 加载 {len(terms)} 个术语")
     return terms
 
 
@@ -43,7 +43,7 @@ def loadExistingQueries(filepath: str) -> list[dict[str, Any]]:
     if not os.path.exists(filepath):
         return []
     queries = loadJsonlFile(filepath)
-    print(f"📋 加载现有查询: {len(queries)} 条")
+    print(f" 加载现有查询: {len(queries)} 条")
     return queries
 
 
@@ -60,7 +60,7 @@ def mergeQueries(
             seen_queries[query["query"]] = query
             new_count += 1
 
-    print("\n📊 合并结果:")
+    print("\n 合并结果:")
     print(f"  - 现有: {len(existing)} 条")
     print(f"  - 新增: {new_count} 条")
     print(f"  - 总计: {len(merged)} 条")
@@ -72,9 +72,9 @@ def saveQueries(queries: list[dict[str, Any]], filepath: str) -> None:
     for query in queries:
         by_subject[query["subject"]] += 1
 
-    print("\n📊 学科分布:")
+    print("\n 学科分布:")
     for subject, count in sorted(by_subject.items()):
         print(f"  - {subject}: {count} 条")
 
     saveJsonlFile(queries, filepath)
-    print(f"\n✅ 保存到: {filepath}")
+    print(f"\n 保存到: {filepath}")

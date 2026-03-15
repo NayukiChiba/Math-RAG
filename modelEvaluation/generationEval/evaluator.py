@@ -20,7 +20,7 @@ def evaluateGeneration(
     calculate_rouge: bool = False,
 ) -> dict[str, Any]:
     print("\n" + "=" * 60)
-    print("📊 开始生成质量评测")
+    print(" 开始生成质量评测")
     print("=" * 60)
 
     detailed_results = []

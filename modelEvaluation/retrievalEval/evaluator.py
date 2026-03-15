@@ -36,7 +36,7 @@ def evaluateMethod(
         raise ValueError(f"recallFactor must be > 0, got {recall_factor}")
 
     print(f"\n{'=' * 60}")
-    print(f"📊 评测方法: {method}")
+    print(f" 评测方法: {method}")
     print(f"{'=' * 60}")
 
     metrics: dict[str, Any] = {
@@ -96,7 +96,7 @@ def evaluateMethod(
             else:
                 results = retriever.search(query_text, topK=top_k)
         except Exception as exc:
-            print(f"    ❌ 检索失败: {exc}")
+            print(f"     检索失败: {exc}")
             continue
 
         query_time = time.time() - start
@@ -112,7 +112,7 @@ def evaluateMethod(
         metrics["ndcg@5"].append(calculateNDCG(results, relevant_terms, 5))
         metrics["ndcg@10"].append(calculateNDCG(results, relevant_terms, 10))
 
-        print(f"    ⏱️  查询时间: {query_time * 1000:.2f}ms")
+        print(f"    ⏱  查询时间: {query_time * 1000:.2f}ms")
 
     metrics["avg_query_time"] = _avg(query_times)
     avg_metrics = {
@@ -127,7 +127,7 @@ def evaluateMethod(
         "ndcg@10": _avg(metrics["ndcg@10"]),
     }
 
-    print("\n📈 平均指标:")
+    print("\n 平均指标:")
     print(f"  Recall@1:  {avg_metrics['recall@1']:.4f}")
     print(f"  Recall@3:  {avg_metrics['recall@3']:.4f}")
     print(f"  Recall@5:  {avg_metrics['recall@5']:.4f}")

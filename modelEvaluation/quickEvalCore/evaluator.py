@@ -23,7 +23,7 @@ def evaluateMethod(
     **search_kwargs,
 ) -> dict[str, Any]:
     print(f"\n{'=' * 60}")
-    print(f"📊 评测方法：{method}")
+    print(f" 评测方法：{method}")
     print(f"{'=' * 60}")
 
     metrics: dict[str, Any] = {
@@ -92,7 +92,7 @@ def evaluateMethod(
         "ndcg@10": sum(metrics["ndcg@10"]) / len(metrics["ndcg@10"]),
     }
 
-    print(f"\n📈 {method} 评测摘要:")
+    print(f"\n {method} 评测摘要:")
     print(f"  Recall@5: {metrics['avg_metrics']['recall@5']:.2%}")
     print(f"  Recall@10: {metrics['avg_metrics']['recall@10']:.2%}")
     print(f"  MRR: {metrics['avg_metrics']['mrr']:.4f}")

@@ -171,7 +171,7 @@ class RagPipeline:
                 if docId:
                     self._corpus[docId] = doc
                 else:
-                    print(f"⚠️ 语料第 {lineNum} 行缺少 doc_id，已跳过")
+                    print(f" 语料第 {lineNum} 行缺少 doc_id，已跳过")
         return self._corpus
 
     def _initRetriever(self) -> None:
@@ -179,7 +179,7 @@ class RagPipeline:
         if self._retriever is not None:
             return
 
-        print(f"🔧 初始化检索器（策略: {self.strategy}）...")
+        print(f" 初始化检索器（策略: {self.strategy}）...")
 
         if self.strategy == "bm25":
             self._retriever = BM25Retriever(self.corpusFile, self.bm25IndexFile)
@@ -494,10 +494,10 @@ def loadQueries(filepath: str) -> list[str]:
             queries.append(data)
         else:
             skippedCount += 1
-            print(f"⚠️ 第 {lineNum} 行: JSON 对象缺少 'query' 字段，已跳过")
+            print(f" 第 {lineNum} 行: JSON 对象缺少 'query' 字段，已跳过")
 
     if skippedCount > 0:
-        print(f"⚠️ 共跳过 {skippedCount} 行格式不正确的记录")
+        print(f" 共跳过 {skippedCount} 行格式不正确的记录")
 
     return queries
 

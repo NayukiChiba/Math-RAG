@@ -33,24 +33,24 @@ class HybridRetriever:
         self.corpusFile = corpusFile
 
         # 初始化 BM25 检索器
-        print("🔧 初始化 BM25 检索器...")
+        print(" 初始化 BM25 检索器...")
         self.bm25Retriever = BM25Retriever(corpusFile, bm25IndexFile)
         if not self.bm25Retriever.loadIndex():
-            print("⚠️  BM25 索引不存在，正在构建...")
+            print("  BM25 索引不存在，正在构建...")
             self.bm25Retriever.buildIndex()
             self.bm25Retriever.saveIndex()
 
         # 初始化向量检索器
-        print("🔧 初始化向量检索器...")
+        print(" 初始化向量检索器...")
         self.vectorRetriever = VectorRetriever(
             corpusFile, modelName, vectorIndexFile, vectorEmbeddingFile
         )
         if not self.vectorRetriever.loadIndex():
-            print("⚠️  向量索引不存在，正在构建...")
+            print("  向量索引不存在，正在构建...")
             self.vectorRetriever.buildIndex()
             self.vectorRetriever.saveIndex()
 
-        print("✅ 混合检索器初始化完成\n")
+        print(" 混合检索器初始化完成\n")
 
     def normalizeMinMax(self, scores: list[float]) -> list[float]:
         """Min-Max 归一化"""
@@ -244,16 +244,16 @@ class HybridRetriever:
         """
         # 执行两种检索
         if verbose:
-            print("🔍 执行 BM25 检索...")
+            print(" 执行 BM25 检索...")
         bm25Results = self.bm25Retriever.search(query, topK * 2)
 
         if verbose:
-            print("🔍 执行向量检索...")
+            print(" 执行向量检索...")
         vectorResults = self.vectorRetriever.search(query, topK * 2)
 
         # 融合结果
         if verbose:
-            print(f"🔀 融合结果（策略: {strategy}）...")
+            print(f" 融合结果（策略: {strategy}）...")
         if strategy == "weighted":
             fusedResults = self.fuseWeighted(
                 bm25Results, vectorResults, alpha, beta, normalization

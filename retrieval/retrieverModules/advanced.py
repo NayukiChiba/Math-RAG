@@ -61,38 +61,38 @@ class AdvancedRetriever:
 
     def _loadCorpus(self) -> None:
         """加载语料库"""
-        print(f"📂 加载语料：{self.corpusFile}")
+        print(f" 加载语料：{self.corpusFile}")
         self._corpus = []
         if not os.path.exists(self.corpusFile):
             raise FileNotFoundError(
                 f"语料文件不存在：{self.corpusFile}，请先运行语料构建流程"
             )
         self._corpus = _LOADER.jsonl(self.corpusFile)
-        print(f"✅ 已加载 {len(self._corpus)} 条语料")
+        print(f" 已加载 {len(self._corpus)} 条语料")
 
     def _loadBM25(self):
         """懒加载 BM25"""
         if self._bm25 is not None:
             return
 
-        print("📂 加载 BM25 索引...")
+        print(" 加载 BM25 索引...")
         with open(self.bm25IndexFile, "rb") as f:
             indexData = pickle.load(f)
 
         self._bm25 = indexData["bm25"]
-        print("✅ BM25 索引加载完成")
+        print(" BM25 索引加载完成")
 
     def _loadVectorIndex(self):
         """懒加载向量索引"""
         if self._vectorIndex is not None:
             return
 
-        print(f"🤖 加载向量模型：{self.modelName}")
+        print(f" 加载向量模型：{self.modelName}")
         self._vectorModel = SentenceTransformer(self.modelName)
 
-        print("📂 加载向量索引...")
+        print(" 加载向量索引...")
         self._vectorIndex = faiss.read_index(self.vectorIndexFile)
-        print("✅ 向量索引加载完成")
+        print(" 向量索引加载完成")
 
     def _loadReranker(self):
         """懒加载重排序器"""
@@ -105,12 +105,12 @@ class AdvancedRetriever:
 
         from sentence_transformers import CrossEncoder
 
-        print(f"🤖 加载重排序模型：{self.rerankerModelName}")
+        print(f" 加载重排序模型：{self.rerankerModelName}")
         try:
             self._reranker = CrossEncoder(self.rerankerModelName)
-            print("✅ 重排序模型加载完成")
+            print(" 重排序模型加载完成")
         except Exception as e:
-            print(f"⚠️  重排序模型加载失败：{e}，将不使用重排序")
+            print(f"  重排序模型加载失败：{e}，将不使用重排序")
             self._rerankerUnavailable = True
             self._reranker = None
 
@@ -122,7 +122,7 @@ class AdvancedRetriever:
         from retrieval.queryRewriter import QueryRewriter
 
         self._queryRewriter = QueryRewriter(termsFile)
-        print("✅ 查询改写器加载完成")
+        print(" 查询改写器加载完成")
 
     def _bm25Search(self, query: str, topK: int = 50) -> list[tuple[int, float]]:
         """BM25 检索"""
@@ -200,7 +200,7 @@ class AdvancedRetriever:
         if rewriteQuery:
             self._loadQueryRewriter(self.termsFile)
             rewrittenQueries = self._queryRewriter.rewrite(query)
-            print(f"🔄 查询改写：{query} -> {rewrittenQueries}")
+            print(f" 查询改写：{query} -> {rewrittenQueries}")
         else:
             rewrittenQueries = [query]
 
@@ -244,7 +244,7 @@ class AdvancedRetriever:
                             "rewrite_score": score,
                         }
 
-        print(f"✅ 召回 {len(allCandidates)} 个候选文档")
+        print(f" 召回 {len(allCandidates)} 个候选文档")
 
         # 3. 计算融合分数
         if not allCandidates:
@@ -303,7 +303,7 @@ class AdvancedRetriever:
                     reverse=True,
                 )
             else:
-                print("⚠️  重排序不可用，使用融合分数排序")
+                print("  重排序不可用，使用融合分数排序")
                 finalRanking = sorted(
                     allCandidates.items(),
                     key=lambda x: x[1]["fused_score"],
@@ -335,7 +335,7 @@ class AdvancedRetriever:
             )
 
         endTime = time.time()
-        print(f"⏱️  检索耗时：{(endTime - startTime) * 1000:.2f}ms")
+        print(f"⏱  检索耗时：{(endTime - startTime) * 1000:.2f}ms")
 
         return results
 

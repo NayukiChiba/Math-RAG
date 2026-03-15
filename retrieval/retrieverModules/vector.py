@@ -58,22 +58,22 @@ class VectorRetriever:
     def loadModel(self) -> None:
         """加载 Sentence Transformer 模型"""
         if self.model is None:
-            print(f"🤖 加载模型: {self.modelName}")
+            print(f" 加载模型: {self.modelName}")
             self.model = SentenceTransformer(self.modelName)
             print(
-                f"✅ 模型加载完成（维度: {self.model.get_sentence_embedding_dimension()}）"
+                f" 模型加载完成（维度: {self.model.get_sentence_embedding_dimension()}）"
             )
 
     def loadCorpus(self) -> None:
         """加载语料文件"""
-        print(f"📂 加载语料: {self.corpusFile}")
+        print(f" 加载语料: {self.corpusFile}")
 
         if not os.path.exists(self.corpusFile):
             raise FileNotFoundError(f"语料文件不存在: {self.corpusFile}")
 
         self.corpus = _LOADER.jsonl(self.corpusFile)
 
-        print(f"✅ 已加载 {len(self.corpus)} 条语料")
+        print(f" 已加载 {len(self.corpus)} 条语料")
 
     def buildIndex(self, batchSize: int = 32) -> None:
         """
@@ -82,7 +82,7 @@ class VectorRetriever:
         Args:
             batchSize: 嵌入计算的批次大小
         """
-        print("🔨 构建向量索引...")
+        print(" 构建向量索引...")
 
         if not self.corpus:
             self.loadCorpus()
@@ -94,7 +94,7 @@ class VectorRetriever:
         texts = [doc["text"] for doc in self.corpus]
 
         # 生成嵌入向量（批量处理）
-        print(f"🧮 生成嵌入向量（批次大小: {batchSize}）...")
+        print(f" 生成嵌入向量（批次大小: {batchSize}）...")
         self.embeddings = self.model.encode(
             texts,
             batch_size=batchSize,
@@ -103,7 +103,7 @@ class VectorRetriever:
         )
 
         # 标准化向量（用于余弦相似度）
-        print("📐 标准化向量...")
+        print(" 标准化向量...")
         faiss.normalize_L2(self.embeddings)
 
         # 构建 FAISS 索引（内积，因向量已标准化，等价于余弦相似度）
@@ -114,7 +114,7 @@ class VectorRetriever:
         if USE_GPU:
             res = faiss.StandardGpuResources()
             self.index = faiss.index_cpu_to_gpu(res, 0, cpuIndex)
-            print("🎮 索引已迁移到 GPU")
+            print(" 索引已迁移到 GPU")
         else:
             self.index = cpuIndex
 
@@ -122,18 +122,18 @@ class VectorRetriever:
 
         deviceType = "GPU" if USE_GPU else "CPU"
         print(
-            f"✅ 索引构建完成（{self.index.ntotal} 条文档，维度: {dimension}，设备: {deviceType}）"
+            f" 索引构建完成（{self.index.ntotal} 条文档，维度: {dimension}，设备: {deviceType}）"
         )
 
     def saveIndex(self) -> None:
         """保存索引和嵌入到文件"""
         if self.index is None or self.embeddings is None:
-            print("⚠️  索引未构建，无法保存")
+            print("  索引未构建，无法保存")
             return
 
         # 保存 FAISS 索引
         if self.indexFile:
-            print(f"💾 保存 FAISS 索引: {self.indexFile}")
+            print(f" 保存 FAISS 索引: {self.indexFile}")
             dirname = os.path.dirname(self.indexFile)
             if dirname:
                 os.makedirs(dirname, exist_ok=True)
@@ -159,11 +159,11 @@ class VectorRetriever:
             with open(metadataFile, "w", encoding="utf-8") as f:
                 json.dump(metadata, f, ensure_ascii=False, indent=2)
 
-            print("✅ FAISS 索引已保存")
+            print(" FAISS 索引已保存")
 
         # 保存嵌入向量
         if self.embeddingFile:
-            print(f"💾 保存嵌入向量: {self.embeddingFile}")
+            print(f" 保存嵌入向量: {self.embeddingFile}")
             dirname = os.path.dirname(self.embeddingFile)
             if dirname:
                 os.makedirs(dirname, exist_ok=True)
@@ -174,7 +174,7 @@ class VectorRetriever:
                 corpus=np.array(self.corpus, dtype=object),
             )
 
-            print("✅ 嵌入向量已保存")
+            print(" 嵌入向量已保存")
 
     def loadIndex(self) -> bool:
         """
@@ -188,16 +188,16 @@ class VectorRetriever:
 
         # 校验语料文件是否存在
         if not os.path.exists(self.corpusFile):
-            print(f"⚠️  语料文件不存在: {self.corpusFile}")
+            print(f"  语料文件不存在: {self.corpusFile}")
             return False
 
-        print(f"📂 加载索引: {self.indexFile}")
+        print(f" 加载索引: {self.indexFile}")
 
         try:
             # 加载元数据
             metadataFile = self.indexFile + ".meta.json"
             if not os.path.exists(metadataFile):
-                print("⚠️  索引元数据不存在，建议重建索引")
+                print("  索引元数据不存在，建议重建索引")
                 return False
 
             metadata = _LOADER.json(metadataFile)
@@ -207,17 +207,17 @@ class VectorRetriever:
             savedCorpusModTime = metadata.get("corpusModTime")
 
             if savedCorpusModTime is None:
-                print("⚠️  索引中缺少语料时间戳，建议重建索引")
+                print("  索引中缺少语料时间戳，建议重建索引")
                 return False
 
             if abs(currentCorpusModTime - savedCorpusModTime) > 1:
-                print("⚠️  语料文件已更新，索引已过期，需要重建")
+                print("  语料文件已更新，索引已过期，需要重建")
                 return False
 
             # 校验模型是否一致
             if metadata.get("modelName") != self.modelName:
                 print(
-                    f"⚠️  模型不一致（保存: {metadata.get('modelName')}, 当前: {self.modelName}）"
+                    f"  模型不一致（保存: {metadata.get('modelName')}, 当前: {self.modelName}）"
                 )
                 print("建议重建索引或使用相同模型")
                 return False
@@ -229,7 +229,7 @@ class VectorRetriever:
             if USE_GPU:
                 res = faiss.StandardGpuResources()
                 self.index = faiss.index_cpu_to_gpu(res, 0, cpuIndex)
-                print("🎮 索引已迁移到 GPU")
+                print(" 索引已迁移到 GPU")
             else:
                 self.index = cpuIndex
 
@@ -239,19 +239,19 @@ class VectorRetriever:
                 self.embeddings = data["embeddings"]
                 self.corpus = data["corpus"].tolist()
             else:
-                print("⚠️  嵌入文件不存在，重新加载语料")
+                print("  嵌入文件不存在，重新加载语料")
                 self.loadCorpus()
 
             # 加载模型（用于查询嵌入）
             self.loadModel()
 
             print(
-                f"✅ 已加载索引（{self.index.ntotal} 条文档，维度: {metadata['dimension']}）"
+                f" 已加载索引（{self.index.ntotal} 条文档，维度: {metadata['dimension']}）"
             )
             return True
 
         except Exception as e:
-            print(f"⚠️  加载索引失败: {e}")
+            print(f"  加载索引失败: {e}")
             return False
 
     def search(self, query: str, topK: int = 10) -> list[dict[str, Any]]:

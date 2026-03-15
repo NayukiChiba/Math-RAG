@@ -25,9 +25,9 @@ def runEval(
 
     print("=" * 60)
     print(
-        "🚀 优化版检索评测系统 - 目标 Recall@5 > 60%"
+        " 优化版检索评测系统 - 目标 Recall@5 > 60%"
         if is_optimized
-        else "🚀 快速检索评测系统"
+        else " 快速检索评测系统"
     )
     print("=" * 60)
 
@@ -41,14 +41,14 @@ def runEval(
     queries_file = os.path.join(queries_dir, "queries.jsonl")
     assets = buildRetrievalAssets()
 
-    print(f"\n📂 查询文件：{queries_file}")
-    print(f"📂 语料文件：{assets.corpus_file}")
+    print(f"\n 查询文件：{queries_file}")
+    print(f" 语料文件：{assets.corpus_file}")
 
     queries = loadQueries(
         queries_file, num_queries if not all_queries else None, all_queries
     )
     if not queries:
-        print("❌ 没有可用的查询，退出评测")
+        print(" 没有可用的查询，退出评测")
         return {}
 
     loadCorpus(assets.corpus_file)
@@ -60,7 +60,7 @@ def runEval(
             all_metrics[method] = metrics
 
     print("\n" + "=" * 60)
-    print("📊 优化版评测对比报告" if is_optimized else "📊 评测对比报告")
+    print(" 优化版评测对比报告" if is_optimized else " 评测对比报告")
     print("=" * 60)
 
     col_width = 20 if is_optimized else 15
@@ -88,7 +88,7 @@ def runEval(
         )
 
     if not all_metrics:
-        print("\n⚠️  没有有效的评测结果")
+        print("\n  没有有效的评测结果")
         return all_metrics
 
     best_method = max(
@@ -99,7 +99,7 @@ def runEval(
 
     if is_optimized:
         target = 0.60
-        status = "✅" if best_r5 >= target else "⚠️"
+        status = "" if best_r5 >= target else ""
         tail = (
             "  - 达到目标!"
             if best_r5 >= target
@@ -110,7 +110,7 @@ def runEval(
         )
     else:
         print(
-            f"\n🏆 Recall@5 最佳方法：{all_metrics[best_method]['method']} ({best_r5:.2%})"
+            f"\n Recall@5 最佳方法：{all_metrics[best_method]['method']} ({best_r5:.2%})"
         )
 
     return all_metrics
@@ -129,4 +129,4 @@ def saveReport(metrics: dict[str, Any], output_file: str) -> None:
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
 
-    print(f"💾 评测报告已保存：{output_file}")
+    print(f" 评测报告已保存：{output_file}")

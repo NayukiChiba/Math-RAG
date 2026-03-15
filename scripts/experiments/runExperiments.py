@@ -85,18 +85,18 @@ class ExperimentRunner:
         for query in _LOADER.jsonl(self.queryFile):
             # 校验必需字段
             if "query" not in query:
-                print(f"⚠️ 跳过缺少 query 字段的行: {str(query)[:50]}...")
+                print(f" 跳过缺少 query 字段的行: {str(query)[:50]}...")
                 continue
             self._queries.append(query)
             self._goldMap[query["query"]] = query
 
-        print(f"✅ 加载了 {len(self._queries)} 条测试查询")
+        print(f" 加载了 {len(self._queries)} 条测试查询")
         return self._queries
 
     def _initQwen(self):
         """初始化 Qwen 推理实例"""
         if self._qwen is None:
-            print("🔧 初始化 Qwen 推理...")
+            print(" 初始化 Qwen 推理...")
             from answerGeneration.qwenInference import QwenInference
 
             self._qwen = QwenInference()
@@ -117,7 +117,7 @@ class ExperimentRunner:
             "default_vector_model", "BAAI/bge-base-zh-v1.5"
         )
 
-        print(f"🔧 初始化检索器（策略: {strategy}）...")
+        print(f" 初始化检索器（策略: {strategy}）...")
 
         if strategy == "bm25":
             from retrieval.retrieverModules import BM25PlusRetriever
@@ -158,7 +158,7 @@ class ExperimentRunner:
             raise ValueError(f"不支持的检索策略: {strategy}")
 
         self._retrievers[strategy] = retriever
-        print("✅ 检索器初始化完成")
+        print(" 检索器初始化完成")
         return retriever
 
     def _loadCorpus(self) -> dict[str, dict[str, Any]]:
@@ -378,7 +378,7 @@ class ExperimentRunner:
         直接使用 Qwen 回答，不注入任何上下文
         """
         print("\n" + "=" * 60)
-        print("📊 实验组: baseline-norag（无检索）")
+        print(" 实验组: baseline-norag（无检索）")
         print("=" * 60)
 
         qwen = self._initQwen()
@@ -407,7 +407,7 @@ class ExperimentRunner:
             try:
                 answer = qwen.generateFromMessages(messages)
             except Exception as e:
-                print(f"    ❌ 生成失败: {e}")
+                print(f"     生成失败: {e}")
                 answer = f"生成失败: {e}"
 
             latency = int((time.time() - startTime) * 1000)
@@ -475,7 +475,7 @@ class ExperimentRunner:
         }
         groupName = groupNameMap.get(strategy, f"baseline-{strategy}")
         print("\n" + "=" * 60)
-        print(f"📊 实验组: {groupName}（{strategy} 检索）")
+        print(f" 实验组: {groupName}（{strategy} 检索）")
         print("=" * 60)
 
         qwen = self._initQwen()
@@ -525,7 +525,7 @@ class ExperimentRunner:
                     rawResults = retriever.search(queryText, topK=topK)
                 retrievalResults = self._enrichResults(rawResults, corpus)
             except Exception as e:
-                print(f"    ❌ 检索失败: {e}")
+                print(f"     检索失败: {e}")
                 retrievalResults = []
 
             retrievalTime = time.time() - startTime
@@ -547,7 +547,7 @@ class ExperimentRunner:
                 )
                 answer = qwen.generateFromMessages(messages)
             except Exception as e:
-                print(f"    ❌ 生成失败: {e}")
+                print(f"     生成失败: {e}")
                 answer = f"生成失败: {e}"
 
             generationTime = time.time() - genStartTime
@@ -831,14 +831,14 @@ class ExperimentRunner:
             plt.savefig(outputPath, dpi=150, bbox_inches="tight")
             plt.close()
 
-            print(f"✅ 图表已保存: {outputPath}")
+            print(f" 图表已保存: {outputPath}")
             return True
 
         except ImportError:
-            print("⚠️ matplotlib 未安装，跳过图表生成")
+            print(" matplotlib 未安装，跳过图表生成")
             return False
         except Exception as e:
-            print(f"❌ 图表生成失败: {e}")
+            print(f" 图表生成失败: {e}")
             return False
 
     def runAllExperiments(
@@ -861,7 +861,7 @@ class ExperimentRunner:
         queries = self._loadQueries()
         if limit:
             queries = queries[:limit]
-            print(f"⚠️ 限制查询数量为 {limit} 条（调试模式）")
+            print(f" 限制查询数量为 {limit} 条（调试模式）")
 
         results = []
 
@@ -898,7 +898,7 @@ class ExperimentRunner:
         # 保存 JSON 报告
         with open(reportPath, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
-        print(f"✅ JSON 报告已保存: {reportPath}")
+        print(f" JSON 报告已保存: {reportPath}")
 
         # 生成并保存图表
         self.generateChart(experimentResults, chartPath)
@@ -907,7 +907,7 @@ class ExperimentRunner:
         markdownTable = self.generateMarkdownTable(experimentResults)
         with open(markdownPath, "w", encoding="utf-8") as f:
             f.write(markdownTable)
-        print(f"✅ Markdown 表格已保存: {markdownPath}")
+        print(f" Markdown 表格已保存: {markdownPath}")
 
         # 保存详细结果（每组一个 JSONL 文件）
         for result in experimentResults:
@@ -916,13 +916,13 @@ class ExperimentRunner:
             with open(groupDetailPath, "w", encoding="utf-8") as f:
                 for r in result.get("results", []):
                     f.write(json.dumps(r, ensure_ascii=False) + "\n")
-            print(f"✅ 详细结果已保存: {groupDetailPath}")
+            print(f" 详细结果已保存: {groupDetailPath}")
 
 
 def printSummary(experimentResults: list[dict[str, Any]]) -> None:
     """打印实验结果摘要"""
     print("\n" + "=" * 60)
-    print("📊 实验结果汇总")
+    print(" 实验结果汇总")
     print("=" * 60)
 
     print("\n检索指标:")
@@ -987,7 +987,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("📊 Math-RAG 对比实验")
+    print(" Math-RAG 对比实验")
     print("=" * 60)
     print(f"实验组: {', '.join(args.groups)}")
     print(f"Top-K: {args.topk}")
@@ -1043,9 +1043,9 @@ def main():
             ],
         }
         json.dump(logData, f, ensure_ascii=False, indent=2)
-    print(f"✅ 日志已保存: {logPath}")
+    print(f" 日志已保存: {logPath}")
 
-    print("\n✅ 对比实验完成！")
+    print("\n 对比实验完成！")
 
 
 if __name__ == "__main__":

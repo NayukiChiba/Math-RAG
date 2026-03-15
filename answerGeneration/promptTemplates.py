@@ -343,7 +343,7 @@ def _demoWithCorpus(query: str, topk: int = 3) -> None:
     corpusFile = os.path.join(config.PROCESSED_DIR, "retrieval", "corpus.jsonl")
 
     if not os.path.isfile(corpusFile):
-        print(f"❌ 语料文件不存在: {corpusFile}")
+        print(f" 语料文件不存在: {corpusFile}")
         return
 
     # 加载前 topk 条作为模拟检索结果
@@ -355,7 +355,7 @@ def _demoWithCorpus(query: str, topk: int = 3) -> None:
         items.append(item)
 
     if not items:
-        print("❌ 语料文件为空")
+        print(" 语料文件为空")
         return
 
     print("=" * 60)

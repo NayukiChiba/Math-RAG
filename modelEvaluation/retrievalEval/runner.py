@@ -28,7 +28,7 @@ def _printSummaryTable(all_metrics: list[dict[str, Any]]) -> None:
     - 每个元素需包含 `method`、`avg_metrics`、`avg_query_time`。
     """
     print(f"\n{'=' * 60}")
-    print("📊 评测结果汇总")
+    print(" 评测结果汇总")
     print(f"{'=' * 60}")
     print(
         f"{'方法':<20} {'Recall@1':<10} {'Recall@3':<10} {'Recall@5':<10} {'Recall@10':<10} {'MRR':<10} {'MAP':<10} {'nDCG@10':<10} {'查询时间':<10}"
@@ -61,7 +61,7 @@ def runEvalRetrieval(args: Any) -> int:
     - 1: 评测失败（例如无有效查询、检索器初始化失败、无可用结果）。
     """
     print("=" * 60)
-    print("📊 Math-RAG 检索评测")
+    print(" Math-RAG 检索评测")
     print("=" * 60)
     print(f"查询集: {args.queries}")
     print(f"评测方法: {', '.join(args.methods)}")
@@ -74,20 +74,20 @@ def runEvalRetrieval(args: Any) -> int:
     # Step 1: 加载并校验查询集。
     queries = loadQueries(args.queries)
     if not queries:
-        print("❌ 无有效查询，退出")
+        print(" 无有效查询，退出")
         return 1
 
     subject_count: dict[str, int] = defaultdict(int)
     for query in queries:
         subject_count[query["subject"]] += 1
-    print("\n📚 学科分布:")
+    print("\n 学科分布:")
     for subject, count in sorted(subject_count.items()):
         print(f"  {subject}: {count} 条")
 
     # Step 2: 初始化用户指定的检索器集合。
     retrievers = initRetrievers(args.methods, buildRetrievalAssets())
     if not retrievers:
-        print("❌ 没有可用的检索器，退出")
+        print(" 没有可用的检索器，退出")
         return 1
 
     # Step 3: 逐方法执行评测并聚合结果。
@@ -105,10 +105,10 @@ def runEvalRetrieval(args: Any) -> int:
             )
             all_metrics.append(metrics)
         except Exception as exc:
-            print(f"❌ 评测 {method_name} 失败: {exc}")
+            print(f" 评测 {method_name} 失败: {exc}")
 
     if not all_metrics:
-        print("❌ 评测失败，无结果")
+        print(" 评测失败，无结果")
         return 1
 
     # Step 4: 结构化报告持久化，便于后续脚本分析与可视化。
@@ -123,7 +123,7 @@ def runEvalRetrieval(args: Any) -> int:
 
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     saveJsonFile(report, args.output)
-    print(f"\n✅ 评测报告已保存: {args.output}")
+    print(f"\n 评测报告已保存: {args.output}")
 
     # Step 5: 控制台汇总 + 可选图表输出。
     _printSummaryTable(all_metrics)
@@ -131,5 +131,5 @@ def runEvalRetrieval(args: Any) -> int:
         output_dir = os.path.dirname(args.output)
         generateComparisonChart(all_metrics, output_dir)
 
-    print("\n✅ 评测完成！")
+    print("\n 评测完成！")
     return 0

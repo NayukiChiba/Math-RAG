@@ -13,7 +13,7 @@ def loadQueries(
 ) -> list[dict[str, Any]]:
     raw_queries = loadJsonlFile(filepath)
     if not raw_queries:
-        print(f"❌ 查询集文件不存在或为空：{filepath}")
+        print(f" 查询集文件不存在或为空：{filepath}")
         return []
 
     queries: list[dict[str, Any]] = []
@@ -22,10 +22,10 @@ def loadQueries(
             if isinstance(query["relevant_terms"], list) and query["relevant_terms"]:
                 queries.append(query)
 
-    print(f"✅ 加载了 {len(queries)} 条查询")
+    print(f" 加载了 {len(queries)} 条查询")
 
     if not all_queries and num_queries and num_queries < len(queries):
-        print(f"📊 随机抽样 {num_queries} 条查询进行测试")
+        print(f" 随机抽样 {num_queries} 条查询进行测试")
         random.seed(42)
         queries = random.sample(queries, num_queries)
 
@@ -35,7 +35,7 @@ def loadQueries(
 def loadCorpus(filepath: str) -> list[dict[str, Any]]:
     corpus = loadJsonlFile(filepath)
     if corpus:
-        print(f"✅ 加载了 {len(corpus)} 条语料")
+        print(f" 加载了 {len(corpus)} 条语料")
         return corpus
-    print(f"⚠️  语料文件不存在或为空：{filepath}")
+    print(f"  语料文件不存在或为空：{filepath}")
     return []

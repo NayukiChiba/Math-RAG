@@ -128,7 +128,7 @@ def generateQueries(
 
     queries: list[dict[str, Any]] = []
     for subject, subject_terms in terms_by_subject.items():
-        print(f"\n📊 处理学科: {subject} (共 {len(subject_terms)} 个术语)")
+        print(f"\n 处理学科: {subject} (共 {len(subject_terms)} 个术语)")
 
         # 依据 aliases + related_terms 的数量过滤低质量样本。
         candidate_terms: list[dict[str, Any]] = []
@@ -155,6 +155,6 @@ def generateQueries(
                 }
             )
 
-        print(f"✅ 生成 {len(selected_terms)} 条查询")
+        print(f" 生成 {len(selected_terms)} 条查询")
 
     return queries

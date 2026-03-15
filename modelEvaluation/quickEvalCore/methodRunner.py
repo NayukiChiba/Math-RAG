@@ -236,5 +236,5 @@ def runMethod(
             injectDirectLookup=True,
         )
 
-    print(f"⚠️  未知方法：{method}，跳过")
+    print(f"  未知方法：{method}，跳过")
     return None

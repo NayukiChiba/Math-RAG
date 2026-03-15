@@ -530,18 +530,18 @@ def main() -> None:
     )
 
     if not to_add:
-        print("✅ 所有术语已在语料库中，无需添加。")
+        print(" 所有术语已在语料库中，无需添加。")
         return
 
     # 追加写入
     with open(corpus_file, "a", encoding="utf-8") as f:
         for entry in to_add:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-            print(f"  ✅ 添加：{entry['term']} ({entry['subject']})")
+            print(f"   添加：{entry['term']} ({entry['subject']})")
 
-    print(f"\n✅ 已添加 {len(to_add)} 个缺失术语到语料库")
+    print(f"\n 已添加 {len(to_add)} 个缺失术语到语料库")
     print(f"语料库路径：{corpus_file}")
-    print("\n⚠️  请重建 BM25+ 索引：")
+    print("\n  请重建 BM25+ 索引：")
     print("   python retrieval/buildCorpus.py  # 如果需要重建 corpus.jsonl")
     print("   python scripts/rebuildIndex.py  # 重建 BM25+ 索引")
 
