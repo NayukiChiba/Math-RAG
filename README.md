@@ -37,14 +37,17 @@ Math-RAG/
 │   ├── retrievers.py          # 全部检索器（7 种）
 │   └── queryRewrite.py        # 查询改写与同义词扩展
 │
-├── generation/                # 生成模块
+├── answerGeneration/          # 回答生成模块
 │   ├── promptTemplates.py     # RAG 提示模板
 │   ├── qwenInference.py       # Qwen 推理封装
 │   ├── ragPipeline.py         # 端到端 RAG 流程
 │   └── webui.py               # Gradio WebUI
 │
-├── evaluation/                # 评测模块
+├── evaluationData/            # 评测数据构建模块
 │   ├── generateQueries.py     # 评测查询生成
+│   └── queryGeneration/       # 查询生成子模块
+│
+├── modelEvaluation/           # 评测模块
 │   ├── evalRetrieval.py       # 检索评测
 │   ├── evalGeneration.py      # 生成质量评测
 │   └── quickEval.py           # 快速检索评测
@@ -170,10 +173,10 @@ math-rag build-term-mapping
 
 | 步骤 | 脚本 | 目的 | 是否需要 Qwen 模型 | 预估耗时 |
 |------|------|------|:------------------:|----------|
-| 1 | `evaluation/quickEval.py` | 快速对比 20+ 种检索策略，找最优配置 | 否 | 几分钟 |
-| 2 | `evaluation/evalRetrieval.py` | 正式检索评测，出论文数据 + 图表 | 否 | 几分钟 |
+| 1 | `modelEvaluation/quickEval.py` | 快速对比 20+ 种检索策略，找最优配置 | 否 | 几分钟 |
+| 2 | `modelEvaluation/evalRetrieval.py` | 正式检索评测，出论文数据 + 图表 | 否 | 几分钟 |
 | 3 | `scripts/runExperiments.py` | 端到端对比实验（RAG vs 无检索） | **是** | 较长 |
-| 4 | `evaluation/evalGeneration.py` | 生成质量细粒度分析 | 否（依赖步骤 3 输出） | 几分钟 |
+| 4 | `modelEvaluation/evalGeneration.py` | 生成质量细粒度分析 | 否（依赖步骤 3 输出） | 几分钟 |
 
 ### 步骤 1：快速检索评测（策略选型）
 
@@ -280,18 +283,25 @@ math-rag serve --target experiment-webui
 
 **详见**：[retrieval/README.md](retrieval/README.md)
 
-### evaluation - 评测模块
+### modelEvaluation - 评测模块
 
 | 脚本 | 功能 |
 |------|------|
-| `generateQueries.py` | 从术语库自动生成评测查询集 |
 | `evalRetrieval.py` | 检索评测（Recall@K、MRR、nDCG@K、MAP） |
 | `evalGeneration.py` | 生成质量评测（术语命中率、来源引用率） |
 | `quickEval.py` | 快速检索评测（多方法对比） |
 
-**详见**：[evaluation/README.md](evaluation/README.md)
+**详见**：[modelEvaluation/README.md](modelEvaluation/README.md)
 
-### generation - 生成模块
+### evaluationData - 评测数据构建模块
+
+| 脚本 | 功能 |
+|------|------|
+| `generateQueries.py` | 从术语库自动生成评测查询集 |
+
+**详见**：[evaluationData/generateQueries.py](evaluationData/generateQueries.py)
+
+### answerGeneration - 生成模块
 
 | 脚本 | 功能 |
 |------|------|
@@ -359,4 +369,4 @@ pre-commit run -a
 - [项目规划与路线图](docs/plan.md)
 - [任务进度跟踪](docs/task.md)
 - [检索模块详细文档](retrieval/README.md)
-- [评测模块详细文档](evaluation/README.md)
+- [评测模块详细文档](modelEvaluation/README.md)

@@ -65,20 +65,20 @@
 
 ## 自动生成工具
 
-可以使用 `generation/generateQueries.py` 脚本从术语库自动生成评测数据：
+可以使用 `evaluationData/generateQueries.py` 脚本从术语库自动生成评测数据：
 
 ```bash
 # 默认：按固定数量生成（数学分析35，高等代数20，概率论20）
-python generation/generateQueries.py
+python evaluationData/generateQueries.py
 
 # 生成所有符合条件的术语（3102条）
-python generation/generateQueries.py --all
+python evaluationData/generateQueries.py --all
 
 # 按比例采样（如50%）
-python generation/generateQueries.py --ratio 0.5
+python evaluationData/generateQueries.py --ratio 0.5
 
 # 自定义各学科数量
-python generation/generateQueries.py --num-ma 50 --num-gd 30 --num-gl 30
+python evaluationData/generateQueries.py --num-ma 50 --num-gd 30 --num-gl 30
 ```
 
 **功能特点**：

@@ -29,7 +29,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
-from generation.ragPipeline import RagPipeline, loadQueries, saveResults
+from answerGeneration.ragPipeline import RagPipeline, loadQueries, saveResults
 
 
 def printResult(result: dict) -> None:

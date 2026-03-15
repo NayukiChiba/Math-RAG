@@ -96,7 +96,7 @@ class ExperimentRunner:
         """初始化 Qwen 推理实例"""
         if self._qwen is None:
             print("🔧 初始化 Qwen 推理...")
-            from generation.qwenInference import QwenInference
+            from answerGeneration.qwenInference import QwenInference
 
             self._qwen = QwenInference()
         return self._qwen
@@ -538,7 +538,7 @@ class ExperimentRunner:
             # 生成
             genStartTime = time.time()
             try:
-                from generation.promptTemplates import buildMessages
+                from answerGeneration.promptTemplates import buildMessages
 
                 messages = buildMessages(
                     query=queryText,

@@ -114,7 +114,7 @@
 - ✅ nDCG@K（K=3,5,10）
 - ✅ MAP（Mean Average Precision）
 
-**脚本**：`evaluation/evalRetrieval.py`、`generation/generateQueries.py`  
+**脚本**：`modelEvaluation/evalRetrieval.py`、`evaluationData/generateQueries.py`  
 
 **验收标准**：
 - ✅ 固定格式输出，结果可复现
@@ -129,7 +129,7 @@
 ### 任务7：RAG 提示模板设计
 **状态**：`completed` ✅ （Issue #23）  
 **输入**：检索结果（TopK 术语与定义）、用户查询  
-**输出**：`generation/promptTemplates.py`  
+**输出**：`answerGeneration/promptTemplates.py`  
 
 **验收标准**：
 - ✅ 基础模板：system + user prompt，含检索上下文拼接
@@ -146,7 +146,7 @@
 ### 任务8：Qwen2.5-Math-1.5B 本地推理集成
 **状态**：`completed` ✅ （Issue #24）
 **输入**：本地模型路径（`Qwen-model/`，由 `config.QWEN_MODEL_DIR` 管理）
-**输出**：`generation/qwenInference.py`
+**输出**：`answerGeneration/qwenInference.py`
 
 **验收标准**：
 - ✅ 支持从本地路径加载模型（`transformers.AutoModelForCausalLM`）
@@ -162,7 +162,7 @@
 **状态**：`completed` ✅ （Issue #25）
 **输入**：用户查询、检索索引、Qwen 推理接口、提示模板
 **输出**：
-- `generation/ragPipeline.py`
+- `answerGeneration/ragPipeline.py`
 - `scripts/runRag.py`
 - `outputs/rag_results.jsonl`
 
@@ -187,7 +187,7 @@
 - ✅ 回答非空率
 - ✅ （可选）BLEU / ROUGE
 
-**脚本**：`evaluation/evalGeneration.py`
+**脚本**：`modelEvaluation/evalGeneration.py`
 **依赖**：任务9
 
 ---
@@ -246,7 +246,7 @@
 - [ ] nDCG@K（K=3, 5, 10）
 - [ ] MAP（Mean Average Precision）
 
-**脚本**：`evaluation/evalRetrieval.py`
+**脚本**：`modelEvaluation/evalRetrieval.py`
 **依赖**：任务12
 
 ---
@@ -309,14 +309,14 @@
 - `retrieval/buildCorpus.py` - 语料构建
 - `retrieval/retrievers.py` - 7 种检索器（BM25/BM25+/向量/混合/HybridPlus/Reranker/Advanced）
 - `retrieval/queryRewrite.py` - 查询改写（144 条同义词映射）
-- `evaluation/evalRetrieval.py` - 检索评测
-- `evaluation/evalGeneration.py` - 生成质量评测
-- `generation/generateQueries.py` - 评测查询生成
-- `evaluation/quickEval.py` - 快速检索评测
-- `generation/promptTemplates.py` - RAG 提示模板
-- `generation/qwenInference.py` - Qwen 推理封装
-- `generation/ragPipeline.py` - 端到端 RAG 流程
-- `generation/webui.py` - Gradio WebUI
+- `modelEvaluation/evalRetrieval.py` - 检索评测
+- `modelEvaluation/evalGeneration.py` - 生成质量评测
+- `evaluationData/generateQueries.py` - 评测查询生成
+- `modelEvaluation/quickEval.py` - 快速检索评测
+- `answerGeneration/promptTemplates.py` - RAG 提示模板
+- `answerGeneration/qwenInference.py` - Qwen 推理封装
+- `answerGeneration/ragPipeline.py` - 端到端 RAG 流程
+- `answerGeneration/webui.py` - Gradio WebUI
 - `scripts/runRag.py` - RAG 问答脚本
 - `scripts/runExperiments.py` - 对比实验脚本
 - `scripts/experimentWebUI.py` - 实验 WebUI

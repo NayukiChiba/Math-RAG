@@ -24,7 +24,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
-from evaluation.evalGeneration import (
+from modelEvaluation.evalGeneration import (
     calculateSourceCitationRate,
     calculateTermHitRate,
     isAnswerValid,
@@ -148,7 +148,7 @@ def run_norag_baseline(
     print(f"{'=' * 60}")
 
     # 延迟导入，避免未安装 transformers 时直接报错
-    from generation.qwenInference import QwenInference  # noqa: PLC0415
+    from answerGeneration.qwenInference import QwenInference  # noqa: PLC0415
 
     os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
     os.environ.setdefault("HF_HUB_OFFLINE", "1")

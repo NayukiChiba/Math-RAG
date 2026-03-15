@@ -129,7 +129,7 @@
 - 子任务：
   - ✅ 数据核验与统计（dataStat/chunkStatistics.py）
   - ✅ 构建检索语料（retrieval/buildCorpus.py → data/processed/retrieval/corpus.jsonl）
-  - ✅ 评测查询集构建（generation/generateQueries.py → data/evaluation/queries.jsonl）
+  - ✅ 评测查询集构建（evaluationData/generateQueries.py → data/evaluation/queries.jsonl）
 
 ### 任务3：教材 OCR + LLM 构建数学名词数据（✅ 已完成）
 - 目标：遍历 `data/raw/` 下的 PDF 教材，OCR 后生成数学相关术语与结构化 JSON
@@ -177,13 +177,13 @@
   - ✅ Qwen2.5-Math-1.5B 本地推理集成（Task-8 #24）
   - ✅ 端到端问答流程（Task-9 #25）
   - [ ] （可选）Qwen2.5-Math-7B 对比实验
-- 输出：`generation/` 生成模块
+- 输出：`answerGeneration/` 生成模块
 
 ### 任务6：评测体系（🔄 进行中）
 - 目标：构建可复现的评测流程
 - 子任务：
-  - ✅ 检索指标实现（Recall@K, MRR, nDCG，evaluation/evalRetrieval.py）
-  - ✅ 评测查询集自动生成（generation/generateQueries.py）
+  - ✅ 检索指标实现（Recall@K, MRR, nDCG，modelEvaluation/evalRetrieval.py）
+  - ✅ 评测查询集自动生成（evaluationData/generateQueries.py）
   - ✅ 生成质量评估（Task-10 #26）
   - ✅ 对比实验（RAG vs 无检索，Task-11 #27）
   - 🔄 黄金测试集构建（Task-12 #33）
@@ -191,7 +191,7 @@
   - 🔄 生成质量评估扩展（Task-14 #35）
   - 🔄 对比实验完善（Task-15 #36）
   - 🔄 评测报告生成（Task-16 #37）
-- 输出：`evaluation/` 评测模块，结果保存至 `outputs/reports/`
+- 输出：`modelEvaluation/` 评测模块，结果保存至 `outputs/reports/`
 
 ---
 

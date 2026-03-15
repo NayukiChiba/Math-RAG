@@ -178,7 +178,7 @@ def _handle_passthrough(module_name: str, passthrough_args: list[str]) -> None:
 
 def _handle_serve(args: argparse.Namespace) -> None:
     if args.target == "webui":
-        module_name = "generation.webui"
+        module_name = "answerGeneration.webui"
     elif args.target == "experiment-webui":
         module_name = "scripts.experimentWebUI"
     else:
@@ -252,13 +252,13 @@ def build_parser() -> argparse.ArgumentParser:
     build_index.set_defaults(handler=_handle_build_index)
 
     for command, module_name, help_text in [
-        ("generate-queries", "generation.generateQueries", "生成评测查询集"),
+        ("generate-queries", "evaluationData.generateQueries", "生成评测查询集"),
         ("build-term-mapping", "scripts.buildEvalTermMapping", "构建评测术语映射"),
-        ("quick-eval", "evaluation.quickEval", "运行快速检索评测"),
-        ("eval-retrieval", "evaluation.evalRetrieval", "运行正式检索评测"),
+        ("quick-eval", "modelEvaluation.quickEval", "运行快速检索评测"),
+        ("eval-retrieval", "modelEvaluation.evalRetrieval", "运行正式检索评测"),
         ("rag", "scripts.runRag", "运行 RAG 问答"),
         ("experiments", "scripts.runExperiments", "运行端到端对比实验"),
-        ("eval-generation", "evaluation.evalGeneration", "运行生成质量评测"),
+        ("eval-generation", "modelEvaluation.evalGeneration", "运行生成质量评测"),
         ("report", "scripts.generateReport", "生成最终评测报告"),
     ]:
         subparser = subparsers.add_parser(command, help=help_text)
