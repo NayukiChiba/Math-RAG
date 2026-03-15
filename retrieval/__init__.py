@@ -1,5 +1,6 @@
 """检索包统一导出。"""
 
+from retrieval.buildCorpus import main as run_build_corpus
 from retrieval.corpusBuilder import (
     buildBridgeCorpusItems,
     buildCorpus,

@@ -6,7 +6,7 @@
 并与语料库术语交叉验证，确保映射有效性
 
 使用方法：
-    python scripts/buildEvalTermMapping.py
+    python scripts/evaluation/buildEvalTermMapping.py
 """
 
 import json
@@ -16,10 +16,11 @@ from collections import defaultdict
 from pathlib import Path
 
 # 路径调整
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO_ROOT))
 
-import config
-from utils import getFileLoader
+import config  # noqa: E402
+from utils import getFileLoader  # noqa: E402
 
 _LOADER = getFileLoader()
 

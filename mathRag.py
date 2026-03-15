@@ -253,7 +253,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     for command, module_name, help_text in [
         ("generate-queries", "evaluationData.generateQueries", "生成评测查询集"),
-        ("build-term-mapping", "scripts.buildEvalTermMapping", "构建评测术语映射"),
+        ("build-term-mapping", "scripts.buildTermMapping", "构建评测术语映射"),
         ("quick-eval", "modelEvaluation.quickEval", "运行快速检索评测"),
         ("eval-retrieval", "modelEvaluation.evalRetrieval", "运行正式检索评测"),
         ("rag", "scripts.runRag", "运行 RAG 问答"),

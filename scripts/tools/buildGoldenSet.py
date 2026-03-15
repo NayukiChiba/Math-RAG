@@ -5,11 +5,15 @@
 
 import json
 import os
-
-from utils import getFileLoader
+import sys
+from pathlib import Path
 
 # 项目根目录（脚本位于 scripts/，上级为根目录）
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_REPO_ROOT = str(Path(__file__).resolve().parents[2])
+sys.path.insert(0, _REPO_ROOT)
+
+from utils import getFileLoader  # noqa: E402
+
 _LOADER = getFileLoader()
 
 

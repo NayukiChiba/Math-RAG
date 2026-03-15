@@ -175,7 +175,7 @@ math-rag build-term-mapping
 |------|------|------|:------------------:|----------|
 | 1 | `modelEvaluation/quickEval.py` | 快速对比 20+ 种检索策略，找最优配置 | 否 | 几分钟 |
 | 2 | `modelEvaluation/evalRetrieval.py` | 正式检索评测，出论文数据 + 图表 | 否 | 几分钟 |
-| 3 | `scripts/runExperiments.py` | 端到端对比实验（RAG vs 无检索） | **是** | 较长 |
+| 3 | `scripts/experiments/runExperiments.py` | 端到端对比实验（RAG vs 无检索） | **是** | 较长 |
 | 4 | `modelEvaluation/evalGeneration.py` | 生成质量细粒度分析 | 否（依赖步骤 3 输出） | 几分钟 |
 
 ### 步骤 1：快速检索评测（策略选型）
