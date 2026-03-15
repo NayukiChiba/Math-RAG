@@ -35,13 +35,6 @@ from typing import Any
 # 路径调整
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# Windows 终端 UTF-8 支持
-if sys.platform == "win32":
-    import codecs
-
-    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer, "strict")
-    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.buffer, "strict")
-
 import config
 from utils import getFileLoader
 

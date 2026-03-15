@@ -33,6 +33,9 @@ import warnings
 from pathlib import Path
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 # 抑制 autoawq 废弃警告和 torch.jit.script 废弃警告
 warnings.filterwarnings("ignore", category=DeprecationWarning, module=r"awq\.")
@@ -144,10 +147,7 @@ class QwenInference:
                 torch.float16 if torch.cuda.is_available() else torch.float32
             )
         else:
-            import json
-
-            with open(os.path.join(self.modelDir, "config.json")) as f:
-                modelCfg = json.load(f)
+            modelCfg = _LOADER.json(os.path.join(self.modelDir, "config.json"))
             if "quantization_config" not in modelCfg:
                 loadKwargs["torch_dtype"] = (
                     torch.float16 if torch.cuda.is_available() else torch.float32

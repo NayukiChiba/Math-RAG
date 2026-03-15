@@ -32,6 +32,9 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 try:
     _retriCfg = config.getRetrievalConfig()
@@ -109,11 +112,10 @@ def loadQueriesFromFile(filepath: str) -> list[str]:
         查询列表
     """
     queries = []
-    with open(filepath, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                queries.append(line)
+    for line in _LOADER.text_lines(filepath):
+        line = line.strip()
+        if line:
+            queries.append(line)
     return queries
 
 
@@ -216,13 +218,7 @@ class BM25Retriever:
         if not os.path.exists(self.corpusFile):
             raise FileNotFoundError(f"语料文件不存在: {self.corpusFile}")
 
-        with open(self.corpusFile, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                item = json.loads(line)
-                self.corpus.append(item)
+        self.corpus = _LOADER.jsonl(self.corpusFile)
 
         print(f"✅ 已加载 {len(self.corpus)} 条语料")
 
@@ -466,13 +462,7 @@ class VectorRetriever:
         if not os.path.exists(self.corpusFile):
             raise FileNotFoundError(f"语料文件不存在: {self.corpusFile}")
 
-        with open(self.corpusFile, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                item = json.loads(line)
-                self.corpus.append(item)
+        self.corpus = _LOADER.jsonl(self.corpusFile)
 
         print(f"✅ 已加载 {len(self.corpus)} 条语料")
 
@@ -601,8 +591,7 @@ class VectorRetriever:
                 print("⚠️  索引元数据不存在，建议重建索引")
                 return False
 
-            with open(metadataFile, encoding="utf-8") as f:
-                metadata = json.load(f)
+            metadata = _LOADER.json(metadataFile)
 
             # 校验语料文件是否已变更
             currentCorpusModTime = os.path.getmtime(self.corpusFile)
@@ -781,13 +770,7 @@ class BM25PlusRetriever:
         if not os.path.exists(self.corpusFile):
             raise FileNotFoundError(f"语料文件不存在：{self.corpusFile}")
 
-        with open(self.corpusFile, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                item = json.loads(line)
-                self.corpus.append(item)
+        self.corpus = _LOADER.jsonl(self.corpusFile)
 
         # 构建术语到文档的直接索引（用于直接查找）
         self.termToDocMap = {}
@@ -856,8 +839,7 @@ class BM25PlusRetriever:
         if os.path.exists(evalTermsMappingFile):
             print(f"📚 加载评测感知术语映射：{evalTermsMappingFile}")
             try:
-                with open(evalTermsMappingFile, encoding="utf-8") as f:
-                    evalTermsData = json.load(f)
+                evalTermsData = _LOADER.json(evalTermsMappingFile)
                 for term, termList in evalTermsData.items():
                     if isinstance(termList, list):
                         # 写入 evalTermsMap
@@ -878,8 +860,7 @@ class BM25PlusRetriever:
 
         print(f"📚 加载通用术语映射：{self.termsFile}")
         try:
-            with open(self.termsFile, encoding="utf-8") as f:
-                termsData = json.load(f)
+            termsData = _LOADER.json(self.termsFile)
 
             for term, info in termsData.items():
                 if isinstance(info, dict):
@@ -2239,19 +2220,7 @@ class AdvancedRetriever:
             raise FileNotFoundError(
                 f"语料文件不存在：{self.corpusFile}，请先运行语料构建流程"
             )
-        skipped = 0
-        with open(self.corpusFile, encoding="utf-8") as f:
-            for lineNum, line in enumerate(f, 1):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    self._corpus.append(json.loads(line))
-                except json.JSONDecodeError as e:
-                    skipped += 1
-                    print(f"⚠️  第 {lineNum} 行 JSON 解析失败，已跳过：{e}")
-        if skipped:
-            print(f"⚠️  共跳过 {skipped} 行损坏数据")
+        self._corpus = _LOADER.jsonl(self.corpusFile)
         print(f"✅ 已加载 {len(self._corpus)} 条语料")
 
     def _loadBM25(self):

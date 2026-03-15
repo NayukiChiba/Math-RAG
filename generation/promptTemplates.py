@@ -33,14 +33,12 @@ RAG 提示模板模块
 """
 
 import os
-import sys
-from pathlib import Path
 from typing import Any
 
-# 路径调整，支持直接运行和模块导入两种方式
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 # ---- 配置加载 ----
 
@@ -342,8 +340,6 @@ def _demoWithCorpus(query: str, topk: int = 3) -> None:
         query: 演示查询
         topk: 加载前 topk 条语料作为模拟检索结果
     """
-    import json
-
     corpusFile = os.path.join(config.PROCESSED_DIR, "retrieval", "corpus.jsonl")
 
     if not os.path.isfile(corpusFile):
@@ -352,16 +348,11 @@ def _demoWithCorpus(query: str, topk: int = 3) -> None:
 
     # 加载前 topk 条作为模拟检索结果
     items: list[dict[str, Any]] = []
-    with open(corpusFile, encoding="utf-8") as f:
-        for i, line in enumerate(f):
-            if i >= topk:
-                break
-            try:
-                item = json.loads(line.strip())
-                item["rank"] = i + 1
-                items.append(item)
-            except json.JSONDecodeError:
-                continue
+    for i, item in enumerate(_LOADER.jsonl(corpusFile)):
+        if i >= topk:
+            break
+        item["rank"] = i + 1
+        items.append(item)
 
     if not items:
         print("❌ 语料文件为空")

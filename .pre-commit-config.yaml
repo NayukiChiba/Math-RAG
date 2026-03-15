@@ -10,7 +10,7 @@ repos:
         exclude: \.toml$
       - id: ruff
         name: ruff (lint)
-        entry: ruff check
+        entry: ruff check . --fix
         language: python
         types: [python]
         additional_dependencies: [ruff]

@@ -6,17 +6,18 @@
 import json
 import os
 
+from utils import getFileLoader
+
 # 项目根目录（脚本位于 scripts/，上级为根目录）
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_LOADER = getFileLoader()
 
 
 def _load_entries(corpus_path: str) -> dict:
     """加载 corpus.jsonl 为 term → entry 字典"""
     result: dict = {}
-    with open(corpus_path, encoding="utf-8") as f:
-        for line in f:
-            d = json.loads(line)
-            result[d["term"]] = d
+    for d in _LOADER.jsonl(corpus_path):
+        result[d["term"]] = d
     return result
 
 

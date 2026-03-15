@@ -22,16 +22,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 
 def _load_toml(path):
     """读取 TOML 配置。"""
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        import tomli as tomllib
-    with open(path, "rb") as f:
-        return tomllib.load(f)
+    return _LOADER.toml(path)
 
 
 def _default_prompts():
@@ -172,19 +170,18 @@ def _load_env_value(root_dir, key):
     if not os.path.isfile(env_path):
         return None
 
-    with open(env_path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            k = k.strip()
-            if k != key:
-                continue
-            v = v.strip().strip('"').strip("'")
-            return v
+    for line in _LOADER.text_lines(env_path):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        if k != key:
+            continue
+        v = v.strip().strip('"').strip("'")
+        return v
     return None
 
 
@@ -568,8 +565,7 @@ def _load_term_pages_map_for_book(book_name):
     if not os.path.isfile(terms_map_path):
         return {}
     try:
-        with open(terms_map_path, encoding="utf-8") as f:
-            data = json.load(f)
+        data = _LOADER.json(terms_map_path)
     except Exception:
         return {}
     if not isinstance(data, dict):
@@ -595,8 +591,7 @@ def _load_terms_for_book(book_name):
         term_pages = _load_term_pages_map_for_book(book_name)
         return sorted(term_pages.keys())
     try:
-        with open(terms_all_path, encoding="utf-8") as f:
-            data = json.load(f)
+        data = _LOADER.json(terms_all_path)
     except Exception:
         return []
     if isinstance(data, list):
@@ -747,8 +742,7 @@ def _generate_for_book(book_name, cfg, api_key, start_page=None):
             term_json_path = os.path.join(chunk_dir, f"{_safe_filename(term)}.json")
             if os.path.isfile(term_json_path):
                 try:
-                    with open(term_json_path, encoding="utf-8") as f:
-                        existing_record = json.load(f)
+                    existing_record = _LOADER.json(term_json_path)
                     # 对已有文件做质量检查，合格才跳过
                     quality_ok, quality_reason = _quality_check(existing_record, cfg)
                     if quality_ok:

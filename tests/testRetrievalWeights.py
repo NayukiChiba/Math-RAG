@@ -3,7 +3,6 @@
 对比 hybrid alpha=0.5/0.5 vs 0.7/0.3 vs RRF 的 Recall@5 和 MRR
 """
 
-import json
 import os
 import sys
 
@@ -12,6 +11,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import config
 from retrieval.retrievers import HybridRetriever
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 retrievalDir = os.path.join(config.PROCESSED_DIR, "retrieval")
 
@@ -26,13 +28,9 @@ retriever = HybridRetriever(
 # 加载有标注的评测查询
 queryFile = os.path.join(config.EVALUATION_DIR, "queries.jsonl")
 queries = []
-with open(queryFile, encoding="utf-8") as f:
-    for line in f:
-        line = line.strip()
-        if line:
-            q = json.loads(line)
-            if q.get("query") and q.get("relevant_terms"):
-                queries.append(q)
+for q in _LOADER.jsonl(queryFile):
+    if q.get("query") and q.get("relevant_terms"):
+        queries.append(q)
 print(f"有效标注查询: {len(queries)} 条\n")
 
 

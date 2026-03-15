@@ -24,20 +24,16 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 
 def loadQueriesFile(filepath: str) -> list[dict[str, Any]]:
     """加载评测查询文件。"""
-    queries = []
     if not os.path.exists(filepath):
-        return queries
-
-    with open(filepath, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                queries.append(json.loads(line))
-    return queries
+        return []
+    return _LOADER.jsonl(filepath)
 
 
 def loadJsonFile(filepath: str) -> dict[str, Any] | None:
@@ -51,8 +47,7 @@ def loadJsonFile(filepath: str) -> dict[str, Any] | None:
         解析后的字典，失败返回 None
     """
     try:
-        with open(filepath, encoding="utf-8") as f:
-            return json.load(f)
+        return _LOADER.json(filepath)
     except FileNotFoundError:
         print(f"❌ 文件不存在: {filepath}")
         return None
@@ -409,51 +404,34 @@ def validateCorpusFile(corpusFile: str) -> dict[str, Any]:
     }
 
     try:
-        with open(corpusFile, encoding="utf-8") as f:
-            for lineNum, line in enumerate(f, 1):
-                result["totalLines"] += 1
-                line = line.strip()
+        for lineNum, item in enumerate(_LOADER.jsonl(corpusFile), 1):
+            result["totalLines"] += 1
 
-                if not line:
-                    continue
+            # 检查必需字段（包括 page，符合任务验收标准）
+            requiredFields = [
+                "doc_id",
+                "term",
+                "subject",
+                "text",
+                "source",
+                "page",
+            ]
+            missingFields = [field for field in requiredFields if field not in item]
 
-                try:
-                    item = json.loads(line)
+            if missingFields:
+                result["valid"] = False
+                result["errorLines"].append(
+                    {
+                        "line": lineNum,
+                        "error": f"缺少字段: {', '.join(missingFields)}",
+                    }
+                )
+            else:
+                result["validLines"] += 1
 
-                    # 检查必需字段（包括 page，符合任务验收标准）
-                    requiredFields = [
-                        "doc_id",
-                        "term",
-                        "subject",
-                        "text",
-                        "source",
-                        "page",
-                    ]
-                    missingFields = [
-                        field for field in requiredFields if field not in item
-                    ]
-
-                    if missingFields:
-                        result["errorLines"].append(
-                            {
-                                "line": lineNum,
-                                "error": f"缺少字段: {', '.join(missingFields)}",
-                            }
-                        )
-                        result["valid"] = False
-                    else:
-                        result["validLines"] += 1
-
-                        # 保存前3条作为样本
-                        if len(result["sampleItems"]) < 3:
-                            result["sampleItems"].append(item)
-
-                except json.JSONDecodeError as e:
-                    result["errorLines"].append(
-                        {"line": lineNum, "error": f"JSON 解析错误: {e}"}
-                    )
-                    result["valid"] = False
-
+            # 保存前 3 条样本
+            if len(result["sampleItems"]) < 3:
+                result["sampleItems"].append(item)
     except Exception as e:
         result["valid"] = False
         result["error"] = str(e)

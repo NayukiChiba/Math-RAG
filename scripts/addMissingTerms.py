@@ -15,6 +15,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 # ============================================================
 # 手工编写的高影响力缺失术语定义
@@ -509,13 +512,9 @@ def main() -> None:
     # 读取现有语料库，构建已有 doc_id 和术语集
     existing_doc_ids: set[str] = set()
     existing_terms: set[str] = set()
-    with open(corpus_file, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                entry = json.loads(line)
-                existing_doc_ids.add(entry["doc_id"])
-                existing_terms.add(entry["term"])
+    for entry in _LOADER.jsonl(corpus_file):
+        existing_doc_ids.add(entry["doc_id"])
+        existing_terms.add(entry["term"])
 
     print(f"现有语料库：{len(existing_terms)} 个术语，{len(existing_doc_ids)} 条文档")
 

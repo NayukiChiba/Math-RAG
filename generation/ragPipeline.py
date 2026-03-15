@@ -40,6 +40,9 @@ from retrieval.retrievers import (
     HybridPlusRetriever,
     VectorRetriever,
 )
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 # 检索策略类型
 RetrievalStrategy = Literal["bm25", "vector", "hybrid"]
@@ -163,20 +166,12 @@ class RagPipeline:
 
         self._corpus = {}
         if os.path.exists(self.corpusFile):
-            with open(self.corpusFile, encoding="utf-8") as f:
-                for lineNum, line in enumerate(f, 1):
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        doc = json.loads(line)
-                        docId = doc.get("doc_id")
-                        if docId:
-                            self._corpus[docId] = doc
-                        else:
-                            print(f"⚠️ 语料第 {lineNum} 行缺少 doc_id，已跳过")
-                    except json.JSONDecodeError as e:
-                        print(f"⚠️ 语料第 {lineNum} 行 JSON 解析失败: {e}")
+            for lineNum, doc in enumerate(_LOADER.jsonl(self.corpusFile), 1):
+                docId = doc.get("doc_id")
+                if docId:
+                    self._corpus[docId] = doc
+                else:
+                    print(f"⚠️ 语料第 {lineNum} 行缺少 doc_id，已跳过")
         return self._corpus
 
     def _initRetriever(self) -> None:
@@ -492,26 +487,14 @@ def loadQueries(filepath: str) -> list[str]:
     queries = []
     skippedCount = 0
 
-    with open(filepath, encoding="utf-8") as f:
-        for lineNum, line in enumerate(f, 1):
-            line = line.strip()
-            if not line:
-                continue
-
-            # 尝试解析为 JSON
-            try:
-                data = json.loads(line)
-                if isinstance(data, dict) and "query" in data:
-                    queries.append(data["query"])
-                elif isinstance(data, str):
-                    queries.append(data)
-                else:
-                    # JSON 对象但缺少 query 字段
-                    skippedCount += 1
-                    print(f"⚠️ 第 {lineNum} 行: JSON 对象缺少 'query' 字段，已跳过")
-            except json.JSONDecodeError:
-                # 纯文本格式
-                queries.append(line)
+    for lineNum, data in enumerate(_LOADER.jsonl(filepath), 1):
+        if isinstance(data, dict) and "query" in data:
+            queries.append(data["query"])
+        elif isinstance(data, str):
+            queries.append(data)
+        else:
+            skippedCount += 1
+            print(f"⚠️ 第 {lineNum} 行: JSON 对象缺少 'query' 字段，已跳过")
 
     if skippedCount > 0:
         print(f"⚠️ 共跳过 {skippedCount} 行格式不正确的记录")

@@ -37,13 +37,15 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 
 def loadJsonFile(filepath: str) -> dict[str, Any]:
     """加载 JSON 文件"""
     try:
-        with open(filepath, encoding="utf-8") as f:
-            return json.load(f)
+        return _LOADER.json(filepath)
     except Exception as e:
         print(f"❌ 加载文件失败: {filepath}, 错误: {e}")
         return None
@@ -227,19 +229,15 @@ def generateQueries(
 
 def loadExistingQueries(filepath: str) -> list[dict[str, Any]]:
     """加载现有查询数据"""
-    queries = []
     if not os.path.exists(filepath):
-        return queries
+        return []
 
     try:
-        with open(filepath, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    queries.append(json.loads(line))
+        queries = _LOADER.jsonl(filepath)
         print(f"📋 加载现有查询: {len(queries)} 条")
     except Exception as e:
         print(f"❌ 加载现有查询失败: {e}")
+        return []
 
     return queries
 

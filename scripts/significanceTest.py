@@ -150,9 +150,9 @@ def run_significance_test(
         lo = ci.get("ci_lower")
         hi = ci.get("ci_upper")
         if (
-            isinstance(mean, (int, float))
-            and isinstance(lo, (int, float))
-            and isinstance(hi, (int, float))
+            isinstance(mean, int | float)
+            and isinstance(lo, int | float)
+            and isinstance(hi, int | float)
         ):
             print(f"{m:<22} {mean:>14.4f} [{lo:.4f}, {hi:.4f}]")
         else:
@@ -165,7 +165,7 @@ def run_significance_test(
         r5 = comp["metrics"].get("recall@5", {})
         pv = r5.get("p_value")
         sig = "[yes]" if r5.get("significant_at_0.05") else "[no]"
-        if isinstance(pv, (int, float)):
+        if isinstance(pv, int | float):
             print(f"{label:<35} {pv:>14.2e} {sig:>14}")
         else:
             print(f"{label:<35} {'N/A':>14} {sig:>14}")

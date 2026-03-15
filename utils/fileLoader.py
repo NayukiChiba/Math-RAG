@@ -34,6 +34,10 @@ class FileLoader:
         with open(path, "rb") as f:
             return pickle.load(f)
 
+    def text_lines(self, path: str) -> list[str]:
+        with open(path, encoding="utf-8") as f:
+            return [line.rstrip("\n") for line in f]
+
 
 _DEFAULT_FILE_LOADER = FileLoader()
 

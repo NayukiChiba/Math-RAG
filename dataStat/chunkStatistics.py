@@ -25,6 +25,9 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 # 导入可视化库
 try:
@@ -58,8 +61,7 @@ if HAS_MATPLOTLIB:
 def loadJsonFile(filepath: str) -> dict[str, Any]:
     """加载 JSON 文件"""
     try:
-        with open(filepath, encoding="utf-8") as f:
-            return json.load(f)
+        return _LOADER.json(filepath)
     except Exception as e:
         print(f"❌ 加载文件失败: {filepath}, 错误: {e}")
         return None

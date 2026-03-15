@@ -30,6 +30,9 @@ from typing import Any, Literal
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 # 实验组类型
 ExperimentGroup = Literal["norag", "bm25", "vector", "hybrid", "hybrid-rrf"]
@@ -78,21 +81,13 @@ class ExperimentRunner:
         self._queries = []
         self._goldMap = {}
 
-        with open(self.queryFile, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    query = json.loads(line)
-                    # 校验必需字段
-                    if "query" not in query:
-                        print(f"⚠️ 跳过缺少 query 字段的行: {line[:50]}...")
-                        continue
-                    self._queries.append(query)
-                    self._goldMap[query["query"]] = query
-                except json.JSONDecodeError:
-                    continue
+        for query in _LOADER.jsonl(self.queryFile):
+            # 校验必需字段
+            if "query" not in query:
+                print(f"⚠️ 跳过缺少 query 字段的行: {str(query)[:50]}...")
+                continue
+            self._queries.append(query)
+            self._goldMap[query["query"]] = query
 
         print(f"✅ 加载了 {len(self._queries)} 条测试查询")
         return self._queries
@@ -170,17 +165,10 @@ class ExperimentRunner:
         corpusFile = os.path.join(config.PROCESSED_DIR, "retrieval", "corpus.jsonl")
         corpus = {}
         if os.path.exists(corpusFile):
-            with open(corpusFile, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            doc = json.loads(line)
-                            docId = doc.get("doc_id")
-                            if docId:
-                                corpus[docId] = doc
-                        except json.JSONDecodeError:
-                            continue
+            for doc in _LOADER.jsonl(corpusFile):
+                docId = doc.get("doc_id")
+                if docId:
+                    corpus[docId] = doc
         return corpus
 
     def _enrichResults(

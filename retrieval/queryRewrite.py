@@ -14,8 +14,11 @@
     # 返回：["泰勒展开", "taylor expansion", "泰勒公式", "泰勒级数", "Taylor 公式"]
 """
 
-import json
 import os
+
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 # 预定义的数学同义词典（覆盖数学分析、高等代数、概率论与数理统计）
 MATH_SYNONYMS = {
@@ -199,8 +202,7 @@ class QueryRewriter:
     def _loadTermsFromFile(self, filepath: str) -> None:
         """从文件加载额外的术语映射"""
         try:
-            with open(filepath, encoding="utf-8") as f:
-                data = json.load(f)
+            data = _LOADER.json(filepath)
             for term, info in data.items():
                 if isinstance(info, dict):
                     aliases = info.get("aliases", [])

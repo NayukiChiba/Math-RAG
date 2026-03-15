@@ -22,18 +22,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
+from utils import getFileLoader
+
+_LOADER = getFileLoader()
 
 CONFIG_PATH = config.CONFIG_TOML
 
 
 def _load_toml(path):
     """读取 TOML 配置。"""
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        import tomli as tomllib
-    with open(path, "rb") as f:
-        return tomllib.load(f)
+    return _LOADER.toml(path)
 
 
 def _load_env_value(root_dir, key):
@@ -45,19 +43,18 @@ def _load_env_value(root_dir, key):
     if not os.path.isfile(env_path):
         return None
 
-    with open(env_path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            k = k.strip()
-            if k != key:
-                continue
-            v = v.strip().strip('"').strip("'")
-            return v
+    for line in _LOADER.text_lines(env_path):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        if k != key:
+            continue
+        v = v.strip().strip('"').strip("'")
+        return v
     return None
 
 
@@ -216,11 +213,9 @@ def filter_terms_file(book_name: str):
     print(f"{'=' * 60}")
 
     # 加载原始术语
-    with open(all_json, encoding="utf-8") as f:
-        all_terms = json.load(f)
+    all_terms = _LOADER.json(all_json)
 
-    with open(map_json, encoding="utf-8") as f:
-        term_map = json.load(f)
+    term_map = _LOADER.json(map_json)
 
     print(f"原始术语数量: {len(all_terms)}")
 
