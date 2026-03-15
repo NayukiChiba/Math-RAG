@@ -471,6 +471,7 @@ def generateComparisonChart(allMetrics: list[dict], outputDir: str) -> None:
 
 def main():
     """主函数"""
+    outputController = config.getOutputController()
     parser = argparse.ArgumentParser(description="检索评测脚本")
     parser.add_argument(
         "--queries",
@@ -506,7 +507,7 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        default=os.path.join(config.getReportsDir(), "retrieval_metrics.json"),
+        default=os.path.join(outputController.get_json_dir(), "retrieval_metrics.json"),
         help="输出报告路径",
     )
     parser.add_argument(
@@ -530,6 +531,9 @@ def main():
     )
 
     args = parser.parse_args()
+    args.output = outputController.normalize_json_path(
+        args.output, "retrieval_metrics.json"
+    )
 
     print("=" * 60)
     print("📊 Math-RAG 检索评测")

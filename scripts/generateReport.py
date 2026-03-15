@@ -1,7 +1,7 @@
 """评测报告生成脚本
 
 读取各实验 JSON 结果，生成：
-- outputs/reports/final_report.md：Markdown 格式完整报告
+- outputs/log/<timestamp>/json/final_report.md：Markdown 格式完整报告
 - outputs/figures/：论文级别图表（PDF + PNG）
 
 用法：
@@ -19,6 +19,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+
+import config
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -662,7 +664,7 @@ Bootstrap 重采样次数：{sig_data.get("n_resamples", 10000)}，配对双侧 
 
 ---
 
-*本报告由 `scripts/generateReport.py` 自动生成，数据来源于 `outputs/reports/` 目录下的实验结果 JSON 文件。*
+*本报告由 `scripts/generateReport.py` 自动生成，数据来源于 `outputs/log/<timestamp>/json/` 目录下的实验结果文件。*
 """
 
     with open(output_path, "w", encoding="utf-8") as f:
@@ -679,27 +681,26 @@ Bootstrap 重采样次数：{sig_data.get("n_resamples", 10000)}，配对双侧 
 
 
 def main() -> None:
+    outputController = config.getOutputController()
     parser = argparse.ArgumentParser(description="Math-RAG 评测报告生成脚本")
     parser.add_argument(
         "--results",
         type=str,
         default=os.path.join(
-            _REPO_ROOT, "outputs", "reports", "full_eval", "all_methods.json"
+            outputController.get_json_dir(), "full_eval", "all_methods.json"
         ),
         help="全量方法对比报告路径",
     )
     parser.add_argument(
         "--ablation",
         type=str,
-        default=os.path.join(_REPO_ROOT, "outputs", "reports", "ablation_study.json"),
+        default=os.path.join(outputController.get_json_dir(), "ablation_study.json"),
         help="消融实验汇总报告路径",
     )
     parser.add_argument(
         "--significance",
         type=str,
-        default=os.path.join(
-            _REPO_ROOT, "outputs", "reports", "significance_test.json"
-        ),
+        default=os.path.join(outputController.get_json_dir(), "significance_test.json"),
         help="显著性检验报告路径",
     )
     parser.add_argument(
@@ -711,7 +712,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=str,
-        default=os.path.join(_REPO_ROOT, "outputs", "reports", "final_report.md"),
+        default=os.path.join(outputController.get_json_dir(), "final_report.md"),
         help="输出 Markdown 报告路径",
     )
     parser.add_argument(
@@ -724,7 +725,7 @@ def main() -> None:
         "--comparison",
         type=str,
         default=os.path.join(
-            _REPO_ROOT, "outputs", "reports", "comparison_results.json"
+            outputController.get_json_dir(), "comparison_results.json"
         ),
         help="生成质量对比结果路径（来自 evalGenerationComparison.py）",
     )

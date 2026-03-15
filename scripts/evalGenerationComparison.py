@@ -4,7 +4,7 @@
 1. 评估现有 outputs/rag_results.jsonl 中的 RAG 生成质量
    （术语命中率、来源引用率、回答有效率）
 2. 可选：运行无检索基线推理，输出同组指标
-3. 合并输出 outputs/reports/comparison_results.json
+3. 合并输出到 log 时间目录下的 JSON 文件
 
 用法：
     python scripts/evalGenerationComparison.py
@@ -309,6 +309,7 @@ def print_markdown_table(groups: list[dict[str, Any]]) -> None:
 
 
 def main() -> None:
+    outputController = config.getOutputController()
     parser = argparse.ArgumentParser(description="生成质量对比：RAG vs 无检索")
     parser.add_argument(
         "--rag-results",
@@ -323,14 +324,14 @@ def main() -> None:
     parser.add_argument(
         "--all-methods",
         default=os.path.join(
-            _REPO_ROOT, "outputs", "reports", "full_eval", "all_methods.json"
+            outputController.get_json_dir(), "full_eval", "all_methods.json"
         ),
         help="全量检索评测结果（用于填充检索指标）",
     )
     parser.add_argument(
         "--output",
         default=os.path.join(
-            _REPO_ROOT, "outputs", "reports", "comparison_results.json"
+            outputController.get_json_dir(), "comparison_results.json"
         ),
         help="输出对比结果 JSON 路径",
     )
@@ -346,6 +347,9 @@ def main() -> None:
         help="跳过无检索基线推理，仅评估 RAG",
     )
     args = parser.parse_args()
+    args.output = outputController.normalize_json_path(
+        args.output, "comparison_results.json"
+    )
 
     print("=" * 60)
     print("🔬 Math-RAG 生成质量对比实验")

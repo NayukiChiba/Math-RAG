@@ -573,6 +573,7 @@ def printExamples(examples: dict[str, list[dict[str, Any]]]) -> None:
 
 def main():
     """主函数"""
+    outputController = config.getOutputController()
     parser = argparse.ArgumentParser(description="生成质量评测脚本")
     parser.add_argument(
         "--results",
@@ -589,7 +590,9 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        default=os.path.join(config.getReportsDir(), "generation_metrics.json"),
+        default=os.path.join(
+            outputController.get_json_dir(), "generation_metrics.json"
+        ),
         help="输出报告路径",
     )
     parser.add_argument(
@@ -610,6 +613,9 @@ def main():
     )
 
     args = parser.parse_args()
+    args.output = outputController.normalize_json_path(
+        args.output, "generation_metrics.json"
+    )
 
     print("=" * 60)
     print("📊 Math-RAG 生成质量评测")

@@ -52,11 +52,13 @@ class ExperimentRunner:
             outputDir: 输出目录
             logDir: 日志目录
         """
+        outputController = config.getOutputController()
         self.queryFile = queryFile or os.path.join(
             config.EVALUATION_DIR, "queries.jsonl"
         )
-        self.outputDir = outputDir or config.getReportsDir()
-        self.logDir = logDir or config.LOGS_DIR
+        # 统一输出到 log 时间目录下的 json 子目录
+        self.outputDir = outputDir or outputController.get_json_dir()
+        self.logDir = logDir or outputController.get_text_dir()
 
         # 确保目录存在
         os.makedirs(self.outputDir, exist_ok=True)

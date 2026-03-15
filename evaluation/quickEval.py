@@ -935,6 +935,7 @@ def saveReport(metrics: dict[str, Any], outputFile: str) -> None:
 
 def main():
     """主函数"""
+    outputController = config.getOutputController()
     parser = argparse.ArgumentParser(description="快速检索评测系统")
     parser.add_argument(
         "--mode",
@@ -974,10 +975,15 @@ def main():
 
     # 保存报告
     if metrics and args.output:
-        saveReport(metrics, args.output)
+        saveReport(
+            metrics,
+            outputController.normalize_json_path(
+                args.output, f"quick_eval_{args.mode}.json"
+            ),
+        )
     elif metrics:
         defaultOutput = os.path.join(
-            config.getReportsDir(), f"quick_eval_{args.mode}.json"
+            outputController.get_json_dir(), f"quick_eval_{args.mode}.json"
         )
         saveReport(metrics, defaultOutput)
 

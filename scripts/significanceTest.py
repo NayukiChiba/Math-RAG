@@ -1,7 +1,7 @@
 """统计显著性检验脚本
 
 对 BM25+ 与 Vector 检索方法进行 Bootstrap 置信区间估计和配对 t 检验，
-基于 outputs/reports/full_eval/all_methods.json 中的逐查询 Recall@5 数组。
+基于 log 时间目录中 all_methods.json 的逐查询 Recall@5 数组。
 
 用法：
     python3 scripts/significanceTest.py [--input <all_methods.json>] [--output <significance_test.json>]
@@ -13,6 +13,8 @@ import os
 
 import numpy as np
 from scipy import stats
+
+import config
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -171,21 +173,20 @@ def run_significance_test(
 
 
 def main() -> None:
+    outputController = config.getOutputController()
     parser = argparse.ArgumentParser(description="检索方法统计显著性检验")
     parser.add_argument(
         "--input",
         type=str,
         default=os.path.join(
-            _REPO_ROOT, "outputs", "reports", "full_eval", "all_methods.json"
+            outputController.get_json_dir(), "full_eval", "all_methods.json"
         ),
         help="全量方法对比报告路径",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default=os.path.join(
-            _REPO_ROOT, "outputs", "reports", "significance_test.json"
-        ),
+        default=os.path.join(outputController.get_json_dir(), "significance_test.json"),
         help="输出显著性检验报告路径",
     )
     parser.add_argument(
@@ -196,6 +197,9 @@ def main() -> None:
         help="Bootstrap 重采样次数（默认 10000）",
     )
     args = parser.parse_args()
+    args.output = outputController.normalize_json_path(
+        args.output, "significance_test.json"
+    )
     run_significance_test(args.input, args.output, args.n_resamples)
 
 

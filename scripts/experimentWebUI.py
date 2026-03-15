@@ -198,8 +198,8 @@ def createUI() -> gr.Blocks:
    - `来源引用率`: 生成回答中正确引用来源的比例
 
 3. **输出文件**:
-   - `outputs/reports/comparison_results.json`: JSON 格式报告
-   - `outputs/reports/comparison_chart_webui.png`: 对比图表
+    - `outputs/log/<timestamp>/json/comparison_results.json`: JSON 格式报告
+    - `outputs/log/<timestamp>/json/comparison_chart_webui.png`: 对比图表
         """)
 
     return demo
