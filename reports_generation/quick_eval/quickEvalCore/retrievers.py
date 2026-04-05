@@ -1,8 +1,8 @@
-"""Retriever factory functions for quick modelEvaluation."""
+﻿"""Retriever factory functions for quick modelEvaluation."""
 
 from __future__ import annotations
 
-from core.modelEvaluation.common.paths import RetrievalAssets
+from research.modelEvaluation.common.paths import RetrievalAssets
 
 
 def createBM25Retriever(assets: RetrievalAssets):

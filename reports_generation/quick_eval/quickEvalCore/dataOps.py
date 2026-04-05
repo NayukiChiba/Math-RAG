@@ -1,11 +1,11 @@
-"""Dataset loading for quick modelEvaluation."""
+﻿"""Dataset loading for quick modelEvaluation."""
 
 from __future__ import annotations
 
 import random
 from typing import Any
 
-from core.modelEvaluation.common.ioUtils import loadJsonlFile
+from research.modelEvaluation.common.ioUtils import loadJsonlFile
 
 
 def loadQueries(

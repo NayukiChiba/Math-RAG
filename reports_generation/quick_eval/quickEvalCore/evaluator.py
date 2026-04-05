@@ -1,4 +1,4 @@
-"""Method evaluator for quick modelEvaluation."""
+﻿"""Method evaluator for quick modelEvaluation."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from core.modelEvaluation.common.metrics import (
+from research.modelEvaluation.common.metrics import (
     calculateMAP,
     calculateMRR,
     calculateNDCG,
