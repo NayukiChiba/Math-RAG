@@ -70,9 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
     build_index.set_defaults(handler=handlers.handle_build_index)
 
     rag = subparsers.add_parser("rag", help="运行 RAG 问答")
-    rag.add_argument(
-        "args", nargs=argparse.REMAINDER, help="透传给底层脚本的参数"
-    )
+    rag.add_argument("args", nargs=argparse.REMAINDER, help="透传给底层脚本的参数")
     rag.set_defaults(
         handler=lambda parsed: handlers.handle_passthrough(
             "core.runners.runRag", parsed.args

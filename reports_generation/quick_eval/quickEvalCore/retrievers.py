@@ -1,4 +1,4 @@
-﻿"""Retriever factory functions for quick modelEvaluation."""
+"""Retriever factory functions for quick modelEvaluation."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-﻿"""快速检索测试系统。"""
+"""快速检索测试系统。"""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-﻿"""Method evaluator for quick modelEvaluation."""
+"""Method evaluator for quick modelEvaluation."""
 
 from __future__ import annotations
 

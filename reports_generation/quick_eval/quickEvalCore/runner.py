@@ -1,4 +1,4 @@
-﻿"""Runner and report writer for quick modelEvaluation."""
+"""Runner and report writer for quick modelEvaluation."""
 
 from __future__ import annotations
 

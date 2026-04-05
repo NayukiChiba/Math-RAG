@@ -1,4 +1,4 @@
-﻿"""Dataset loading for quick modelEvaluation."""
+"""Dataset loading for quick modelEvaluation."""
 
 from __future__ import annotations
 
