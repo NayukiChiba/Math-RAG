@@ -143,13 +143,13 @@ def run_norag_baseline(
     print(f"{'=' * 60}")
 
     # 延迟导入，避免未安装 transformers 时直接报错
-    from answerGeneration.qwenInference import QwenInference  # noqa: PLC0415
+    from answerGeneration.localInference import LocalInference  # noqa: PLC0415
 
     os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
     print("  加载模型中……")
-    qwen = QwenInference(modelDir=config.QWEN_MODEL_DIR)
+    model = LocalInference(modelDir=config.LOCAL_MODEL_DIR)
 
     term_hits: list[float] = []
     src_cites: list[float] = []
@@ -174,7 +174,7 @@ def run_norag_baseline(
 
         t0 = time.time()
         try:
-            answer = qwen.generateFromMessages(messages)
+            answer = model.generateFromMessages(messages)
         except Exception as exc:
             print(f"     生成失败: {exc}")
             answer = ""

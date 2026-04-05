@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from answerGeneration.localInference import LocalInference
 from answerGeneration.promptTemplates import (
     SYSTEM_PROMPT,
     buildContext,
@@ -10,7 +11,6 @@ from answerGeneration.promptTemplates import (
     buildPromptJinja2,
     formatTermContext,
 )
-from answerGeneration.qwenInference import QwenInference
 
 
 def _raise_optional_import_error(feature: str, error: Exception) -> None:
@@ -38,15 +38,15 @@ except Exception as error:  # noqa: BLE001
 
 
 try:
-    from answerGeneration.webui import chat, createUI, getQwenInstance
+    from answerGeneration.webui import chat, createUI, getGeneratorInstance
     from answerGeneration.webui import main as run_webui
 
     _WEBUI_IMPORT_ERROR: Exception | None = None
 except Exception as error:  # noqa: BLE001
     _WEBUI_IMPORT_ERROR = error
 
-    def getQwenInstance(*args, **kwargs):  # type: ignore[no-redef]
-        _raise_optional_import_error("getQwenInstance", _WEBUI_IMPORT_ERROR)
+    def getGeneratorInstance(*args, **kwargs):  # type: ignore[no-redef]
+        _raise_optional_import_error("getGeneratorInstance", _WEBUI_IMPORT_ERROR)
 
     def chat(*args, **kwargs):  # type: ignore[no-redef]
         _raise_optional_import_error("chat", _WEBUI_IMPORT_ERROR)
@@ -65,11 +65,11 @@ __all__ = [
     "buildContext",
     "buildPromptJinja2",
     "formatTermContext",
-    "QwenInference",
+    "LocalInference",
     "RagPipeline",
     "loadQueries",
     "saveResults",
-    "getQwenInstance",
+    "getGeneratorInstance",
     "chat",
     "createUI",
     "run_webui",
