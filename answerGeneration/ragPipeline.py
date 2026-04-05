@@ -30,8 +30,8 @@ from typing import Any, Literal
 
 # 路径调整
 import config
+from answerGeneration.generatorFactory import createGenerator
 from answerGeneration.promptTemplates import buildMessages
-from answerGeneration.qwenInference import QwenInference
 from retrieval.retrieverModules import (
     BM25Retriever,
     HybridPlusRetriever,
@@ -106,7 +106,7 @@ class RagPipeline:
 
         # 延迟加载
         self._retriever = None
-        self._qwen = None
+        self._generator = None
         self._corpus = None
 
     def _isMathDomainQuery(self, queryText: str) -> bool:
@@ -283,14 +283,12 @@ class RagPipeline:
 
         print("检索器初始化完成")
 
-    def _initQwen(self) -> None:
-        """初始化 Qwen 推理实例"""
-        if self._qwen is not None:
+    def _initGenerator(self) -> None:
+        """初始化推理实例 (本地或 API)"""
+        if self._generator is not None:
             return
 
-        print("初始化 Qwen 推理...")
-        self._qwen = QwenInference()
-        print("Qwen 初始化完成")
+        self._generator = createGenerator()
 
     def _retrieve(self, queryText: str) -> list[dict[str, Any]]:
         """
@@ -444,7 +442,7 @@ class RagPipeline:
         # 生成阶段
         generationStart = time.time()
         try:
-            self._initQwen()
+            self._initGenerator()
 
             # 构建 messages
             messages = buildMessages(
@@ -453,7 +451,7 @@ class RagPipeline:
             )
 
             # 生成回答
-            answer = self._qwen.generateFromMessages(
+            answer = self._generator.generateFromMessages(
                 messages=messages,
                 temperature=temperature,
                 topP=topP,

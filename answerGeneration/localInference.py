@@ -1,32 +1,33 @@
 """
-Qwen2.5-Math 本地推理封装模块
+本地模型推理封装模块
 
 功能：
-1. 从本地路径加载 Qwen2.5-Math-1.5B-Instruct 模型
+1. 从本地路径加载 HuggingFace 兼容模型（如 Qwen、LLaMA 等）
 2. 封装 generate() 接口，支持单条和批量推理
 3. 支持 GPU 加速（device_map=auto）和 CPU fallback
 4. 推理参数从 config.toml 读取
 
 使用方法：
-    from answerGeneration.qwenInference import QwenInference
+    from answerGeneration.localInference import LocalInference
 
     # 初始化（自动加载模型）
-    qwen = QwenInference()
+    model = LocalInference()
 
     # 单条推理
-    response = qwen.generate("什么是一致收敛？")
+    response = model.generate("什么是一致收敛？")
 
     # 批量推理
-    responses = qwen.generateBatch(["问题1", "问题2"])
+    responses = model.generateBatch(["问题1", "问题2"])
 
     # 使用 messages 格式（兼容 promptTemplates）
     messages = [
         {"role": "system", "content": "你是数学助手"},
         {"role": "user", "content": "什么是极限？"}
     ]
-    response = qwen.generateFromMessages(messages)
+    response = model.generateFromMessages(messages)
 """
 
+import inspect
 import os
 import warnings
 
@@ -42,9 +43,9 @@ warnings.filterwarnings("ignore", message=r".*torch\.jit\.script.*is deprecated.
 # 路径调整，支持直接运行和模块导入两种方式
 
 
-class QwenInference:
+class LocalInference:
     """
-    Qwen2.5-Math 本地推理封装类
+    本地模型推理封装类
 
     Attributes:
         modelDir: 模型目录路径
@@ -63,10 +64,10 @@ class QwenInference:
         deviceMap: str = "auto",
     ):
         """
-        初始化 Qwen 推理实例
+        初始化本地推理实例
 
         Args:
-            modelDir: 模型目录路径，默认从 config.QWEN_MODEL_DIR 读取
+            modelDir: 模型目录路径，默认从 config.LOCAL_MODEL_DIR 读取
             temperature: 采样温度，默认从 config.toml 读取
             topP: top-p 采样参数，默认从 config.toml 读取
             maxNewTokens: 最大生成 token 数，默认从 config.toml 读取
@@ -75,7 +76,7 @@ class QwenInference:
         # 加载配置
         genCfg = config.getGenerationConfig()
 
-        self.modelDir = modelDir or config.QWEN_MODEL_DIR
+        self.modelDir = modelDir or config.LOCAL_MODEL_DIR
         self.temperature = (
             temperature if temperature is not None else genCfg["temperature"]
         )
@@ -158,14 +159,20 @@ class QwenInference:
             "device_map": deviceMap,
             "trust_remote_code": True,
         }
+        # 兼容不同 transformers 版本：有的使用 torch_dtype，有的使用 dtype。
+        fromPretrainedParams = inspect.signature(
+            AutoModelForCausalLM.from_pretrained
+        ).parameters
+        dtypeKey = "dtype" if "dtype" in fromPretrainedParams else "torch_dtype"
+
         # 非量化模型需要指定 dtype
         if not os.path.isfile(cfgPath):
-            loadKwargs["torch_dtype"] = (
+            loadKwargs[dtypeKey] = (
                 torch.float16 if torch.cuda.is_available() else torch.float32
             )
         else:
             if "quantization_config" not in modelCfg:
-                loadKwargs["torch_dtype"] = (
+                loadKwargs[dtypeKey] = (
                     torch.float16 if torch.cuda.is_available() else torch.float32
                 )
 
@@ -332,11 +339,11 @@ def _testInference() -> None:
     模块级测试：输入一条数学问题，输出非空回答
     """
     print("=" * 60)
-    print("Qwen2.5-Math 推理模块测试")
+    print("本地模型推理模块测试")
     print("=" * 60)
 
     # 初始化
-    qwen = QwenInference()
+    model = LocalInference()
 
     # 测试问题
     testQuery = "什么是极限？请用数学语言给出定义。"
@@ -345,7 +352,7 @@ def _testInference() -> None:
     print("-" * 40)
 
     # 单条推理测试
-    response = qwen.generate(testQuery)
+    response = model.generate(testQuery)
 
     print(f"\n模型回复:\n{response}")
     print("-" * 40)
@@ -366,7 +373,7 @@ def _testInference() -> None:
         {"role": "user", "content": "什么是导数？"},
     ]
 
-    response2 = qwen.generateFromMessages(messages)
+    response2 = model.generateFromMessages(messages)
     print(f"\n模型回复:\n{response2}")
 
     if response2 and len(response2) > 0:

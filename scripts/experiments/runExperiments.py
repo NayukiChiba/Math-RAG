@@ -25,6 +25,7 @@ import time
 from typing import Any, Literal
 
 import config
+from answerGeneration.generatorFactory import createGenerator
 from utils import getFileLoader
 
 _LOADER = getFileLoader()
@@ -63,7 +64,7 @@ class ExperimentRunner:
         os.makedirs(self.logDir, exist_ok=True)
 
         # 延迟加载
-        self._qwen = None
+        self._generator = None
         self._retrievers = {}
         self._queries = None
         self._goldMap = None
@@ -87,14 +88,11 @@ class ExperimentRunner:
         print(f" 加载了 {len(self._queries)} 条测试查询")
         return self._queries
 
-    def _initQwen(self):
-        """初始化 Qwen 推理实例"""
-        if self._qwen is None:
-            print(" 初始化 Qwen 推理...")
-            from answerGeneration.qwenInference import QwenInference
-
-            self._qwen = QwenInference()
-        return self._qwen
+    def _initGenerator(self):
+        """初始化推理实例（本地或 API）"""
+        if self._generator is None:
+            self._generator = createGenerator()
+        return self._generator
 
     def _initRetriever(self, strategy: str):
         """初始化检索器（使用 Plus 增强版本）"""
@@ -375,7 +373,7 @@ class ExperimentRunner:
         print(" 实验组: baseline-norag（无检索）")
         print("=" * 60)
 
-        qwen = self._initQwen()
+        generator = self._initGenerator()
         results = []
         termHitRates = []
         sourceCitationRates = []
@@ -399,7 +397,7 @@ class ExperimentRunner:
             ]
 
             try:
-                answer = qwen.generateFromMessages(messages)
+                answer = generator.generateFromMessages(messages)
             except Exception as e:
                 print(f"     生成失败: {e}")
                 answer = f"生成失败: {e}"
@@ -472,7 +470,7 @@ class ExperimentRunner:
         print(f" 实验组: {groupName}（{strategy} 检索）")
         print("=" * 60)
 
-        qwen = self._initQwen()
+        generator = self._initGenerator()
         retriever = self._initRetriever(strategy)
         corpus = self._loadCorpus()
 
@@ -539,7 +537,7 @@ class ExperimentRunner:
                     query=queryText,
                     retrievalResults=retrievalResults if retrievalResults else None,
                 )
-                answer = qwen.generateFromMessages(messages)
+                answer = generator.generateFromMessages(messages)
             except Exception as e:
                 print(f"     生成失败: {e}")
                 answer = f"生成失败: {e}"

@@ -229,23 +229,26 @@ def get_ocr_config():
     return result
 
 
-def _getQwenModelDir() -> str:
-    """从 config.toml 读取 Qwen 模型目录。"""
+def _getLocalModelDir() -> str:
+    """从 config.toml 读取本地模型目录。"""
     try:
         data = _get_config_data()
     except Exception:
         return ""
 
     gen_cfg = data.get("generation", {})
-    qwenDir = gen_cfg.get("qwen_model_dir", "").strip()
+    # 优先读取 local_model_dir，向后兼容 qwen_model_dir
+    modelDir = gen_cfg.get("local_model_dir", gen_cfg.get("qwen_model_dir", "")).strip()
 
-    if not qwenDir:
+    if not modelDir:
         return ""
-    return _resolve_path(qwenDir)
+    return _resolve_path(modelDir)
 
 
-# Qwen 模型本地路径
-QWEN_MODEL_DIR = _getQwenModelDir()
+# 本地模型路径
+LOCAL_MODEL_DIR = _getLocalModelDir()
+# 向后兼容旧代码
+QWEN_MODEL_DIR = LOCAL_MODEL_DIR
 
 
 def getGenerationConfig() -> dict:
@@ -253,10 +256,11 @@ def getGenerationConfig() -> dict:
     获取生成层相关配置
 
     Returns:
-        dict，包含 max_context_chars、max_chars_per_term、temperature、
+        dict，包含 engine, max_context_chars、max_chars_per_term、temperature、
         top_p、max_new_tokens 等字段
     """
     defaults = {
+        "engine": "api",
         "max_context_chars": 2000,
         "max_chars_per_term": 800,
         "temperature": 0.1,
@@ -271,6 +275,7 @@ def getGenerationConfig() -> dict:
 
     gen_cfg = data.get("generation", {})
     return {
+        "engine": gen_cfg.get("engine", defaults["engine"]),
         "max_context_chars": gen_cfg.get(
             "max_context_chars", defaults["max_context_chars"]
         ),
@@ -280,6 +285,29 @@ def getGenerationConfig() -> dict:
         "temperature": gen_cfg.get("temperature", defaults["temperature"]),
         "top_p": gen_cfg.get("top_p", defaults["top_p"]),
         "max_new_tokens": gen_cfg.get("max_new_tokens", defaults["max_new_tokens"]),
+    }
+
+
+def getApiConfig() -> dict:
+    """读取 RAG 生成层的 API 配置（优先从 [generation]，回退到 [model]）。"""
+    try:
+        data = _get_config_data()
+    except Exception:
+        data = {}
+
+    gen_cfg = data.get("generation", {})
+    model_cfg = data.get("model", {})
+
+    # 优先从 [generation] 读取专属字段，否则回退到 [model]
+    return {
+        "api_base": gen_cfg.get(
+            "api_base", model_cfg.get("api_base", "https://api.deepseek.com/v1")
+        ),
+        "model": gen_cfg.get("api_model", model_cfg.get("model", "deepseek-chat")),
+        "api_key_env": gen_cfg.get(
+            "api_key_env", model_cfg.get("api_key_env", "API-KEY")
+        ),
+        "stream": gen_cfg.get("api_stream", False),
     }
 
 

@@ -147,20 +147,41 @@ definitions 中每条定义必须包含 reference 字段。
 
 [generation]
 # RAG 生成层配置
+# 引擎选择： "api" 或 "local"
+engine = "api"
+
+# ---- API 推理配置（engine = "api" 时生效）----
+# OpenAI 兼容接口地址（DeepSeek / 通义千问等均可）
+api_base = "https://api.deepseek.com/v1"
+api_model = "deepseek-chat"
+# .env 中 API 密钥的变量名，与 [model] 复用同一个 key
+api_key_env = "API-KEY"
+# 是否开启流式输出（前端打字机效果需要 true）
+api_stream = false
 
 # 上下文总最大字符数
-# 7B 模型支持 32K 上下文，中文约 1.5 char/token，可放更多检索内容
-max_context_chars = 4000
+# Qwen3.5-4B 支持 262K 上下文，中文约 1.5 char/token，可适当增大
+max_context_chars = 6000
 
 # 单条术语文本最大字符数，避免一条术语挤占整个上下文
-max_chars_per_term = 1000
+max_chars_per_term = 1200
 
-# Qwen 推理参数（Task-8 使用）
-temperature = 0.1
-top_p = 0.9
-max_new_tokens = 1024
+# 推理参数
+# 指令模式（非思考）通用任务推荐：temperature=0.7, top_p=0.8
+temperature = 0.7
+top_p = 0.8
+top_k = 20
+min_p = 0.0
+presence_penalty = 1.5
+# max_new_tokens: 本地模型最大生成 token 数
+# RTX 4060 (8GB) 建议 ≤512，显存充足可适当增大
+# API 模式不受此限制，由云端模型自行控制
+max_new_tokens = 512
+# 是否启用思考模式（true=默认开启，false=直接输出答案）
+# RAG 问答场景建议关闭思考模式，速度更快且输出格式更稳定
+enable_thinking = false
 # 本地模型目录（相对项目根目录）
-qwen_model_dir = "../Qwen-model-7B"
+local_model_dir = "../Qwen3.5-4B"
 
 [retrieval]
 # 检索模块配置
