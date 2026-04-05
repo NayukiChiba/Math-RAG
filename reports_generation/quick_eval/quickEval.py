@@ -5,6 +5,11 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from core import config
+from core.modelEvaluation.common.metrics import calculateMAP as calculateMAP
+from core.modelEvaluation.common.metrics import calculateMRR as calculateMRR
+from core.modelEvaluation.common.metrics import calculateNDCG as calculateNDCG
+from core.modelEvaluation.common.metrics import calculateRecallAtK as calculateRecallAtK
 from reports_generation.quick_eval.quickEvalCore.cli import buildParser
 from reports_generation.quick_eval.quickEvalCore.constants import (
     ALL_METHODS as _ALL_METHODS,
@@ -26,12 +31,6 @@ from reports_generation.quick_eval.quickEvalCore.runner import runEval as _runEv
 from reports_generation.quick_eval.quickEvalCore.runner import (
     saveReport as _saveReportImpl,
 )
-
-from core import config
-from core.modelEvaluation.common.metrics import calculateMAP as calculateMAP
-from core.modelEvaluation.common.metrics import calculateMRR as calculateMRR
-from core.modelEvaluation.common.metrics import calculateNDCG as calculateNDCG
-from core.modelEvaluation.common.metrics import calculateRecallAtK as calculateRecallAtK
 
 # 兼容旧常量名
 _BASIC_METHODS = _BASIC_METHODS

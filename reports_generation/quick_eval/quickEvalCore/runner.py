@@ -7,15 +7,14 @@ import os
 import time
 from typing import Any
 
+from core import config
+from core.modelEvaluation.common.paths import buildRetrievalAssets
 from reports_generation.quick_eval.quickEvalCore.constants import (
     BASIC_METHODS,
     OPTIMIZED_METHODS,
 )
 from reports_generation.quick_eval.quickEvalCore.dataOps import loadCorpus, loadQueries
 from reports_generation.quick_eval.quickEvalCore.methodRunner import runMethod
-
-from core import config
-from core.modelEvaluation.common.paths import buildRetrievalAssets
 
 
 def runEval(

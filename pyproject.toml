@@ -11,30 +11,23 @@ requires-python = ">=3.11"
 dynamic = ["dependencies"]
 
 [project.scripts]
-math-rag = "mathRag:main"
+math-rag = "core.mathRag:main"
 
 [project.optional-dependencies]
-quickeval = []
 visualization = [
 	"matplotlib>=3.8",
 	"seaborn>=0.13",
 ]
 
 [tool.setuptools]
-# config.py 和 mathRag.py 现在也在 src/ 下
-py-modules = ["config", "mathRag"]
+py-modules = []
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "."]
 include = [
-	"answerGeneration*",
-	"dataGen*",
-	"dataStat*",
-	"modelEvaluation*",
-	"evaluationData*",
-	"retrieval*",
-	"runners*",
-	"utils*",
+	"core*",
+	"api*",
+	"reports_generation*",
 ]
 
 [tool.setuptools.dynamic]
@@ -42,12 +35,12 @@ dependencies = { file = ["requirements.txt"] }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 
 [tool.ruff]
 target-version = "py312"
 line-length = 88
-src = ["src"]
+src = ["src", "."]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]

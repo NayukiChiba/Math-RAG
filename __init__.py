@@ -1,14 +1,14 @@
 """项目级统一导出。"""
 
-from src import answerGeneration as answerGeneration
-from src import config as config
-from src import dataGen as dataGen
-from src import dataStat as dataStat
-from src import evaluationData as evaluationData
-from src import modelEvaluation as modelEvaluation
-from src import retrieval as retrieval
-from src import runners as runners
-from src.mathRag import build_parser, main
+from core import answerGeneration as answerGeneration
+from core import config as config
+from core import dataGen as dataGen
+from core import dataStat as dataStat
+from core import evaluationData as evaluationData
+from core import modelEvaluation as modelEvaluation
+from core import retrieval as retrieval
+from core import runners as runners
+from core.mathRag import build_parser, main
 
 __version__ = "0.1.0"
 
