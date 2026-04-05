@@ -41,7 +41,8 @@ def runEval(
     if not os.path.exists(queries_dir):
         queries_dir = os.path.join(config.PROCESSED_DIR, "evaluation")
 
-    queries_file = os.path.join(queries_dir, "queries.jsonl")
+    rg = config.getReportsGenerationConfig()
+    queries_file = os.path.join(queries_dir, rg["queries_basename"])
     assets = buildRetrievalAssets()
 
     print(f"\n 查询文件：{queries_file}")

@@ -10,7 +10,6 @@
 
 import json
 import os
-import sys
 
 import matplotlib
 
@@ -19,67 +18,41 @@ import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
 import numpy as np
 
-# ── 初始化路径 ──────────────────────────────────────────────
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, PROJECT_ROOT)
+from core import config
 
-STATS_FILE = os.path.join(PROJECT_ROOT, "data", "stats", "chunkStatistics.json")
-CORPUS_FILE = os.path.join(
-    PROJECT_ROOT, "data", "processed", "retrieval", "corpus.jsonl"
-)
-QUERIES_FILE = os.path.join(PROJECT_ROOT, "data", "evaluation", "queries.jsonl")
-QUERIES_FULL_FILE = os.path.join(
-    PROJECT_ROOT, "data", "evaluation", "queries_full.jsonl"
-)
-GOLDEN_SET_FILE = os.path.join(PROJECT_ROOT, "data", "evaluation", "golden_set.jsonl")
-TERM_MAPPING_FILE = os.path.join(
-    PROJECT_ROOT, "data", "evaluation", "term_mapping.json"
-)
-OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs", "figures", "defense")
+# ── 初始化路径（与 [paths] + [reports_generation] 对齐）──────────────
+_paths = config.getPathsConfig()
+_rg = config.getReportsGenerationConfig()
+
+STATS_FILE = os.path.join(_paths["stats_dir"], _rg["chunk_statistics_basename"])
+CORPUS_FILE = os.path.join(_paths["processed_dir"], _rg["corpus_relpath"])
+QUERIES_FILE = os.path.join(_paths["evaluation_dir"], _rg["queries_basename"])
+QUERIES_FULL_FILE = os.path.join(_paths["evaluation_dir"], _rg["queries_full_basename"])
+GOLDEN_SET_FILE = os.path.join(_paths["evaluation_dir"], _rg["golden_set_basename"])
+TERM_MAPPING_FILE = os.path.join(_paths["evaluation_dir"], _rg["term_mapping_basename"])
+OUTPUT_DIR = os.path.join(_paths["figures_dir"], _rg["defense_output_subdir"])
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # ── 中文字体配置 ──────────────────────────────────────────────
 
-_FONT_PATH = "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf"
-if os.path.isfile(_FONT_PATH):
-    fm.fontManager.addfont(_FONT_PATH)
-    _font_prop = fm.FontProperties(fname=_FONT_PATH)
+_font_path = str(_rg.get("defense_cjk_font_file") or "").strip()
+if _font_path and os.path.isfile(_font_path):
+    fm.fontManager.addfont(_font_path)
+    _font_prop = fm.FontProperties(fname=_font_path)
     _font_name = _font_prop.get_name()
     plt.rcParams["font.sans-serif"] = [_font_name] + plt.rcParams["font.sans-serif"]
 else:
-    plt.rcParams["font.sans-serif"] = [
-        "SimHei",
-        "WenQuanYi Micro Hei",
-        "Noto Sans CJK SC",
-        "Noto Sans SC",
-        "DejaVu Sans",
-    ]
+    plt.rcParams["font.sans-serif"] = list(
+        _rg["defense_matplotlib_fallback_fonts"]
+    ) + list(plt.rcParams["font.sans-serif"])
 plt.rcParams["axes.unicode_minus"] = False
-plt.rcParams["font.size"] = 12
+plt.rcParams["font.size"] = _rg["defense_matplotlib_font_size"]
 
 # ── 配色方案 ────────────────────────────────────────────────
-COLORS = {
-    "primary": "#3B82F6",
-    "secondary": "#8B5CF6",
-    "accent": "#10B981",
-    "warm": "#F59E0B",
-    "danger": "#EF4444",
-    "rose": "#EC4899",
-    "cyan": "#06B6D4",
-    "slate": "#64748B",
-}
-PALETTE = [
-    "#3B82F6",
-    "#8B5CF6",
-    "#10B981",
-    "#F59E0B",
-    "#EF4444",
-    "#EC4899",
-    "#06B6D4",
-    "#64748B",
-]
-GRADIENT_BLUES = ["#DBEAFE", "#93C5FD", "#60A5FA", "#3B82F6", "#2563EB", "#1D4ED8"]
-GRADIENT_MULTI = ["#3B82F6", "#8B5CF6", "#EC4899", "#EF4444", "#F59E0B", "#10B981"]
+COLORS = dict(_rg["defense_colors"])
+PALETTE = list(_rg["defense_palette"])
+GRADIENT_BLUES = list(_rg["defense_gradient_blues"])
+GRADIENT_MULTI = list(_rg["defense_gradient_multi"])
 
 
 def load_json(path):
@@ -99,7 +72,13 @@ def load_jsonl(path):
 
 def save_fig(fig, name):
     path = os.path.join(OUTPUT_DIR, name)
-    fig.savefig(path, dpi=200, bbox_inches="tight", facecolor="white", edgecolor="none")
+    fig.savefig(
+        path,
+        dpi=_rg["defense_save_dpi"],
+        bbox_inches="tight",
+        facecolor="white",
+        edgecolor="none",
+    )
     plt.close(fig)
     print(f"  ✅ {name}")
 
@@ -111,7 +90,7 @@ def buildBarColors(baseColors, count, tailColor=None):
 
     colors = list(baseColors)
     if not colors:
-        colors = ["#3B82F6"]
+        colors = [COLORS["primary"]]
 
     while len(colors) < count:
         colors.extend(baseColors if baseColors else colors)

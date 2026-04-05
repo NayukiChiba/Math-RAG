@@ -22,44 +22,35 @@ if HAS_MATPLOTLIB:
 
     import matplotlib.font_manager as fm
 
-    # WSL 场景下，优先注册 Windows 字体目录中的中文字体文件。
-    windows_font_candidates = [
-        "/mnt/c/Windows/Fonts/msyh.ttc",
-        "/mnt/c/Windows/Fonts/msyhbd.ttc",
-        "/mnt/c/Windows/Fonts/msyhl.ttc",
-        "/mnt/c/Windows/Fonts/simhei.ttf",
-        "/mnt/c/Windows/Fonts/simsun.ttc",
-        "/mnt/c/Windows/Fonts/Deng.ttf",
-    ]
-    for font_path in windows_font_candidates:
-        if Path(font_path).exists():
-            try:
-                fm.fontManager.addfont(font_path)
-            except Exception:
-                pass
+    def _apply_viz_matplotlib_from_config() -> None:
+        from core.config import getReportsGenerationConfig
 
-    # 统一通过 rcParams 设置中文字体优先级，并仅使用系统可用字体。
-    preferred_cn_fonts = [
-        "Noto Sans CJK SC",
-        "WenQuanYi Zen Hei",
-        "WenQuanYi Micro Hei",
-        "Microsoft YaHei",
-        "SimHei",
-        "Arial Unicode MS",
-        "Droid Sans Fallback",
-    ]
-    available_names = {font.name for font in fm.fontManager.ttflist}
-    selected_fonts = [name for name in preferred_cn_fonts if name in available_names]
-    if not selected_fonts:
-        warnings.warn("未检测到可用中文字体，中文可能显示异常。")
-    selected_fonts.append("DejaVu Sans")
+        rg = getReportsGenerationConfig()
+        for font_path in rg["viz_windows_font_candidates"]:
+            if Path(str(font_path)).exists():
+                try:
+                    fm.fontManager.addfont(str(font_path))
+                except Exception:
+                    pass
 
-    plt.rcParams["font.sans-serif"] = selected_fonts
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["axes.unicode_minus"] = False
-    plt.rcParams["figure.dpi"] = 100
-    plt.rcParams["savefig.dpi"] = 300
-    plt.rcParams["figure.figsize"] = (12, 8)
+        preferred_cn_fonts = list(rg["viz_preferred_cn_fonts"])
+        available_names = {font.name for font in fm.fontManager.ttflist}
+        selected_fonts = [
+            name for name in preferred_cn_fonts if name in available_names
+        ]
+        if not selected_fonts:
+            warnings.warn("未检测到可用中文字体，中文可能显示异常。")
+        selected_fonts.append("DejaVu Sans")
+
+        plt.rcParams["font.sans-serif"] = selected_fonts
+        plt.rcParams["font.family"] = "sans-serif"
+        plt.rcParams["axes.unicode_minus"] = False
+        plt.rcParams["figure.dpi"] = int(rg["viz_figure_dpi"])
+        plt.rcParams["savefig.dpi"] = int(rg["viz_savefig_dpi"])
+        vw, vh = rg["viz_figure_figsize"]
+        plt.rcParams["figure.figsize"] = (float(vw), float(vh))
+
+    _apply_viz_matplotlib_from_config()
 
 
 def createVisualization(stats: dict[str, Any], outputDir: str) -> None:
@@ -68,21 +59,26 @@ def createVisualization(stats: dict[str, Any], outputDir: str) -> None:
         print("  跳过可视化：matplotlib 未安装")
         return
 
+    from core.config import getReportsGenerationConfig
+
+    rg = getReportsGenerationConfig()
     print("\n 生成可视化图表...")
-    vizDir = os.path.join(outputDir, "visualizations")
+    vizDir = os.path.join(outputDir, rg["viz_output_subdir"])
     os.makedirs(vizDir, exist_ok=True)
 
-    createBookDistributionChart(stats, vizDir)
-    createSubjectDistributionChart(stats, vizDir)
-    createFieldCoverageChart(stats, vizDir)
-    createTermLengthDistribution(stats, vizDir)
-    createDefinitionTypeChart(stats, vizDir)
-    createComprehensiveDashboard(stats, vizDir)
+    createBookDistributionChart(stats, vizDir, rg["viz_filenames"])
+    createSubjectDistributionChart(stats, vizDir, rg["viz_filenames"])
+    createFieldCoverageChart(stats, vizDir, rg["viz_filenames"])
+    createTermLengthDistribution(stats, vizDir, rg["viz_filenames"])
+    createDefinitionTypeChart(stats, vizDir, rg["viz_filenames"])
+    createComprehensiveDashboard(stats, vizDir, rg["viz_filenames"])
 
     print(f" 可视化图表已保存到: {vizDir}")
 
 
-def createBookDistributionChart(stats: dict[str, Any], outputDir: str) -> None:
+def createBookDistributionChart(
+    stats: dict[str, Any], outputDir: str, viz_names: dict[str, str]
+) -> None:
     """书籍术语分布柱状图。"""
     try:
         fig, ax = plt.subplots(figsize=(12, 6))
@@ -120,7 +116,10 @@ def createBookDistributionChart(stats: dict[str, Any], outputDir: str) -> None:
         ax.grid(axis="y", alpha=0.3, linestyle="--")
 
         plt.tight_layout()
-        plt.savefig(os.path.join(outputDir, "1_书籍术语分布.png"), bbox_inches="tight")
+        plt.savefig(
+            os.path.join(outputDir, viz_names["book_distribution"]),
+            bbox_inches="tight",
+        )
         plt.close()
 
         print("   书籍术语分布图")
@@ -128,7 +127,9 @@ def createBookDistributionChart(stats: dict[str, Any], outputDir: str) -> None:
         print(f"   书籍术语分布图生成失败: {e}")
 
 
-def createSubjectDistributionChart(stats: dict[str, Any], outputDir: str) -> None:
+def createSubjectDistributionChart(
+    stats: dict[str, Any], outputDir: str, viz_names: dict[str, str]
+) -> None:
     """学科分布饼图。"""
     try:
         fig, ax = plt.subplots(figsize=(10, 8))
@@ -158,7 +159,10 @@ def createSubjectDistributionChart(stats: dict[str, Any], outputDir: str) -> Non
         ax.set_title("学科术语分布", fontsize=16, fontweight="bold", pad=20)
 
         plt.tight_layout()
-        plt.savefig(os.path.join(outputDir, "2_学科分布.png"), bbox_inches="tight")
+        plt.savefig(
+            os.path.join(outputDir, viz_names["subject_distribution"]),
+            bbox_inches="tight",
+        )
         plt.close()
 
         print("   学科分布图")
@@ -166,7 +170,9 @@ def createSubjectDistributionChart(stats: dict[str, Any], outputDir: str) -> Non
         print(f"   学科分布图生成失败: {e}")
 
 
-def createFieldCoverageChart(stats: dict[str, Any], outputDir: str) -> None:
+def createFieldCoverageChart(
+    stats: dict[str, Any], outputDir: str, viz_names: dict[str, str]
+) -> None:
     """字段覆盖率横向柱状图。"""
     try:
         fig, ax = plt.subplots(figsize=(12, 8))
@@ -227,7 +233,10 @@ def createFieldCoverageChart(stats: dict[str, Any], outputDir: str) -> None:
         ax.legend(loc="lower right", fontsize=10)
 
         plt.tight_layout()
-        plt.savefig(os.path.join(outputDir, "3_字段覆盖率.png"), bbox_inches="tight")
+        plt.savefig(
+            os.path.join(outputDir, viz_names["field_coverage"]),
+            bbox_inches="tight",
+        )
         plt.close()
 
         print("   字段覆盖率图")
@@ -235,7 +244,9 @@ def createFieldCoverageChart(stats: dict[str, Any], outputDir: str) -> None:
         print(f"   字段覆盖率图生成失败: {e}")
 
 
-def createTermLengthDistribution(stats: dict[str, Any], outputDir: str) -> None:
+def createTermLengthDistribution(
+    stats: dict[str, Any], outputDir: str, viz_names: dict[str, str]
+) -> None:
     """术语长度分布直方图。"""
     try:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
@@ -291,7 +302,10 @@ def createTermLengthDistribution(stats: dict[str, Any], outputDir: str) -> None:
         ax2.grid(alpha=0.3, linestyle="--")
 
         plt.tight_layout()
-        plt.savefig(os.path.join(outputDir, "4_长度分布.png"), bbox_inches="tight")
+        plt.savefig(
+            os.path.join(outputDir, viz_names["term_length"]),
+            bbox_inches="tight",
+        )
         plt.close()
 
         print("   长度分布图")
@@ -299,7 +313,9 @@ def createTermLengthDistribution(stats: dict[str, Any], outputDir: str) -> None:
         print(f"   长度分布图生成失败: {e}")
 
 
-def createDefinitionTypeChart(stats: dict[str, Any], outputDir: str) -> None:
+def createDefinitionTypeChart(
+    stats: dict[str, Any], outputDir: str, viz_names: dict[str, str]
+) -> None:
     """定义类型分布图。"""
     try:
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -330,7 +346,10 @@ def createDefinitionTypeChart(stats: dict[str, Any], outputDir: str) -> None:
         ax.grid(axis="y", alpha=0.3, linestyle="--")
 
         plt.tight_layout()
-        plt.savefig(os.path.join(outputDir, "5_定义类型分布.png"), bbox_inches="tight")
+        plt.savefig(
+            os.path.join(outputDir, viz_names["definition_type"]),
+            bbox_inches="tight",
+        )
         plt.close()
 
         print("   定义类型分布图")
@@ -338,7 +357,9 @@ def createDefinitionTypeChart(stats: dict[str, Any], outputDir: str) -> None:
         print(f"   定义类型分布图生成失败: {e}")
 
 
-def createComprehensiveDashboard(stats: dict[str, Any], outputDir: str) -> None:
+def createComprehensiveDashboard(
+    stats: dict[str, Any], outputDir: str, viz_names: dict[str, str]
+) -> None:
     """综合统计面板。"""
     try:
         fig = plt.figure(figsize=(20, 12))
@@ -437,7 +458,10 @@ def createComprehensiveDashboard(stats: dict[str, Any], outputDir: str) -> None:
         ax7.grid(axis="y", alpha=0.3)
 
         plt.suptitle("数学术语数据综合统计面板", fontsize=18, fontweight="bold", y=0.98)
-        plt.savefig(os.path.join(outputDir, "0_综合统计面板.png"), bbox_inches="tight")
+        plt.savefig(
+            os.path.join(outputDir, viz_names["dashboard"]),
+            bbox_inches="tight",
+        )
         plt.close()
 
         print("   综合统计面板")

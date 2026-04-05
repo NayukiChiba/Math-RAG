@@ -24,14 +24,7 @@ from core.utils import getFileLoader
 
 _LOADER = getFileLoader()
 
-# ── 中文字体配置 ─────────────────────────────────────────────────
-_CHINESE_FONTS = [
-    "WenQuanYi Zen Hei",
-    "Noto Sans CJK SC",
-    "SimHei",
-    "Microsoft YaHei",
-    "PingFang SC",
-]
+_RG = config.getReportsGenerationConfig()
 
 
 def _configure_matplotlib() -> bool:
@@ -39,7 +32,7 @@ def _configure_matplotlib() -> bool:
     import matplotlib.font_manager as fm
 
     available = {f.name for f in fm.fontManager.ttflist}
-    for font in _CHINESE_FONTS:
+    for font in _RG["report_matplotlib_fallback_fonts"]:
         if font in available:
             plt.rcParams["font.sans-serif"] = [font]
             plt.rcParams["axes.unicode_minus"] = False
@@ -83,9 +76,11 @@ def _subject_breakdown(
 
 
 def _select_case_examples(
-    results_data: dict, queries: list[dict], n: int = 3
+    results_data: dict, queries: list[dict], n: int | None = None
 ) -> tuple[list[dict], list[dict]]:
     """从 BM25+ 结果中挑选成功/失败案例。"""
+    if n is None:
+        n = int(_RG["report_case_examples_count"])
     bm25p = next((r for r in results_data["results"] if r["method"] == "BM25+"), None)
     if bm25p is None:
         return [], []
@@ -122,23 +117,30 @@ def _select_case_examples(
 
 # ── 图表生成 ─────────────────────────────────────────────────────
 
-_COLORS = ["#4472C4", "#ED7D31", "#A9D18E", "#FF6B6B", "#9B59B6"]
-_HATCHES = ["", "//", "\\\\", "xx", ".."]
-
 
 def _save_fig(fig: plt.Figure, base_path: str) -> None:
     """同时保存 PDF 和 PNG。"""
     os.makedirs(os.path.dirname(base_path), exist_ok=True)
-    fig.savefig(base_path + ".pdf", bbox_inches="tight", dpi=300)
-    fig.savefig(base_path + ".png", bbox_inches="tight", dpi=200)
+    fig.savefig(
+        base_path + ".pdf",
+        bbox_inches="tight",
+        dpi=_RG["report_figure_save_pdf_dpi"],
+    )
+    fig.savefig(
+        base_path + ".png",
+        bbox_inches="tight",
+        dpi=_RG["report_figure_save_png_dpi"],
+    )
     plt.close(fig)
 
 
 def _fig_method_comparison(results_data: dict, figures_dir: str) -> str:
     """各方法 Recall@K 对比分组柱状图。"""
     methods = [r["method"] for r in results_data["results"]]
-    ks = [1, 3, 5, 10]
+    ks = list(_RG["report_method_comparison_recall_ks"])
     metric_keys = [f"recall@{k}" for k in ks]
+    chart_colors = list(_RG["report_chart_colors"])
+    chart_hatches = list(_RG["report_chart_hatches"])
 
     data_matrix = []
     for r in results_data["results"]:
@@ -147,7 +149,8 @@ def _fig_method_comparison(results_data: dict, figures_dir: str) -> str:
 
     x = np.arange(len(ks))
     width = 0.15
-    fig, ax = plt.subplots(figsize=(10, 5.5))
+    fw, fh = _RG["report_method_comparison_figsize"]
+    fig, ax = plt.subplots(figsize=(float(fw), float(fh)))
     for i, (method, row) in enumerate(zip(methods, data_matrix)):
         offset = (i - len(methods) / 2 + 0.5) * width
         ax.bar(
@@ -155,8 +158,8 @@ def _fig_method_comparison(results_data: dict, figures_dir: str) -> str:
             row,
             width,
             label=method,
-            color=_COLORS[i % len(_COLORS)],
-            hatch=_HATCHES[i % len(_HATCHES)],
+            color=chart_colors[i % len(chart_colors)],
+            hatch=chart_hatches[i % len(chart_hatches)],
             alpha=0.85,
         )
 
@@ -174,7 +177,7 @@ def _fig_method_comparison(results_data: dict, figures_dir: str) -> str:
     ax.grid(axis="y", linestyle="--", alpha=0.5)
     fig.tight_layout()
 
-    out = os.path.join(figures_dir, "method_comparison")
+    out = os.path.join(figures_dir, _RG["fig_method_comparison_basename"])
     _save_fig(fig, out)
     return out
 
@@ -187,17 +190,37 @@ def _fig_topk_ablation(ablation_data: dict, figures_dir: str) -> str:
     r10 = [v["recall@10"] for v in variants]
     maps = [v["map"] for v in variants]
 
-    fig, ax1 = plt.subplots(figsize=(7, 4.5))
+    chart_colors = list(_RG["report_chart_colors"])
+    tw, th = _RG["report_topk_ablation_figsize"]
+    fig, ax1 = plt.subplots(figsize=(float(tw), float(th)))
     ax2 = ax1.twinx()
 
     lns1 = ax1.plot(
-        ks, r5, "o-", color=_COLORS[0], linewidth=2, markersize=7, label="Recall@5"
+        ks,
+        r5,
+        "o-",
+        color=chart_colors[0],
+        linewidth=2,
+        markersize=7,
+        label="Recall@5",
     )
     lns2 = ax1.plot(
-        ks, r10, "s--", color=_COLORS[1], linewidth=2, markersize=7, label="Recall@10"
+        ks,
+        r10,
+        "s--",
+        color=chart_colors[1],
+        linewidth=2,
+        markersize=7,
+        label="Recall@10",
     )
     lns3 = ax2.plot(
-        ks, maps, "^:", color=_COLORS[2], linewidth=2, markersize=7, label="MAP"
+        ks,
+        maps,
+        "^:",
+        color=chart_colors[2],
+        linewidth=2,
+        markersize=7,
+        label="MAP",
     )
 
     ax1.set_xlabel("Top-K", fontsize=12)
@@ -219,7 +242,7 @@ def _fig_topk_ablation(ablation_data: dict, figures_dir: str) -> str:
     ax1.grid(linestyle="--", alpha=0.4)
     fig.tight_layout()
 
-    out = os.path.join(figures_dir, "topk_ablation")
+    out = os.path.join(figures_dir, _RG["fig_topk_ablation_basename"])
     _save_fig(fig, out)
     return out
 
@@ -231,14 +254,28 @@ def _fig_alpha_sensitivity(ablation_data: dict, figures_dir: str) -> str:
     r5 = [v["recall@5"] for v in variants]
     maps = [v["map"] for v in variants]
 
-    fig, ax1 = plt.subplots(figsize=(7, 4.5))
+    chart_colors = list(_RG["report_chart_colors"])
+    aw, ah = _RG["report_alpha_sensitivity_figsize"]
+    fig, ax1 = plt.subplots(figsize=(float(aw), float(ah)))
     ax2 = ax1.twinx()
 
     lns1 = ax1.plot(
-        alphas, r5, "o-", color=_COLORS[0], linewidth=2, markersize=8, label="Recall@5"
+        alphas,
+        r5,
+        "o-",
+        color=chart_colors[0],
+        linewidth=2,
+        markersize=8,
+        label="Recall@5",
     )
     lns2 = ax2.plot(
-        alphas, maps, "s--", color=_COLORS[1], linewidth=2, markersize=8, label="MAP"
+        alphas,
+        maps,
+        "s--",
+        color=chart_colors[1],
+        linewidth=2,
+        markersize=8,
+        label="MAP",
     )
 
     ax1.set_xlabel("Alpha (BM25+ weight)", fontsize=12)
@@ -263,7 +300,7 @@ def _fig_alpha_sensitivity(ablation_data: dict, figures_dir: str) -> str:
     ax1.grid(linestyle="--", alpha=0.4)
     fig.tight_layout()
 
-    out = os.path.join(figures_dir, "alpha_sensitivity")
+    out = os.path.join(figures_dir, _RG["fig_alpha_sensitivity_basename"])
     _save_fig(fig, out)
     return out
 
@@ -272,13 +309,16 @@ def _fig_subject_breakdown(
     breakdown: dict[str, dict[str, float]], figures_dir: str
 ) -> str:
     """三学科 Recall@5 对比分组柱状图。"""
-    subjects = ["数学分析", "概率论", "高等代数"]
-    subject_labels = ["Math Analysis", "Probability", "Linear Algebra"]
+    subjects = list(_RG["report_subject_breakdown_subjects_zh"])
+    subject_labels = list(_RG["report_subject_breakdown_labels_en"])
     methods = list(breakdown.keys())
+    chart_colors = list(_RG["report_chart_colors"])
+    chart_hatches = list(_RG["report_chart_hatches"])
 
     x = np.arange(len(subjects))
     width = 0.15
-    fig, ax = plt.subplots(figsize=(9, 5))
+    sw, sh = _RG["report_subject_breakdown_figsize"]
+    fig, ax = plt.subplots(figsize=(float(sw), float(sh)))
     for i, method in enumerate(methods):
         vals = [breakdown[method].get(s, 0) for s in subjects]
         offset = (i - len(methods) / 2 + 0.5) * width
@@ -287,8 +327,8 @@ def _fig_subject_breakdown(
             vals,
             width,
             label=method,
-            color=_COLORS[i % len(_COLORS)],
-            hatch=_HATCHES[i % len(_HATCHES)],
+            color=chart_colors[i % len(chart_colors)],
+            hatch=chart_hatches[i % len(chart_hatches)],
             alpha=0.85,
         )
 
@@ -305,7 +345,7 @@ def _fig_subject_breakdown(
     ax.grid(axis="y", linestyle="--", alpha=0.5)
     fig.tight_layout()
 
-    out = os.path.join(figures_dir, "subject_breakdown")
+    out = os.path.join(figures_dir, _RG["fig_subject_breakdown_basename"])
     _save_fig(fig, out)
     return out
 
@@ -381,9 +421,9 @@ def _alpha_table(ablation_data: dict) -> str:
 
 
 def _subject_table(breakdown: dict[str, dict[str, float]]) -> str:
-    subjects = ["数学分析", "概率论", "高等代数"]
-    header = "| 方法 | 数学分析 | 概率论 | 高等代数 |\n"
-    header += "|------|----------|--------|----------|\n"
+    subjects = list(_RG["report_subject_breakdown_subjects_zh"])
+    header = "| 方法 | " + " | ".join(subjects) + " |\n"
+    header += "|------" + "|----------" * len(subjects) + "|\n"
     rows = []
     for method, subj_map in breakdown.items():
         row = (
@@ -556,7 +596,7 @@ def generate_report(
 
 > 注：加粗行为最优方法（BM25+）；延迟为单查询平均耗时（ms）。
 >
-> 图表见：`outputs/figures/method_comparison.pdf`
+> 图表见：`{_RG["report_doc_figures_display_prefix"]}/{_RG["fig_method_comparison_basename"]}.pdf`
 
 **主要发现：**
 
@@ -573,7 +613,7 @@ def generate_report(
 
 {_topk_table(ablation_data)}
 
-> **← 标记推荐值**；图表见：`outputs/figures/topk_ablation.pdf`
+> **← 标记推荐值**；图表见：`{_RG["report_doc_figures_display_prefix"]}/{_RG["fig_topk_ablation_basename"]}.pdf`
 
 **结论：** K=5 时 Recall@5 达到 52.31%，K=10 仅额外增益 0.35%（Recall@10 = 52.66%），收益递减。
 综合效率与召回，**推荐 K=5** 作为默认参数。
@@ -582,7 +622,7 @@ def generate_report(
 
 {_alpha_table(ablation_data)}
 
-> **← 标记最优值**；图表见：`outputs/figures/alpha_sensitivity.pdf`
+> **← 标记最优值**；图表见：`{_RG["report_doc_figures_display_prefix"]}/{_RG["fig_alpha_sensitivity_basename"]}.pdf`
 
 **结论：** alpha 在 0.3～0.85 范围内结果极为稳定（MAP 变化 < 0.004），
 说明当 alpha > 0（BM25+ 权重＞0）时，检索结果主要由 BM25+ 精确匹配主导，
@@ -610,7 +650,7 @@ Bootstrap 重采样次数：{sig_data.get("n_resamples", 10000)}，配对双侧 
 
 {_subject_table(breakdown)}
 
-> 图表见：`outputs/figures/subject_breakdown.pdf`
+> 图表见：`{_RG["report_doc_figures_display_prefix"]}/{_RG["fig_subject_breakdown_basename"]}.pdf`
 
 **主要发现：**
 
@@ -655,7 +695,7 @@ Bootstrap 重采样次数：{sig_data.get("n_resamples", 10000)}，配对双侧 
 
 ---
 
-*本报告由 `scripts/evaluation/generateReport.py` 自动生成，数据来源于 `outputs/log/<timestamp>/json/` 目录下的实验结果文件。*
+{_RG["report_footer_note"]}
 """
 
     with open(output_path, "w", encoding="utf-8") as f:
@@ -673,37 +713,37 @@ Bootstrap 重采样次数：{sig_data.get("n_resamples", 10000)}，配对双侧 
 
 def main() -> None:
     outputController = config.getOutputController()
+    rg = config.getReportsGenerationConfig()
+    json_dir = outputController.get_json_dir()
     parser = argparse.ArgumentParser(description="Math-RAG 评测报告生成脚本")
     parser.add_argument(
         "--results",
         type=str,
-        default=os.path.join(
-            outputController.get_json_dir(), "full_eval", "all_methods.json"
-        ),
+        default=os.path.join(json_dir, rg["report_json_all_methods_relpath"]),
         help="全量方法对比报告路径",
     )
     parser.add_argument(
         "--ablation",
         type=str,
-        default=os.path.join(outputController.get_json_dir(), "ablation_study.json"),
+        default=os.path.join(json_dir, rg["report_json_ablation_relpath"]),
         help="消融实验汇总报告路径",
     )
     parser.add_argument(
         "--significance",
         type=str,
-        default=os.path.join(outputController.get_json_dir(), "significance_test.json"),
+        default=os.path.join(json_dir, rg["report_json_significance_relpath"]),
         help="显著性检验报告路径",
     )
     parser.add_argument(
         "--queries",
         type=str,
-        default=os.path.join(config.EVALUATION_DIR, "queries_full.jsonl"),
+        default=os.path.join(config.EVALUATION_DIR, rg["queries_full_basename"]),
         help="查询集路径（含 subject 字段）",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default=os.path.join(outputController.get_json_dir(), "final_report.md"),
+        default=os.path.join(json_dir, rg["report_json_final_report_relpath"]),
         help="输出 Markdown 报告路径",
     )
     parser.add_argument(
@@ -715,9 +755,7 @@ def main() -> None:
     parser.add_argument(
         "--comparison",
         type=str,
-        default=os.path.join(
-            outputController.get_json_dir(), "comparison_results.json"
-        ),
+        default=os.path.join(json_dir, rg["report_json_comparison_relpath"]),
         help="生成质量对比结果路径（来自 evalGenerationComparison.py）",
     )
     args = parser.parse_args()

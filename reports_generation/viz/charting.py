@@ -11,15 +11,23 @@ def generateComparisonChart(all_metrics: list[dict[str, Any]], output_dir: str) 
         import matplotlib.pyplot as plt
         import numpy as np
 
-        plt.rcParams["font.sans-serif"] = ["SimHei"]
+        from core.config import getReportsGenerationConfig
+
+        rg = getReportsGenerationConfig()
+        plt.rcParams["font.sans-serif"] = list(rg["chart_font_sans_serif"])
         plt.rcParams["axes.unicode_minus"] = False
 
         methods = [item["method"] for item in all_metrics]
-        recall_k = [1, 3, 5, 10]
-        ndcg_k = [3, 5, 10]
+        recall_k = list(rg["chart_recall_ks"])
+        ndcg_k = list(rg["chart_ndcg_ks"])
 
-        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-        fig.suptitle("检索评测指标对比", fontsize=16, fontweight="bold")
+        cw, ch = rg["chart_comparison_figsize"]
+        fig, axes = plt.subplots(2, 2, figsize=(float(cw), float(ch)))
+        fig.suptitle(
+            str(rg["chart_comparison_suptitle"]),
+            fontsize=int(rg["chart_comparison_suptitle_fontsize"]),
+            fontweight="bold",
+        )
 
         ax = axes[0, 0]
         x = np.arange(len(methods))
@@ -84,8 +92,12 @@ def generateComparisonChart(all_metrics: list[dict[str, Any]], output_dir: str) 
 
         plt.tight_layout()
         os.makedirs(output_dir, exist_ok=True)
-        chart_path = os.path.join(output_dir, "retrieval_comparison.png")
-        plt.savefig(chart_path, dpi=300, bbox_inches="tight")
+        chart_path = os.path.join(output_dir, rg["chart_comparison_filename"])
+        plt.savefig(
+            chart_path,
+            dpi=int(rg["chart_comparison_save_dpi"]),
+            bbox_inches="tight",
+        )
         print(f" 对比图表已保存: {chart_path}")
     except ImportError:
         print("  跳过图表生成：matplotlib 未安装")

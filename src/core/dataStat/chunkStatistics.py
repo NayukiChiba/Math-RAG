@@ -86,7 +86,10 @@ def run_statistics() -> None:
         from reports_generation.viz.visualization import HAS_MATPLOTLIB
 
         if HAS_MATPLOTLIB:
-            print(f"  • 可视化图表: {os.path.join(vizBaseDir, 'visualizations')}")
+            from core.config import getReportsGenerationConfig
+
+            _viz_sub = getReportsGenerationConfig()["viz_output_subdir"]
+            print(f"  • 可视化图表: {os.path.join(vizBaseDir, _viz_sub)}")
     except ImportError:
         pass
 

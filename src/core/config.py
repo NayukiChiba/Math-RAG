@@ -313,6 +313,214 @@ def getApiConfig() -> dict:
     }
 
 
+def _deep_merge_reports_generation(defaults: dict, override: dict) -> dict:
+    """合并 reports_generation 配置：嵌套 dict 递归合并，其余以 override 为准。"""
+    keys = set(defaults) | set(override)
+    out: dict = {}
+    for key in keys:
+        dv, ov = defaults.get(key), override.get(key)
+        if (
+            key in override
+            and key in defaults
+            and isinstance(dv, dict)
+            and isinstance(ov, dict)
+        ):
+            out[key] = _deep_merge_reports_generation(dv, ov)
+        elif key in override:
+            out[key] = ov
+        elif key in defaults:
+            out[key] = dv
+    return out
+
+
+_REPORTS_GENERATION_DEFAULTS: dict = {
+    "defense_output_subdir": "defense",
+    "defense_save_dpi": 200,
+    "defense_matplotlib_font_size": 12,
+    "defense_cjk_font_file": "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+    "chunk_statistics_basename": "chunkStatistics.json",
+    "corpus_relpath": "retrieval/corpus.jsonl",
+    "queries_basename": "queries.jsonl",
+    "queries_full_basename": "queries_full.jsonl",
+    "golden_set_basename": "golden_set.jsonl",
+    "term_mapping_basename": "term_mapping.json",
+    "report_json_all_methods_relpath": "full_eval/all_methods.json",
+    "report_json_ablation_relpath": "ablation_study.json",
+    "report_json_significance_relpath": "significance_test.json",
+    "report_json_final_report_relpath": "final_report.md",
+    "report_json_comparison_relpath": "comparison_results.json",
+    "report_doc_figures_display_prefix": "outputs/figures",
+    "report_case_examples_count": 3,
+    "report_figure_save_pdf_dpi": 300,
+    "report_figure_save_png_dpi": 200,
+    "report_method_comparison_recall_ks": [1, 3, 5, 10],
+    "report_method_comparison_figsize": [10.0, 5.5],
+    "report_topk_ablation_figsize": [7.0, 4.5],
+    "report_alpha_sensitivity_figsize": [7.0, 4.5],
+    "report_subject_breakdown_figsize": [9.0, 5.0],
+    "report_chart_colors": [
+        "#4472C4",
+        "#ED7D31",
+        "#A9D18E",
+        "#FF6B6B",
+        "#9B59B6",
+    ],
+    "report_chart_hatches": ["", "//", "\\\\", "xx", ".."],
+    "report_footer_note": (
+        "*本报告由 `reports_generation.reports.generateReport` 自动生成，"
+        "数据来源于 `outputs/log/<timestamp>/json/` 目录下的实验结果文件。*"
+    ),
+    "fig_method_comparison_basename": "method_comparison",
+    "fig_topk_ablation_basename": "topk_ablation",
+    "fig_alpha_sensitivity_basename": "alpha_sensitivity",
+    "fig_subject_breakdown_basename": "subject_breakdown",
+    "chart_comparison_filename": "retrieval_comparison.png",
+    "chart_comparison_figsize": [14.0, 10.0],
+    "chart_comparison_save_dpi": 300,
+    "chart_comparison_suptitle": "检索评测指标对比",
+    "chart_comparison_suptitle_fontsize": 16,
+    "chart_recall_ks": [1, 3, 5, 10],
+    "chart_ndcg_ks": [3, 5, 10],
+    "viz_output_subdir": "visualizations",
+    "viz_figure_dpi": 100,
+    "viz_savefig_dpi": 300,
+    "viz_figure_figsize": [12.0, 8.0],
+    "defense_matplotlib_fallback_fonts": [
+        "SimHei",
+        "WenQuanYi Micro Hei",
+        "Noto Sans CJK SC",
+        "Noto Sans SC",
+        "DejaVu Sans",
+    ],
+    "report_matplotlib_fallback_fonts": [
+        "WenQuanYi Zen Hei",
+        "Noto Sans CJK SC",
+        "SimHei",
+        "Microsoft YaHei",
+        "PingFang SC",
+    ],
+    "chart_font_sans_serif": ["SimHei"],
+    "viz_windows_font_candidates": [
+        "/mnt/c/Windows/Fonts/msyh.ttc",
+        "/mnt/c/Windows/Fonts/msyhbd.ttc",
+        "/mnt/c/Windows/Fonts/msyhl.ttc",
+        "/mnt/c/Windows/Fonts/simhei.ttf",
+        "/mnt/c/Windows/Fonts/simsun.ttc",
+        "/mnt/c/Windows/Fonts/Deng.ttf",
+    ],
+    "viz_preferred_cn_fonts": [
+        "Noto Sans CJK SC",
+        "WenQuanYi Zen Hei",
+        "WenQuanYi Micro Hei",
+        "Microsoft YaHei",
+        "SimHei",
+        "Arial Unicode MS",
+        "Droid Sans Fallback",
+    ],
+    "report_subject_breakdown_subjects_zh": ["数学分析", "概率论", "高等代数"],
+    "report_subject_breakdown_labels_en": [
+        "Math Analysis",
+        "Probability",
+        "Linear Algebra",
+    ],
+    "defense_palette": [
+        "#3B82F6",
+        "#8B5CF6",
+        "#10B981",
+        "#F59E0B",
+        "#EF4444",
+        "#EC4899",
+        "#06B6D4",
+        "#64748B",
+    ],
+    "defense_gradient_blues": [
+        "#DBEAFE",
+        "#93C5FD",
+        "#60A5FA",
+        "#3B82F6",
+        "#2563EB",
+        "#1D4ED8",
+    ],
+    "defense_gradient_multi": [
+        "#3B82F6",
+        "#8B5CF6",
+        "#EC4899",
+        "#EF4444",
+        "#F59E0B",
+        "#10B981",
+    ],
+    "defense_colors": {
+        "primary": "#3B82F6",
+        "secondary": "#8B5CF6",
+        "accent": "#10B981",
+        "warm": "#F59E0B",
+        "danger": "#EF4444",
+        "rose": "#EC4899",
+        "cyan": "#06B6D4",
+        "slate": "#64748B",
+    },
+    "quick_eval": {
+        "default_mode": "basic",
+        "basic_methods": ["bm25", "bm25plus", "hybrid_plus"],
+        "optimized_methods": [
+            "bm25_heavy",
+            "hybrid_more_recall",
+            "optimized_hybrid",
+            "optimized_rrf",
+            "optimized_advanced",
+            "extreme_rrf",
+        ],
+        "all_methods": [
+            "bm25",
+            "bm25plus",
+            "vector",
+            "hybrid_plus",
+            "hybrid_rrf",
+            "advanced",
+            "optimized_hybrid",
+            "hybrid_more_recall",
+            "bm25_heavy",
+            "bm25_ultra",
+            "optimized_rrf",
+            "extreme_rrf",
+            "optimized_advanced",
+            "advanced_no_rerank",
+            "advanced_more_rewrite",
+            "bm25plus_only",
+            "bm25plus_aggressive",
+            "vector_only",
+            "direct_lookup_hybrid",
+            "direct_lookup_rrf",
+            "direct_lookup_bm25_only",
+        ],
+    },
+    "viz_filenames": {
+        "book_distribution": "1_书籍术语分布.png",
+        "subject_distribution": "2_学科分布.png",
+        "field_coverage": "3_字段覆盖率.png",
+        "term_length": "4_长度分布.png",
+        "definition_type": "5_定义类型分布.png",
+        "dashboard": "0_综合统计面板.png",
+    },
+}
+
+
+@lru_cache(maxsize=1)
+def getReportsGenerationConfig() -> dict:
+    """
+    读取 [reports_generation] 及子表（defense_colors、quick_eval、viz_filenames），
+    与内置默认值深度合并。
+    """
+    try:
+        data = _get_config_data()
+    except Exception:
+        data = {}
+    raw = data.get("reports_generation", {}) if isinstance(data, dict) else {}
+    if not isinstance(raw, dict):
+        raw = {}
+    return _deep_merge_reports_generation(_REPORTS_GENERATION_DEFAULTS, raw)
+
+
 def getRetrievalConfig() -> dict:
     """
     获取检索模块配置
