@@ -25,6 +25,7 @@ import time
 from typing import Any, Literal
 
 import config
+from answerGeneration.generatorFactory import createGenerator
 from utils import getFileLoader
 
 _LOADER = getFileLoader()
@@ -90,17 +91,7 @@ class ExperimentRunner:
     def _initGenerator(self):
         """初始化推理实例（本地或 API）"""
         if self._generator is None:
-            engine = config.getGenerationConfig().get("engine", "local")
-            if engine == "api":
-                print(" 初始化 API 推理引擎...")
-                from answerGeneration.apiInference import ApiInference
-
-                self._generator = ApiInference()
-            else:
-                print(" 初始化本地推理引擎...")
-                from answerGeneration.localInference import LocalInference
-
-                self._generator = LocalInference()
+            self._generator = createGenerator()
         return self._generator
 
     def _initRetriever(self, strategy: str):
