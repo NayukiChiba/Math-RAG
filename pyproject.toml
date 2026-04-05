@@ -12,11 +12,20 @@ dynamic = ["dependencies"]
 
 [project.scripts]
 math-rag = "core.mathRag:main"
+math-rag-research = "research.researchMain:main"
 
 [project.optional-dependencies]
 visualization = [
 	"matplotlib>=3.8",
 	"seaborn>=0.13",
+]
+research = [
+	"matplotlib>=3.8",
+	"seaborn>=0.13",
+	"gradio>=4.0",
+	"scipy>=1.11",
+	"rouge-score>=0.1",
+	"nltk>=3.8",
 ]
 
 [tool.setuptools]
@@ -27,6 +36,7 @@ where = ["src", "."]
 include = [
 	"core*",
 	"api*",
+	"research*",
 	"reports_generation*",
 ]
 

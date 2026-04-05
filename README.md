@@ -58,52 +58,66 @@ math-rag rag --query "什么是一致收敛？"
 math-rag serve --port 7860
 ```
 
-## 统一 CLI
+## 产品线 CLI（`math-rag`）
 
 ```bash
 math-rag --help
 ```
 
-支持的子命令：
-
-| 子命令              | 说明                   |
-| ------------------- | ---------------------- |
-| `ingest`            | PDF 入库流水线         |
-| `build-index`       | 重建检索语料与索引     |
-| `generate-queries`  | 生成评测查询集         |
-| `build-term-mapping`| 构建评测术语映射       |
-| `eval-retrieval`    | 正式检索评测           |
-| `rag`               | RAG 问答               |
-| `experiments`       | 端到端对比实验         |
-| `eval-generation`   | 生成质量评测           |
-| `report`            | 生成汇总报告           |
-| `stats`             | 统计与可视化           |
-| `serve`             | 启动 WebUI             |
-
-## 常见命令示例
+| 子命令        | 说明               |
+| ------------- | ------------------ |
+| `ingest`      | PDF 入库流水线     |
+| `build-index` | 重建检索语料与索引 |
+| `rag`         | RAG 问答           |
+| `serve`       | 启动产品 WebUI     |
 
 ```bash
-# 重建索引
+math-rag ingest data/raw/数学分析.pdf
 math-rag build-index --rebuild
-
-# 生成评测数据
-math-rag generate-queries
-math-rag build-term-mapping
-
-# 正式评测
-math-rag eval-retrieval --visualize
-
-# 端到端实验
-math-rag experiments --limit 10
-
-# 生成质量评测
-math-rag eval-generation --bleu --rouge
-
-# 报告生成
-math-rag report
+math-rag rag --query "什么是一致收敛？"
+math-rag serve --port 7860
 ```
 
-## 推荐实验流程
+## 研究线 CLI（`math-rag-research`）
+
+论文实验、评测、报告生成等均通过独立 CLI 入口调用，与产品线完全解耦。
+
+```bash
+math-rag-research --help
+```
+
+| 子命令                        | 说明             |
+| ----------------------------- | ---------------- |
+| `generate-queries`            | 生成评测查询集   |
+| `build-term-mapping`          | 构建评测术语映射 |
+| `eval-retrieval`              | 正式检索评测     |
+| `experiments`                 | 端到端对比实验   |
+| `eval-generation`             | 生成质量评测     |
+| `eval-generation-comparison`  | 生成质量对比     |
+| `significance-test`           | 显著性检验       |
+| `report`                      | 生成汇总报告     |
+| `quick-eval`                  | 快速检索评测     |
+| `defense-figures`             | 生成答辩图表     |
+| `add-missing-terms`           | 补充缺失术语     |
+| `stats`                       | 统计与可视化     |
+| `serve`                       | 实验 WebUI       |
+
+```bash
+math-rag-research generate-queries
+math-rag-research eval-retrieval --visualize
+math-rag-research experiments --limit 10
+math-rag-research report
+```
+
+## 推荐流程
+
+**产品线（日常使用）：**
+
+```text
+ingest → build-index → rag / serve
+```
+
+**研究线（论文实验）：**
 
 ```text
 build-index → generate-queries → build-term-mapping
@@ -116,71 +130,74 @@ build-index → generate-queries → build-term-mapping
 
 ```text
 Math-RAG/
-├── src/                          # 全部 Python 源码
-│   ├── config.py                 # 统一配置入口
-│   ├── mathRag.py                # 统一 CLI 入口
-│   ├── answerGeneration/         # 提示模板、推理封装、RAG 流程、WebUI
-│   ├── dataGen/                  # OCR、术语抽取、结构化生成
-│   ├── dataStat/                 # 数据统计与可视化
-│   ├── evaluationData/           # 评测数据集生成
-│   ├── modelEvaluation/          # 检索评测 / 生成评测 / 快速评测
-│   ├── retrieval/                # 语料构建、查询改写、多策略检索器
-│   ├── runners/                  # 脚本编排层（实验、报告、工具）
-│   └── utils/                    # 通用工具（文件加载、输出管理）
-├── api/                          # FastAPI 服务层（v1）
-│   ├── middleware/               # 中间件
-│   └── v1/                       # 路由、模型、端点
+├── src/
+│   ├── core/                     # 产品线（RAG 核心）
+│   │   ├── config.py             # 统一配置入口
+│   │   ├── mathRag.py            # math-rag CLI 入口
+│   │   ├── cli/                  # 产品线子命令注册
+│   │   ├── answerGeneration/     # 提示模板、推理封装、RAG 管线、WebUI
+│   │   ├── dataGen/              # OCR、术语抽取、结构化生成
+│   │   ├── retrieval/            # 语料构建、查询改写、多策略检索器
+│   │   ├── runners/              # 仅 RAG 问答编排
+│   │   └── utils/                # 通用工具（文件加载、输出管理）
+│   ├── research/                 # 研究线（论文实验/评测）
+│   │   ├── researchMain.py       # math-rag-research CLI 入口
+│   │   ├── cli/                  # 研究线子命令注册
+│   │   ├── evaluationData/       # 评测数据集生成
+│   │   ├── modelEvaluation/      # 检索评测 / 生成评测
+│   │   ├── dataStat/             # 数据统计与可视化
+│   │   └── runners/              # 实验编排（experiments, evaluation, tools）
+│   └── api/                      # FastAPI 服务层（v1）
+├── reports_generation/           # 报告、快评、答辩图表
 ├── tests/                        # 测试
-├── data/                         # 数据资产
-│   ├── raw/                      # 原始 PDF
-│   ├── processed/                # OCR / 术语 / 语料 / 索引
-│   ├── evaluation/               # 评测输入数据
-│   └── stats/                    # 统计输出
-├── docs/                         # 项目文档 + API 文档
+├── data/                         # 数据资产（产品与研究共用）
+├── docs/                         # 项目文档
 ├── outputs/                      # 运行输出与日志
-├── __init__.py                   # 项目级统一导出
 ├── config.toml                   # 全局参数配置
 ├── pyproject.toml                # 构建与工具链配置
 └── requirements.txt              # 依赖清单
 ```
 
-## 核心模块说明
+## 架构约束
 
-### `src/dataGen`
+- **导入方向**：`research` / `reports_generation` 可 `import core.*`；**禁止** `core` / `api` 反向依赖 `research` 或 `reports_generation`。
+- **安装**：`pip install .` 即可运行产品线；`pip install .[research]` 额外安装论文研究所需依赖。
 
-从教材 PDF 生成结构化术语数据，流程：PDF → OCR → 术语抽取 → 结构化生成 → 过滤清洗。
+## 产品线核心模块
 
-### `src/retrieval`
+### `src/core/dataGen`
 
-语料构建、查询改写与多策略检索器实现，支持：
+从教材 PDF 生成结构化术语数据：PDF → OCR → 术语抽取 → 结构化生成 → 过滤清洗。
 
-- **BM25 / BM25+**：经典稀疏检索
-- **Vector**：基于 `bge-base-zh-v1.5` 的稠密检索
-- **Hybrid / HybridPlus**：稀疏 + 稠密融合（RRF）
-- **Reranker**：基于 `bge-reranker-v2-mixed` 的重排序
-- **Advanced**：全流程高级检索管线
+### `src/core/retrieval`
 
-### `src/answerGeneration`
+语料构建、查询改写与多策略检索器：BM25 / BM25+ / Vector / Hybrid / HybridPlus / Reranker / Advanced。
+
+### `src/core/answerGeneration`
 
 提示模板管理、多引擎推理封装（本地 / API）、RAG 端到端管线及 Gradio WebUI。
 
-### `src/modelEvaluation`
+### `src/api`
 
-三类评测路径：
+基于 FastAPI 的 REST API 服务层，提供 `/v1` 版本端点。
 
-| 模块                | 说明               |
-| ------------------- | ------------------ |
-| `quickEvalCore/`    | 快速检索评测       |
-| `retrievalEval/`    | 正式检索评测       |
-| `generationEval/`   | 生成质量评测       |
+## 研究线核心模块
 
-### `src/runners`
+### `src/research/modelEvaluation`
 
-脚本编排与工具集合，包括端到端实验、报告生成、显著性检验、答辩图表等。
+检索评测（`retrievalEval/`）、生成质量评测（`generationEval/`）。
 
-### `api/`
+### `src/research/evaluationData`
 
-基于 FastAPI 的 REST API 服务层，提供 `/v1` 版本的端点与中间件支持。
+评测查询集自动生成。
+
+### `src/research/dataStat`
+
+术语数据统计与论文级可视化图表。
+
+### `reports_generation/`
+
+快速检索评测、答辩图表、完整评测报告（Markdown + PDF/PNG 图表）。
 
 ## 配置说明
 
