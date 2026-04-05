@@ -1,4 +1,4 @@
-"""集中注册 math-rag 全部子命令与参数。"""
+"""产品线 math-rag 子命令注册。"""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         prog="math-rag",
-        description="Math-RAG 统一命令行入口",
+        description="Math-RAG 产品线命令行入口",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -69,39 +69,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     build_index.set_defaults(handler=handlers.handle_build_index)
 
-    for command, module_name, help_text in [
-        ("generate-queries", "core.evaluationData.generateQueries", "生成评测查询集"),
-        ("build-term-mapping", "core.runners.buildTermMapping", "构建评测术语映射"),
-        ("eval-retrieval", "core.modelEvaluation.evalRetrieval", "运行正式检索评测"),
-        ("rag", "core.runners.runRag", "运行 RAG 问答"),
-        ("experiments", "core.runners.runExperiments", "运行端到端对比实验"),
-        ("eval-generation", "core.modelEvaluation.evalGeneration", "运行生成质量评测"),
-        (
-            "report",
-            "reports_generation.reports.generateReport",
-            "生成最终评测报告",
-        ),
-    ]:
-        subparser = subparsers.add_parser(command, help=help_text)
-        subparser.add_argument(
-            "args", nargs=argparse.REMAINDER, help="透传给底层脚本的参数"
-        )
-        subparser.set_defaults(
-            handler=lambda parsed, target=module_name: handlers.handle_passthrough(
-                target, parsed.args
-            )
-        )
-
-    stats = subparsers.add_parser("stats", help="运行术语数据统计")
-    stats.set_defaults(handler=handlers.handle_stats)
-
-    serve = subparsers.add_parser("serve", help="启动 WebUI")
-    serve.add_argument(
-        "--target",
-        choices=["webui", "experiment-webui"],
-        default="webui",
-        help="服务目标",
+    rag = subparsers.add_parser("rag", help="运行 RAG 问答")
+    rag.add_argument(
+        "args", nargs=argparse.REMAINDER, help="透传给底层脚本的参数"
     )
+    rag.set_defaults(
+        handler=lambda parsed: handlers.handle_passthrough(
+            "core.runners.runRag", parsed.args
+        )
+    )
+
+    serve = subparsers.add_parser("serve", help="启动产品 WebUI")
     serve.add_argument("--port", type=int, default=7860, help="监听端口")
     serve.add_argument("--share", action="store_true", help="生成公网分享链接")
     serve.set_defaults(handler=handlers.handle_serve)

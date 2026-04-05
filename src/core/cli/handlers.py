@@ -1,4 +1,4 @@
-"""各子命令的实际处理逻辑。"""
+"""产品线各子命令的处理逻辑。"""
 
 from __future__ import annotations
 
@@ -149,20 +149,8 @@ def handle_passthrough(module_name: str, passthrough_args: list[str]) -> None:
 
 
 def handle_serve(args: argparse.Namespace) -> None:
-    if args.target == "webui":
-        module_name = "core.answerGeneration.webui"
-    elif args.target == "experiment-webui":
-        module_name = "core.runners.experimentWebUI"
-    else:
-        raise SystemExit(f"暂不支持的服务目标: {args.target}")
-
+    module_name = "core.answerGeneration.webui"
     passthrough = ["--port", str(args.port)]
     if args.share:
         passthrough.append("--share")
     run_module_main(module_name, passthrough)
-
-
-def handle_stats(_: argparse.Namespace) -> None:
-    from core.dataStat import run_statistics
-
-    run_statistics()
