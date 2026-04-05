@@ -538,8 +538,7 @@ def main() -> None:
     print(f"\n 已添加 {len(to_add)} 个缺失术语到语料库")
     print(f"语料库路径：{corpus_file}")
     print("\n  请重建 BM25+ 索引：")
-    print("   python retrieval/buildCorpus.py  # 如果需要重建 corpus.jsonl")
-    print("   python scripts/rebuildIndex.py  # 重建 BM25+ 索引")
+    print("   math-rag build-index --rebuild  # 重建 BM25+ 索引")
 
 
 if __name__ == "__main__":

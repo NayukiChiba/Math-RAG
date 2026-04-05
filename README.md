@@ -23,7 +23,7 @@ Math-RAG 的目标不是"只给出答案"，而是"给出可追溯答案"：
 | 项目总文档       | [docs/project.md](docs/project.md)           |
 | API 文档首页     | [docs/index.md](docs/index.md)               |
 | API 总索引       | [docs/api/index.md](docs/api/index.md)       |
-| Runners 模块说明 | [src/runners/README.md](src/runners/README.md) |
+| Runners 模块说明 | [src/core/runners/README.md](src/core/runners/README.md) |
 
 ## 快速开始
 

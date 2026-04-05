@@ -44,7 +44,6 @@ __all__ = [
     "evaluateGeneration",
     "evaluateRetrievalMethod",
     "findBestWorstExamples",
-    "generateComparisonChart",
     "loadGoldQueries",
     "loadQueries",
     "loadRagResults",
