@@ -57,7 +57,7 @@ class ApiInference:
         if not self.apiKey:
             raise ValueError(f"未找到 API 密钥，请在环境或 .env 文件中配置 {apiKeyEnv}")
 
-        print(f" 初始化 API 客户端: {self.apiBase} | 模型: {self.modelName}")
+        print(" 初始化 API 推理客户端")
         self.client = OpenAI(
             api_key=self.apiKey,
             base_url=self.apiBase,

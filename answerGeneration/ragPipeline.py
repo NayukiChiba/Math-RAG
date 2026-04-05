@@ -30,6 +30,7 @@ from typing import Any, Literal
 
 # 路径调整
 import config
+from answerGeneration.generatorFactory import createGenerator
 from answerGeneration.promptTemplates import buildMessages
 from retrieval.retrieverModules import (
     BM25Retriever,
@@ -287,20 +288,7 @@ class RagPipeline:
         if self._generator is not None:
             return
 
-        engine = config.getGenerationConfig().get("engine", "local")
-
-        if engine == "api":
-            print("初始化 API 推理引擎...")
-            from answerGeneration.apiInference import ApiInference
-
-            self._generator = ApiInference()
-            print("API 初始化完成")
-        else:
-            print("初始化本地推理引擎...")
-            from answerGeneration.localInference import LocalInference
-
-            self._generator = LocalInference()
-            print("本地推理引擎初始化完成")
+        self._generator = createGenerator()
 
     def _retrieve(self, queryText: str) -> list[dict[str, Any]]:
         """

@@ -27,6 +27,7 @@
     response = model.generateFromMessages(messages)
 """
 
+import inspect
 import os
 import warnings
 
@@ -158,14 +159,20 @@ class LocalInference:
             "device_map": deviceMap,
             "trust_remote_code": True,
         }
+        # 兼容不同 transformers 版本：有的使用 torch_dtype，有的使用 dtype。
+        fromPretrainedParams = inspect.signature(
+            AutoModelForCausalLM.from_pretrained
+        ).parameters
+        dtypeKey = "dtype" if "dtype" in fromPretrainedParams else "torch_dtype"
+
         # 非量化模型需要指定 dtype
         if not os.path.isfile(cfgPath):
-            loadKwargs["dtype"] = (
+            loadKwargs[dtypeKey] = (
                 torch.float16 if torch.cuda.is_available() else torch.float32
             )
         else:
             if "quantization_config" not in modelCfg:
-                loadKwargs["dtype"] = (
+                loadKwargs[dtypeKey] = (
                     torch.float16 if torch.cuda.is_available() else torch.float32
                 )
 

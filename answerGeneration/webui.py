@@ -40,15 +40,9 @@ def getGeneratorInstance():
     """获取或创建推理实例（单例模式，根据 engine 配置选择 API 或本地）"""
     global _generatorInstance
     if _generatorInstance is None:
-        engine = config.getGenerationConfig().get("engine", "local")
-        if engine == "api":
-            from answerGeneration.apiInference import ApiInference
+        from answerGeneration.generatorFactory import createGenerator
 
-            _generatorInstance = ApiInference()
-        else:
-            from answerGeneration.localInference import LocalInference
-
-            _generatorInstance = LocalInference()
+        _generatorInstance = createGenerator()
     return _generatorInstance
 
 

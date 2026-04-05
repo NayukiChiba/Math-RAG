@@ -104,6 +104,24 @@ def save_fig(fig, name):
     print(f"  ✅ {name}")
 
 
+def buildBarColors(baseColors, count, tailColor=None):
+    """构造与柱状图数量严格一致的颜色列表。"""
+    if count <= 0:
+        return []
+
+    colors = list(baseColors)
+    if not colors:
+        colors = ["#3B82F6"]
+
+    while len(colors) < count:
+        colors.extend(baseColors if baseColors else colors)
+
+    colors = colors[:count]
+    if tailColor is not None:
+        colors[-1] = tailColor
+    return colors
+
+
 # ═══════════════════════════════════════════════════════════
 #  图 1：各教材术语数量分布（饼图 + 柱状图组合）
 # ═══════════════════════════════════════════════════════════
@@ -401,7 +419,11 @@ def fig05_term_length_distribution(stats):
     bars = ax.bar(
         percentiles.keys(),
         percentiles.values(),
-        color=GRADIENT_BLUES[: len(percentiles)] + [COLORS["danger"]],
+        color=buildBarColors(
+            baseColors=GRADIENT_BLUES,
+            count=len(percentiles),
+            tailColor=COLORS["danger"],
+        ),
         edgecolor="white",
         width=0.55,
     )
@@ -963,7 +985,11 @@ def fig14_formula_related_terms(stats):
     bars1 = ax1.bar(
         perc_labels,
         formula_vals,
-        color=GRADIENT_BLUES[:7] + [COLORS["danger"]],
+        color=buildBarColors(
+            baseColors=GRADIENT_BLUES,
+            count=len(formula_vals),
+            tailColor=COLORS["danger"],
+        ),
         edgecolor="white",
         width=0.55,
     )
@@ -1000,7 +1026,11 @@ def fig14_formula_related_terms(stats):
     bars2 = ax2.bar(
         perc_labels,
         related_vals,
-        color=GRADIENT_BLUES[:7] + [COLORS["danger"]],
+        color=buildBarColors(
+            baseColors=GRADIENT_BLUES,
+            count=len(related_vals),
+            tailColor=COLORS["danger"],
+        ),
         edgecolor="white",
         width=0.55,
     )
