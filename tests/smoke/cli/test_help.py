@@ -10,9 +10,19 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def _run_help(module: str) -> None:
+def _pythonpath_with_repo() -> str:
+    """在保留现有 PYTHONPATH 的前提下，将 src 与仓库根置于靠前搜索顺序。"""
     src = str(_REPO_ROOT / "src")
-    env = {**os.environ, "PYTHONPATH": f"{src}{os.pathsep}{_REPO_ROOT}"}
+    root = str(_REPO_ROOT)
+    existing = os.environ.get("PYTHONPATH", "")
+    parts = [src, root]
+    if existing.strip():
+        parts.append(existing)
+    return os.pathsep.join(parts)
+
+
+def _run_help(module: str) -> None:
+    env = {**os.environ, "PYTHONPATH": _pythonpath_with_repo()}
     proc = subprocess.run(
         [sys.executable, "-m", module, "--help"],
         cwd=_REPO_ROOT,
