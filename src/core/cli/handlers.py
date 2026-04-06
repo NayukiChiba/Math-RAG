@@ -8,6 +8,7 @@ import shutil
 from pathlib import Path
 
 from core import config
+from core.cli.errors import CliUserError
 from core.cli.runner import run_module_main
 
 
@@ -18,11 +19,11 @@ def materialize_pdf(pdf_arg: str) -> tuple[str, str]:
 
     if source.exists():
         if source.suffix.lower() != ".pdf":
-            raise SystemExit(f"仅支持 PDF 文件: {source}")
+            raise CliUserError(f"仅支持 PDF 文件: {source}")
         target = raw_dir / source.name
         if source.resolve() != target.resolve():
             if target.exists():
-                raise SystemExit(
+                raise CliUserError(
                     f"目标文件已存在，拒绝覆盖: {target}。"
                     "请改名后重试，或直接传入 raw 目录中的现有文件名。"
                 )
@@ -34,7 +35,7 @@ def materialize_pdf(pdf_arg: str) -> tuple[str, str]:
         target_name = pdf_arg if pdf_arg.lower().endswith(".pdf") else f"{pdf_arg}.pdf"
         target = raw_dir / target_name
         if not target.exists():
-            raise SystemExit(f"未找到 PDF: {pdf_arg}")
+            raise CliUserError(f"未找到 PDF: {pdf_arg}")
         print(f" 使用 raw 目录中的 PDF: {target}")
 
     return target.name, target.stem
