@@ -27,4 +27,6 @@ def run_module_main(module_name: str, argv: list[str] | None = None) -> None:
         cli_argv.extend(argv)
 
     with temporary_argv(cli_argv):
-        module.main()
+        rc = module.main()
+    if isinstance(rc, int):
+        raise SystemExit(rc)
