@@ -1,44 +1,64 @@
-# tests - 测试
+# 测试说明（仅本地）
 
-检索系统单元测试与调参脚本。
+本目录为**本地**冒烟、流水线与（可选）端到端测试。**未配置 CI 自动跑测试**；请在开发机上按需执行。
 
-## 模块结构
+## 目录结构（摘要）
 
-```
-tests/
-└── testRetrievalWeights.py   # 混合检索权重对比测试
-```
+| 路径 | 作用 |
+|------|------|
+| `conftest.py` | 共享 fixture、`MATHRAG_TEST_CHUNK_DIR` / `MATHRAG_RUN_E2E` 等约定 |
+| `fixtures/chunk_snapshot/` | 与 `data/processed/chunk` 同形的最小术语 JSON 快照 |
+| `smoke/` | 导入、解耦、CLI `--help`、配置可读 |
+| `pipeline/` | 从 chunk 构建语料、BM25、检索逻辑、Mock 生成器的 RAG |
+| `pipeline_raw/` | 从 raw PDF 起步的慢测占位（`slow` + `raw_pipeline`） |
+| `research/` | 研究线子模块（如检索指标） |
+| `reports/` | `reports_generation` 可导入性 |
+| `api/` | API 占位模块 |
+| `e2e/` | 全链路占位（默认跳过，见下文） |
 
-## testRetrievalWeights.py
+## 环境变量
 
-对比不同混合检索配置的 Recall@5 和 MRR，**不启动 Qwen 模型**，可快速运行。
+| 变量 | 含义 |
+|------|------|
+| `MATHRAG_TEST_CHUNK_DIR` | 覆盖默认 chunk 快照目录（指向与 `data/processed/chunk` 同形的目录） |
+| `MATHRAG_RUN_E2E=1` | 启用 `e2e` 标记用例（需在对应测试中自行实现断言） |
 
-**测试配置**：
+## 运行示例
 
-| 策略 | alpha（BM25） | beta（向量） |
-|------|---------------|-------------|
-| hybrid-0.5/0.5（旧） | 0.5 | 0.5 |
-| hybrid-0.7/0.3（新） | 0.7 | 0.3 |
-| hybrid-rrf | RRF 融合 | — |
-
-**运行前提**：
-- 检索索引已构建（`bm25_index.pkl`, `vector_index.faiss`, `vector_embeddings.npz`）
-- 评测查询集存在（`data/evaluation/queries.jsonl`）
-- 依赖：`rank_bm25`, `faiss-cpu`, `sentence-transformers`
-
-**运行**：
+在项目根目录：
 
 ```bash
-python tests/testRetrievalWeights.py
+# 全部测试（会跳过标记为 skip 的占位用例）
+pytest tests
+
+# 仅冒烟
+pytest tests/smoke
+
+# 排除慢测
+pytest tests -m "not slow"
+
+# 注册 markers 见 pyproject.toml [tool.pytest.ini_options]
 ```
 
-**输出示例**：
+## 依赖
 
-```
-策略                     Recall@5      Recall@3       MRR
-hybrid-0.5/0.5 (旧)       28.32%        18.45%      0.6123
-hybrid-0.7/0.3 (新)       30.14%        20.12%      0.6345
-hybrid-rrf      (新)       29.87%        19.78%      0.6289
+- 需要 **`pytest`**。若使用 conda 环境（例如名为 `MathRag`），可先安装：  
+  `conda run -n MathRag pip install pytest`  
+  或在项目根执行：  
+  `conda run -n MathRag pip install -e ".[dev]"`（使用 `pyproject.toml` 中的 `dev` 可选依赖）。
+- 默认测试需要 **`rank_bm25`**（与主项目 `requirements.txt` 一致）。未安装时，BM25 相关用例会通过 `pytest.importorskip` 跳过。
+
+## 用真实 chunk 快照
+
+将完整流水线跑出的 `data/processed/chunk` 复制到本仓库外任意目录后：
+
+```bash
+set MATHRAG_TEST_CHUNK_DIR=D:\path\to\chunk
+pytest tests/pipeline
 ```
 
-> 如果 faiss 或 sentence-transformers 未安装，向量相关检索器将不可用，测试会跳过对应配置。
+（Linux/macOS 使用 `export`。）
+
+## 历史脚本
+
+原先独立的 `tests/testRetrievalWeights.py`（若仍存在）为**脚本式**权重对比，不是 pytest 用例；用法见其文件内说明。
