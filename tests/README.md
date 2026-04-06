@@ -14,14 +14,14 @@
 | `research/` | 研究线子模块（如检索指标） |
 | `reports/` | `reports_generation` 可导入性 |
 | `api/` | API 占位模块 |
-| `e2e/` | 全链路占位（默认跳过，见下文） |
+| `e2e/` | 全链路占位（**始终 skip**，直至实现真实断言；勿当作已覆盖 e2e） |
 
 ## 环境变量
 
 | 变量 | 含义 |
 |------|------|
 | `MATHRAG_TEST_CHUNK_DIR` | 覆盖默认 chunk 快照目录（指向与 `data/processed/chunk` 同形的目录） |
-| `MATHRAG_RUN_E2E=1` | 启用 `e2e` 标记用例（需在对应测试中自行实现断言） |
+| `MATHRAG_RUN_E2E=1` | 预留：将来可为重 e2e 用例做门控；当前 `e2e/` 仍为单一占位 skip |
 
 ## 运行示例
 
