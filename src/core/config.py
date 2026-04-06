@@ -1,9 +1,13 @@
 """项目统一配置入口。"""
 
+import copy
+import logging
 import os
 from functools import lru_cache
 
 from core.utils import OutputManager, getFileLoader, getOutputManager
+
+logger = logging.getLogger(__name__)
 
 
 def _load_toml(path):
@@ -31,6 +35,10 @@ def _get_config_data() -> dict:
     try:
         return _load_toml(CONFIG_TOML)
     except Exception:
+        logger.warning(
+            "读取 config.toml 失败，将使用空字典作为原始配置（各 get*Config 仍合并内置默认值）",
+            exc_info=True,
+        )
         return {}
 
 
@@ -505,16 +513,18 @@ _REPORTS_GENERATION_DEFAULTS: dict = {
 }
 
 
+def default_quick_eval_config() -> dict:
+    """[reports_generation.quick_eval] 内置默认方法清单，供导入期回退。"""
+    return copy.deepcopy(_REPORTS_GENERATION_DEFAULTS["quick_eval"])
+
+
 @lru_cache(maxsize=1)
 def getReportsGenerationConfig() -> dict:
     """
     读取 [reports_generation] 及子表（defense_colors、quick_eval、viz_filenames），
     与内置默认值深度合并。
     """
-    try:
-        data = _get_config_data()
-    except Exception:
-        data = {}
+    data = _get_config_data()
     raw = data.get("reports_generation", {}) if isinstance(data, dict) else {}
     if not isinstance(raw, dict):
         raw = {}
