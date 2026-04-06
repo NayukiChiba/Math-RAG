@@ -20,6 +20,19 @@ RAG 问答命令行入口
     python scripts/pipelines/runRag.py --query "什么是导数？" --topk 5 --temperature 0.1
 """
 
+from __future__ import annotations
+
+from core import config
+from core.answerGeneration.ragPipeline import RagPipeline, loadQueries, saveResults
+
+__all__ = [
+    "RagPipeline",
+    "config",
+    "loadQueries",
+    "printResult",
+    "saveResults",
+]
+
 
 def printResult(result: dict) -> None:
     """
