@@ -201,19 +201,19 @@ Math-RAG/
 
 ## 配置说明
 
-项目采用 `config.toml` + `src/config.py` 双层配置：
+项目采用 `config.toml` + `src/core/config.py` 双层配置：
 
-| 文件                | 职责                       |
-| ------------------- | -------------------------- |
-| `config.toml`       | 参数数据源（TOML 格式）    |
-| `src/config.py`     | Python 统一读取接口与路径常量 |
+| 文件                    | 职责                           |
+| ----------------------- | ------------------------------ |
+| `config.toml`           | 参数数据源（TOML 格式）        |
+| `src/core/config.py`    | Python 统一读取接口与路径常量 |
 
 常见配置段：`[paths]`、`[ocr]`、`[model]`、`[generation]`、`[retrieval]`。
 
 ## 开发与代码规范
 
 - 使用 **Ruff** 进行检查与格式化。
-- 路径统一通过 `src/config.py` 管理。
+- 路径统一通过 `src/core/config.py` 管理。
 - 提交信息遵循 `type(scope): 中文说明` 格式。
 
 ```bash
