@@ -7,17 +7,20 @@ RAG 问答命令行入口
 3. 检索策略可切换（BM25 / 向量 / 混合）
 
 使用方法：
-    # 单条查询
-    python scripts/pipelines/runRag.py --query "什么是一致收敛？"
+    # 单条查询（推荐经统一 CLI；在「rag」子命令后使用 -- 再写底层参数）
+    math-rag rag -- --query "什么是一致收敛？"
+
+    # 或直接以模块方式运行
+    python -m core.runners.pipelines.runRag --query "什么是一致收敛？"
 
     # 批量查询
-    python scripts/pipelines/runRag.py --query-file queries.txt --output outputs/rag_results.jsonl
+    math-rag rag -- --query-file queries.txt --output outputs/rag_results.jsonl
 
     # 指定检索策略
-    python scripts/pipelines/runRag.py --query "什么是极限？" --strategy bm25
+    math-rag rag -- --query "什么是极限？" --strategy bm25
 
     # 调整参数
-    python scripts/pipelines/runRag.py --query "什么是导数？" --topk 5 --temperature 0.1
+    math-rag rag -- --query "什么是导数？" --topk 5 --temperature 0.1
 """
 
 from __future__ import annotations

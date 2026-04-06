@@ -15,17 +15,20 @@ def main(argv: list[str] | None = None) -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  # 单条查询
-  python scripts/runRag.py --query "什么是一致收敛？"
+  # 单条查询（推荐经统一 CLI）
+  math-rag rag -- --query "什么是一致收敛？"
+
+  # 或直接以模块方式运行
+  python -m core.runners.runRag --query "什么是一致收敛？"
 
   # 批量查询
-  python scripts/runRag.py --query-file queries.txt
+  math-rag rag -- --query-file queries.txt
 
   # 使用 BM25 检索
-  python scripts/runRag.py --query "什么是极限？" --strategy bm25
+  math-rag rag -- --query "什么是极限？" --strategy bm25
 
   # 使用向量检索
-  python scripts/runRag.py --query "什么是极限？" --strategy vector
+  math-rag rag -- --query "什么是极限？" --strategy vector
         """,
     )
 
