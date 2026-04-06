@@ -11,20 +11,59 @@ requires-python = ">=3.11"
 dynamic = ["dependencies"]
 
 [project.scripts]
-math-rag = "mathRag:main"
+math-rag = "core.mathRag:main"
+math-rag-research = "research.researchMain:main"
+
+[project.optional-dependencies]
+dev = [
+	"pytest>=8.0",
+]
+visualization = [
+	"matplotlib>=3.8",
+	"seaborn>=0.13",
+]
+research = [
+	"matplotlib>=3.8",
+	"seaborn>=0.13",
+	"gradio>=4.0",
+	"scipy>=1.11",
+	"rouge-score>=0.1",
+	"nltk>=3.8",
+]
 
 [tool.setuptools]
-py-modules = ["config", "mathRag"]
+py-modules = []
 
 [tool.setuptools.packages.find]
-include = ["dataGen", "dataStat", "modelEvaluation", "answerGeneration", "evaluationData", "retrieval", "scripts", "utils"]
+where = ["src", "."]
+include = [
+	"core*",
+	"api*",
+	"research*",
+	"reports_generation*",
+]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+markers = [
+	"slow: 耗时或依赖外部大数据",
+	"e2e: 全链路或真实模型",
+	"raw_pipeline: 从 raw 起步的集成流水线",
+]
+filterwarnings = [
+	"ignore:builtin type SwigPyPacked has no __module__:DeprecationWarning",
+	"ignore:builtin type SwigPyObject has no __module__:DeprecationWarning",
+	"ignore:builtin type swigvarlink has no __module__:DeprecationWarning",
+]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 88
+src = ["src", "."]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]

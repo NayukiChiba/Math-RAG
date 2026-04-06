@@ -1,0 +1,15 @@
+{
+  "id": "fixture-limit-001",
+  "term": "极限",
+  "subject": "数学分析",
+  "aliases": ["函数的极限"],
+  "definitions": [
+    {
+      "type": "strict",
+      "text": "若对任意 ε>0，存在 δ>0，使得当 0<|x-a|<δ 时 |f(x)-A|<ε，则称 A 为函数在 a 点的极限。",
+      "conditions": "",
+      "notation": ""
+    }
+  ],
+  "sources": ["FixtureBook 第1页"]
+}
