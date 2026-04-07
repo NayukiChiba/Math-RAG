@@ -66,6 +66,16 @@ def build_parser() -> argparse.ArgumentParser:
             "生成最终评测报告",
         ),
         (
+            "full-reports",
+            "research.runners.fullReports",
+            "全量评测：日志在 outputs/log/<run_id>，定稿在 outputs/reports/",
+        ),
+        (
+            "publish-reports",
+            "research.runners.publishReports",
+            "从已有 log 跑次发布定稿到 outputs/reports/",
+        ),
+        (
             "quick-eval",
             "reports_generation.quick_eval.quickEval",
             "快速检索评测",

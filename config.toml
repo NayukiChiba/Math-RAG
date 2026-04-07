@@ -10,9 +10,12 @@ chunk_dir = "data/processed/chunk"
 evaluation_dir = "data/evaluation"
 stats_dir = "data/stats"
 outputs_dir = "outputs"
+# 时间戳跑次根目录（评测原始 JSON、run_trace、exports）
 log_base_dir = "outputs/log"
 figures_dir = "outputs/figures"
 logs_dir = "outputs/log"
+# 定稿发布根目录（final_report、figures、conclusions、json 快照），无时间戳子目录
+reports_base_dir = "outputs/reports"
 rag_results_file = "outputs/rag_results.jsonl"
 model_output_json = "data/processed/ma_terms_model.json"
 # OCR 分页输出：processed/ocr/{书名}/pages/
@@ -274,7 +277,7 @@ report_alpha_sensitivity_figsize = [7.0, 4.5]
 report_subject_breakdown_figsize = [9.0, 5.0]
 report_chart_colors = ["#4472C4", "#ED7D31", "#A9D18E", "#FF6B6B", "#9B59B6"]
 report_chart_hatches = ["", "//", "\\\\", "xx", ".."]
-report_footer_note = "*本报告由 `reports_generation.reports.generateReport` 自动生成，数据来源于 `outputs/log/<timestamp>/json/` 目录下的实验结果文件。*"
+report_footer_note = "*本报告由 `reports_generation.reports.generateReport` 自动生成。定稿与图表见 `outputs/reports/`；原始跑次与完整 JSON 见 `outputs/log/<run_id>/`。*"
 
 fig_method_comparison_basename = "method_comparison"
 fig_topk_ablation_basename = "topk_ablation"

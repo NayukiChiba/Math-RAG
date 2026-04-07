@@ -19,10 +19,11 @@
 | `EVALUATION_DIR` | 评测数据目录 |
 | `STATS_DIR` | 统计报告与图表目录 |
 | `OUTPUTS_DIR` | 实验输出根目录 |
-| `LOG_BASE_DIR` | 运行日志与报告根目录 |
-| `REPORTS_BASE_DIR` | 同 `LOG_BASE_DIR`（兼容旧代码） |
-| `FIGURES_DIR` | 论文图表目录 |
-| `LOGS_DIR` | 日志目录 |
+| `LOG_BASE_DIR` | 时间戳实验跑次根目录（`outputs/log/`，含 `run_id/json` 等） |
+| `REPORTS_BASE_DIR` | 定稿发布根目录（`outputs/reports/`，无时间戳；报告与对外 JSON 快照） |
+| `REPORTS_PUBLISH_DIR` | 与 `REPORTS_BASE_DIR` 相同（别名，语义强调「发布」） |
+| `FIGURES_DIR` | 全局图表目录（如答辩图脚本默认输出） |
+| `LOGS_DIR` | 日志目录（通常与 `LOG_BASE_DIR` 一致） |
 | `RAG_RESULTS_FILE` | RAG 问答结果文件 |
 
 所有路径均为绝对路径，由 `config.toml [paths]` 配置并相对项目根解析。

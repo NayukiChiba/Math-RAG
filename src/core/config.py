@@ -57,7 +57,7 @@ def getPathsConfig() -> dict[str, str]:
         "stats_dir": "data/stats",
         "outputs_dir": "outputs",
         "log_base_dir": "outputs/log",
-        "reports_base_dir": "outputs/log",
+        "reports_base_dir": "outputs/reports",
         "figures_dir": "outputs/figures",
         "logs_dir": "outputs/log",
         "rag_results_file": "outputs/rag_results.jsonl",
@@ -80,21 +80,13 @@ def getPathsConfig() -> dict[str, str]:
 
     resolved = {}
     for key in supported_keys:
-        if key == "log_base_dir":
-            rawValue = paths_cfg.get(
-                "log_base_dir",
-                paths_cfg.get("reports_base_dir", defaults["log_base_dir"]),
-            )
-        else:
-            rawValue = paths_cfg.get(key, defaults[key])
+        rawValue = paths_cfg.get(key, defaults[key])
         value = str(rawValue).strip()
         if key.endswith("_dir") or key.endswith("_file"):
             resolved[key] = _resolve_path(value)
         else:
             resolved[key] = value
 
-    # 兼容旧代码中对 REPORTS_BASE_DIR 的读取，统一映射到 log_base_dir
-    resolved["reports_base_dir"] = resolved["log_base_dir"]
     return resolved
 
 
@@ -115,6 +107,7 @@ STATS_DIR = _PATHS["stats_dir"]
 OUTPUTS_DIR = _PATHS["outputs_dir"]
 LOG_BASE_DIR = _PATHS["log_base_dir"]
 REPORTS_BASE_DIR = _PATHS["reports_base_dir"]
+REPORTS_PUBLISH_DIR = REPORTS_BASE_DIR
 FIGURES_DIR = _PATHS["figures_dir"]
 LOGS_DIR = _PATHS["logs_dir"]
 RAG_RESULTS_FILE = _PATHS["rag_results_file"]
@@ -375,8 +368,8 @@ _REPORTS_GENERATION_DEFAULTS: dict = {
     ],
     "report_chart_hatches": ["", "//", "\\\\", "xx", ".."],
     "report_footer_note": (
-        "*本报告由 `reports_generation.reports.generateReport` 自动生成，"
-        "数据来源于 `outputs/log/<timestamp>/json/` 目录下的实验结果文件。*"
+        "*本报告由 `reports_generation.reports.generateReport` 自动生成。"
+        "定稿与图表见 `outputs/reports/`；原始跑次与完整 JSON 见 `outputs/log/<run_id>/`。*"
     ),
     "fig_method_comparison_basename": "method_comparison",
     "fig_topk_ablation_basename": "topk_ablation",
