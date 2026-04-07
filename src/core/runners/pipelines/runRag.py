@@ -78,7 +78,7 @@ def printResult(result: dict) -> None:
 
     # 耗时
     latency = result.get("latency", {})
-    print("\n⏱耗时:")
+    print("\n[TIME] 耗时:")
     print(f"  检索: {latency.get('retrieval_ms', 0)} ms")
     print(f"  生成: {latency.get('generation_ms', 0)} ms")
     print(f"  总计: {latency.get('total_ms', 0)} ms")

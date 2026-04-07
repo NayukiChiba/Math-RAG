@@ -112,7 +112,7 @@ def evaluateMethod(
         metrics["ndcg@5"].append(calculateNDCG(results, relevant_terms, 5))
         metrics["ndcg@10"].append(calculateNDCG(results, relevant_terms, 10))
 
-        print(f"    ⏱  查询时间: {query_time * 1000:.2f}ms")
+        print(f"    [TIME] 查询时间: {query_time * 1000:.2f}ms")
 
     metrics["avg_query_time"] = _avg(query_times)
     avg_metrics = {

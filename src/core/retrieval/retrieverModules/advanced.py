@@ -335,7 +335,7 @@ class AdvancedRetriever:
             )
 
         endTime = time.time()
-        print(f"⏱  检索耗时：{(endTime - startTime) * 1000:.2f}ms")
+        print(f"[TIME] 检索耗时：{(endTime - startTime) * 1000:.2f}ms")
 
         return results
 
