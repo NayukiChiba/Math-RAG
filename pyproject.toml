@@ -38,7 +38,6 @@ py-modules = []
 where = ["src", "."]
 include = [
 	"core*",
-	"api*",
 	"research*",
 	"reports_generation*",
 ]

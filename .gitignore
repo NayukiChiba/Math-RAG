@@ -226,5 +226,5 @@ data/
 tmp/
 
 # 产物：config [paths] 中 log_base_dir=outputs/log（时间戳跑次），reports_base_dir=outputs/reports（定稿）
-outputs/
+log/
 .vscode
