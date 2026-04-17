@@ -53,6 +53,7 @@ Math-RAG/
 ├── data/                     # 数据资产
 ├── outputs/
 │   ├── log/                  # 时间戳实验跑次
-│   └/reports/              # 定稿报告与图表
+│   └── reports/              # 定稿报告与图表
 └── config.toml               # 全局配置
 ```
+

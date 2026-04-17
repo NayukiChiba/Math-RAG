@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
+  base: '/Math-RAG/',
   title: 'Math-RAG',
   description: '面向数学术语问答的检索增强生成系统',
   lang: 'zh-CN',
@@ -8,7 +9,7 @@ export default defineConfig({
   cleanUrls: true,
 
   head: [
-    ['link', { rel: 'icon', href: '/favicon.ico' }],
+    ['link', { rel: 'icon', href: '/favicon.svg' }],
   ],
 
   themeConfig: {
@@ -287,3 +288,4 @@ export default defineConfig({
     },
   },
 })
+
