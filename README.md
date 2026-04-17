@@ -67,6 +67,24 @@ python main.py research --help # 研究线子命令列表
 python main.py ui --help       # WebUI 选项
 ```
 
+## 文档
+
+文档站点使用 [VitePress](https://vitepress.dev) 构建，通过 GitHub Actions 自动发布到 GitHub Pages。
+
+```bash
+npm install
+npm run docs:dev      # 本地开发预览（http://localhost:5173）
+npm run docs:build    # 构建静态站点
+npm run docs:preview  # 预览构建产物
+```
+
+| 目录 | 说明 |
+|------|------|
+| `docs/guide/` | 快速开始、安装、CLI 用法、配置 |
+| `docs/core/` | 产品线核心模块文档 |
+| `docs/research/` | 研究线评测与实验文档 |
+| `docs/reports/` | 报告与答辩图表生成 |
+
 ## 产品线（`python main.py cli`）
 
 | 子命令        | 说明                       |
