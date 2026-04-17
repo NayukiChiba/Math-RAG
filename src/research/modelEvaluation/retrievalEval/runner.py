@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import time
 from collections import defaultdict
 from typing import Any
@@ -59,6 +60,13 @@ def runEvalRetrieval(args: Any) -> int:
     - 0: 评测成功。
     - 1: 评测失败（例如无有效查询、检索器初始化失败、无可用结果）。
     """
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:  # noqa: BLE001
+                pass
+
     print("=" * 60)
     print(" Math-RAG 检索评测")
     print("=" * 60)

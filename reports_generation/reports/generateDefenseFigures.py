@@ -80,7 +80,7 @@ def save_fig(fig, name):
         edgecolor="none",
     )
     plt.close(fig)
-    print(f"  ✅ {name}")
+    print(f"  [OK] {name}")
 
 
 def buildBarColors(baseColors, count, tailColor=None):
@@ -678,7 +678,7 @@ def fig09_retrieval_strategy_comparison():
 
     # 注释
     ax.annotate(
-        "⚠️ 模拟数据，请替换为真实实验结果",
+        "[WARN] 模拟数据，请替换为真实实验结果",
         xy=(0.5, 0.01),
         xycoords="axes fraction",
         fontsize=9,
@@ -752,7 +752,7 @@ def fig10_hybrid_weight_sensitivity():
     ax.spines["right"].set_visible(False)
     ax.grid(True, alpha=0.2)
     ax.annotate(
-        "⚠️ 模拟数据，请替换为真实实验结果",
+        "[WARN] 模拟数据，请替换为真实实验结果",
         xy=(0.5, 0.01),
         xycoords="axes fraction",
         fontsize=9,
@@ -813,7 +813,7 @@ def fig11_topk_recall_curve():
     ax.spines["right"].set_visible(False)
     ax.grid(True, alpha=0.2)
     ax.annotate(
-        "⚠️ 模拟数据，请替换为真实实验结果",
+        "[WARN] 模拟数据，请替换为真实实验结果",
         xy=(0.5, 0.01),
         xycoords="axes fraction",
         fontsize=9,
@@ -1185,7 +1185,7 @@ def main():
     print("=" * 60)
 
     # 加载数据
-    print("\n📂 加载数据...")
+    print("\n[INFO] 加载数据...")
     stats = load_json(STATS_FILE)
     print(f"  chunkStatistics.json: {stats['summary']['totalTerms']} 个术语")
 
@@ -1196,7 +1196,7 @@ def main():
     print(f"  golden_set.jsonl: {len(golden_set)} 条评测查询")
 
     # 生成图表
-    print("\n📊 生成图表...")
+    print("\n[INFO] 生成图表...")
 
     fig01_terms_by_book(stats)
     fig02_terms_by_subject(stats)
@@ -1215,8 +1215,8 @@ def main():
     fig15_corpus_heatmap(corpus)
     fig16_system_dashboard(stats, corpus, golden_set)
 
-    print("\n✅ 全部完成！共生成 16 张图表")
-    print(f"📁 输出目录: {OUTPUT_DIR}")
+    print("\n[OK] 全部完成！共生成 16 张图表")
+    print(f"[INFO] 输出目录: {OUTPUT_DIR}")
     print("\n提示：图 9/10/11 为模拟数据，请运行实验后替换为真实结果。")
 
 

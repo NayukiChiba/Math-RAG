@@ -49,8 +49,19 @@ class OutputManager:
         return self._text_dir
 
     def normalize_json_path(self, path: str | None, default_name: str) -> str:
-        """将任意路径归一化到 JSON 目录。"""
-        filename = os.path.basename(path or "").strip() or default_name
+        """将任意路径归一化到 JSON 目录。
+
+        若传入已存在的绝对路径且其父目录名为 ``json``，则保留该目录（便于向指定
+        ``outputs/log/<run_id>/json/`` 回写结果，而不会被重定向到新的时间戳目录）。
+        """
+        raw = (path or "").strip()
+        filename = os.path.basename(raw) or default_name
+        if raw and os.path.isabs(raw):
+            parent = os.path.abspath(os.path.dirname(raw))
+            if os.path.basename(parent) == "json" and os.path.isdir(parent):
+                target = os.path.join(parent, filename)
+                os.makedirs(parent, exist_ok=True)
+                return target
         return os.path.join(self.get_json_dir(), filename)
 
     def normalize_text_path(self, path: str | None, default_name: str) -> str:
