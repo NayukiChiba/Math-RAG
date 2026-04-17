@@ -14,14 +14,14 @@
 | `research/` | 研究线子模块（如检索指标） |
 | `reports/` | `reports_generation` 可导入性 |
 | `api/` | API 占位模块 |
-| `e2e/` | 全链路占位（**始终 skip**，直至实现真实断言；勿当作已覆盖 e2e） |
+| `e2e/` | **门控**最小全链路：`MATHRAG_RUN_E2E=1` 时跑 BM25 + Mock 生成器的 `RagPipeline`（见 `test_minimal_rag_e2e.py`）；默认 skip |
 
 ## 环境变量
 
 | 变量 | 含义 |
 |------|------|
 | `MATHRAG_TEST_CHUNK_DIR` | 覆盖默认 chunk 快照目录（指向与 `data/processed/chunk` 同形的目录） |
-| `MATHRAG_RUN_E2E=1` | 预留：将来可为重 e2e 用例做门控；当前 `e2e/` 仍为单一占位 skip |
+| `MATHRAG_RUN_E2E=1` | 开启后执行 `e2e/` 下门控用例（BM25 + Mock，不加载真实大模型）；未设置时该用例 skip |
 
 ## 运行示例
 
@@ -38,6 +38,12 @@ pytest tests/smoke
 pytest tests -m "not slow"
 
 # 注册 markers 见 pyproject.toml [tool.pytest.ini_options]
+
+# 门控 e2e（需 rank_bm25）
+# Windows PowerShell:
+#   $env:MATHRAG_RUN_E2E = "1"; pytest tests/e2e -m e2e -q
+# Linux/macOS:
+#   MATHRAG_RUN_E2E=1 pytest tests/e2e -m e2e -q
 ```
 
 ## 依赖
