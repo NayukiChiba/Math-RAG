@@ -37,27 +37,6 @@ except Exception as error:  # noqa: BLE001
         _raise_optional_import_error("saveResults", _RAG_IMPORT_ERROR)
 
 
-try:
-    from core.answerGeneration.webui import chat, createUI, getGeneratorInstance
-    from core.answerGeneration.webui import main as run_webui
-
-    _WEBUI_IMPORT_ERROR: Exception | None = None
-except Exception as error:  # noqa: BLE001
-    _WEBUI_IMPORT_ERROR = error
-
-    def getGeneratorInstance(*args, **kwargs):  # type: ignore[no-redef]
-        _raise_optional_import_error("getGeneratorInstance", _WEBUI_IMPORT_ERROR)
-
-    def chat(*args, **kwargs):  # type: ignore[no-redef]
-        _raise_optional_import_error("chat", _WEBUI_IMPORT_ERROR)
-
-    def createUI(*args, **kwargs):  # type: ignore[no-redef]
-        _raise_optional_import_error("createUI", _WEBUI_IMPORT_ERROR)
-
-    def run_webui(*args, **kwargs):  # type: ignore[no-redef]
-        _raise_optional_import_error("run_webui", _WEBUI_IMPORT_ERROR)
-
-
 __all__ = [
     "SYSTEM_PROMPT",
     "buildPrompt",
@@ -69,8 +48,4 @@ __all__ = [
     "RagPipeline",
     "loadQueries",
     "saveResults",
-    "getGeneratorInstance",
-    "chat",
-    "createUI",
-    "run_webui",
 ]

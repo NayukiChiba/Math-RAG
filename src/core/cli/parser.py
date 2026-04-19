@@ -77,9 +77,8 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
 
-    serve = subparsers.add_parser("serve", help="启动产品 WebUI")
+    serve = subparsers.add_parser("serve", help="启动 Web UI")
     serve.add_argument("--port", type=int, default=7860, help="监听端口")
-    serve.add_argument("--share", action="store_true", help="生成公网分享链接")
     serve.set_defaults(handler=handlers.handle_serve)
 
     return parser

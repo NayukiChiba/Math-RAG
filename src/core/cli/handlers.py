@@ -110,7 +110,7 @@ def handle_ingest(args: argparse.Namespace) -> None:
     ocr_argv = [pdf_name]
     if args.ocr_start_page is not None:
         ocr_argv.append(str(args.ocr_start_page))
-    run_module_main("core.dataGen.pix2text_ocr", ocr_argv)
+    run_module_main("core.dataGen.ocrDispatcher", ocr_argv)
 
     extract_argv = [book_name]
     if args.extract_start_page is not None:
@@ -150,8 +150,6 @@ def handle_passthrough(module_name: str, passthrough_args: list[str]) -> None:
 
 
 def handle_serve(args: argparse.Namespace) -> None:
-    module_name = "core.answerGeneration.webui"
-    passthrough = ["--port", str(args.port)]
-    if args.share:
-        passthrough.append("--share")
-    run_module_main(module_name, passthrough)
+    from webui.backend.server import runServer
+
+    runServer(host="127.0.0.1", port=args.port)

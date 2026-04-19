@@ -12,11 +12,9 @@ def _handle_passthrough(module_name: str, passthrough_args: list[str]) -> None:
 
 
 def _handle_serve_experiment(args: argparse.Namespace) -> None:
-    module_name = "research.runners.experimentWebUI"
-    passthrough = ["--port", str(args.port)]
-    if args.share:
-        passthrough.append("--share")
-    run_module_main(module_name, passthrough)
+    from webui.backend.server import runServer
+
+    runServer(host="127.0.0.1", port=args.port)
 
 
 def _handle_stats(_: argparse.Namespace) -> None:
@@ -104,9 +102,8 @@ def build_parser() -> argparse.ArgumentParser:
     stats = subparsers.add_parser("stats", help="运行术语数据统计")
     stats.set_defaults(handler=_handle_stats)
 
-    serve = subparsers.add_parser("serve", help="启动实验 WebUI")
+    serve = subparsers.add_parser("serve", help="启动 Web UI")
     serve.add_argument("--port", type=int, default=7861, help="监听端口")
-    serve.add_argument("--share", action="store_true", help="生成公网分享链接")
     serve.set_defaults(handler=_handle_serve_experiment)
 
     return parser

@@ -6,7 +6,7 @@
 ----
     python main.py cli      <子命令> [参数]  # 产品线 CLI
     python main.py research <子命令> [参数]  # 研究线 CLI
-    python main.py ui       [--port N] [--share] [--research]
+    python main.py ui       [--port N] [--host H]
 
 快速示例
 --------
@@ -38,8 +38,8 @@ _CLI_COMMAND_HELP = """\
                    示例: python main.py cli rag --query "什么是一致收敛？"
                          python main.py cli rag --input data/evaluation/queries.jsonl
 
-  serve          启动产品线 Gradio WebUI（同 python main.py ui）
-                   示例: python main.py cli serve --port 7860 --share
+  serve          启动 Web UI（同 python main.py ui）
+                   示例: python main.py cli serve --port 7860
 """
 
 # ── 研究线 CLI 子命令说明（与 src/research/cli/parser.py 对应） ──────────
@@ -73,16 +73,16 @@ _RESEARCH_COMMAND_HELP = """\
   generate-queries            生成评测查询集
   build-term-mapping          构建评测术语映射
   stats                       术语与语料统计可视化
-  serve                       启动研究线实验对比 Gradio WebUI
+  serve                       启动 Web UI（同 python main.py ui）
                                 示例: python main.py research serve --port 7861
 """
 
 # ── 顶层 epilog ───────────────────────────────────────────────────────────
 _ROOT_EPILOG = textwrap.dedent("""\
 WebUI 快速启动:
-  python main.py ui                          产品线 RAG 问答界面（端口 7860）
-  python main.py ui --port 7861 --share      自定义端口并生成公网链接
-  python main.py ui --research               研究线实验对比界面（端口 7861）
+  python main.py ui                          Web UI（默认端口 7860）
+  python main.py ui --port 8080              自定义端口
+  python main.py ui --host 0.0.0.0           监听所有网卡
 
 产品线 CLI 快速示例:
   python main.py cli ingest data/raw/数学分析.pdf
@@ -115,19 +115,10 @@ def _research(passthrough: list[str]) -> None:
     research_main()
 
 
-def _ui(port: int, share: bool, research: bool) -> None:
-    from core.cli.runner import run_module_main
+def _ui(host: str, port: int) -> None:
+    from webui.backend.server import runServer
 
-    if research:
-        argv = ["--port", str(port)]
-        if share:
-            argv.append("--share")
-        run_module_main("research.runners.experimentWebUI", argv)
-    else:
-        argv = ["--port", str(port)]
-        if share:
-            argv.append("--share")
-        run_module_main("core.answerGeneration.webui", argv)
+    runServer(host=host, port=port)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -137,7 +128,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "Math-RAG 统一启动入口\n\n"
             "  python main.py cli      — 产品线 CLI（入库/问答/索引）\n"
             "  python main.py research — 研究线 CLI（评测/实验/报告）\n"
-            "  python main.py ui       — 启动 Gradio WebUI\n\n"
+            "  python main.py ui       — 启动 Math-RAG Web UI\n\n"
             "运行 `python main.py <模式> --help` 查看该模式的详细说明。"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -175,36 +166,32 @@ def _build_parser() -> argparse.ArgumentParser:
         help="研究线子命令及其参数（见下方命令列表）",
     )
 
-    # ── ui：Gradio WebUI ─────────────────────────────────────────────────
+    # ── ui：Web UI ────────────────────────────────────────────────────────
     ui_sub = subparsers.add_parser(
         "ui",
-        help="启动 Gradio WebUI（产品线 RAG 界面或研究线实验界面）",
+        help="启动 Math-RAG Web UI（FastAPI + Vue 3）",
         description=(
-            "启动 Gradio WebUI。\n\n"
-            "  默认（不加 --research）：产品线 RAG 问答界面，端口 7860。\n"
-            "  --research：研究线多方法对比实验界面，端口 7861。\n\n"
+            "启动 Math-RAG Web UI。\n\n"
+            "  默认端口 7860，绑定到 127.0.0.1。\n"
+            "  若需从其它机器访问，使用 --host 0.0.0.0。\n\n"
             "示例:\n"
             "  python main.py ui\n"
-            "  python main.py ui --port 7861 --share\n"
-            "  python main.py ui --research --port 7861"
+            "  python main.py ui --port 8080\n"
+            "  python main.py ui --host 0.0.0.0 --port 7860"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ui_sub.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="监听地址（默认 127.0.0.1，使用 0.0.0.0 可外网访问）",
+    )
+    ui_sub.add_argument(
         "--port",
         type=int,
-        default=None,
-        help="监听端口（产品线默认 7860，研究线默认 7861）",
-    )
-    ui_sub.add_argument(
-        "--share",
-        action="store_true",
-        help="生成 Gradio 公网分享链接（需要网络访问）",
-    )
-    ui_sub.add_argument(
-        "--research",
-        action="store_true",
-        help="启动研究线实验对比 WebUI（默认启动产品线 RAG WebUI）",
+        default=7860,
+        help="监听端口（默认 7860）",
     )
 
     return parser
@@ -219,9 +206,7 @@ def main() -> None:
     elif args.mode == "research":
         _research(args.args)
     elif args.mode == "ui":
-        default_port = 7861 if args.research else 7860
-        port = args.port if args.port is not None else default_port
-        _ui(port=port, share=args.share, research=args.research)
+        _ui(host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

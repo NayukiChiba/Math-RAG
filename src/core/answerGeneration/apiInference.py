@@ -127,3 +127,37 @@ class ApiInference:
             )
             results.append(response)
         return results
+
+    def generateStreamFromMessages(
+        self,
+        messages: list[dict[str, str]],
+        maxNewTokens: int | None = None,
+        temperature: float | None = None,
+        topP: float | None = None,
+    ):
+        """同步生成器：逐 chunk 产出回答片段。
+
+        由于 openai-python 客户端 stream=True 返回的是同步迭代器，
+        这里保持同步风格；上层（例如 WebSocket 路由）可用 asyncio.to_thread
+        将其桥接到异步事件循环。
+        """
+        maxNewTokens = maxNewTokens if maxNewTokens is not None else self.maxNewTokens
+        temperature = temperature if temperature is not None else self.temperature
+        topP = topP if topP is not None else self.topP
+
+        response = self.client.chat.completions.create(
+            model=self.modelName,
+            messages=messages,
+            max_tokens=maxNewTokens,
+            temperature=temperature,
+            top_p=topP,
+            stream=True,
+        )
+        for chunk in response:
+            try:
+                delta = chunk.choices[0].delta
+            except (AttributeError, IndexError):
+                continue
+            content = getattr(delta, "content", None) if delta else None
+            if content:
+                yield content

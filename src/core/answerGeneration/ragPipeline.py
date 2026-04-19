@@ -511,6 +511,86 @@ class RagPipeline:
 
         return results
 
+    async def queryStream(
+        self,
+        queryText: str,
+        retrievalResults: list[dict[str, Any]] | None = None,
+        temperature: float | None = None,
+        topP: float | None = None,
+        maxNewTokens: int | None = None,
+    ):
+        """
+        流式查询（异步生成器）
+
+        由调用方（如 WebSocket 处理器）预先完成检索并传入 retrievalResults。
+        本方法只负责按 chunk 产出生成文本。
+
+        若底层 generator 不支持流式（例如本地模型），
+        将回退为一次性生成并作为单个 chunk 返回。
+        """
+        self._initGenerator()
+
+        messages = buildMessages(
+            query=queryText,
+            retrievalResults=retrievalResults if retrievalResults else None,
+        )
+
+        streamFn = getattr(self._generator, "generateStreamFromMessages", None)
+
+        if streamFn is None:
+            # 回退：一次性生成
+            import asyncio
+
+            def runSync() -> str:
+                return self._generator.generateFromMessages(
+                    messages=messages,
+                    temperature=temperature,
+                    topP=topP,
+                    maxNewTokens=maxNewTokens,
+                )
+
+            answer = await asyncio.to_thread(runSync)
+            if answer:
+                yield answer
+            return
+
+        # 真正的流式：把同步生成器放到工作线程，用 asyncio.Queue 回传 chunk
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+        sentinel: object = object()
+
+        def pump() -> None:
+            try:
+                for chunk in streamFn(
+                    messages=messages,
+                    temperature=temperature,
+                    topP=topP,
+                    maxNewTokens=maxNewTokens,
+                ):
+                    asyncio.run_coroutine_threadsafe(queue.put(chunk), loop).result()
+            except Exception as e:
+                asyncio.run_coroutine_threadsafe(
+                    queue.put({"__error__": str(e)}), loop
+                ).result()
+            finally:
+                asyncio.run_coroutine_threadsafe(queue.put(sentinel), loop).result()
+
+        pumpTask = loop.create_task(asyncio.to_thread(pump))
+
+        try:
+            while True:
+                item = await queue.get()
+                if item is sentinel:
+                    break
+                if isinstance(item, dict) and "__error__" in item:
+                    raise RuntimeError(item["__error__"])
+                yield item
+        finally:
+            if not pumpTask.done():
+                await pumpTask
+
     def setStrategy(self, strategy: RetrievalStrategy) -> None:
         """
         切换检索策略
