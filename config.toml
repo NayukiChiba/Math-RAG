@@ -22,7 +22,7 @@ model_output_json = "data/processed/ma_terms_model.json"
 # ── OCR ──────────────────────────────────────────────────────────────
 # engine = "local" 使用 pix2text 本地推理；"api" 使用多模态 AI（OpenAI 兼容 Vision API）
 [ocr]
-engine = "api"
+engine = "local"
 page_start = 0
 page_end = -1
 skip_existing = true
@@ -45,7 +45,8 @@ api_key_env = "API-KEY-OCR"
 max_tokens = 4000
 temperature = 0.1
 # Vision 提示词（引导模型输出 Markdown + LaTeX）
-prompt = """请将图片中的内容完整转录为 Markdown 格式。要求：
+prompt = """
+请将图片中的内容完整转录为 Markdown 格式。要求：
 1. 保留原始段落结构
 2. 所有数学公式使用 LaTeX（行内 $...$，行间 $$...$$）
 3. 表格使用 Markdown 表格语法
