@@ -7,7 +7,7 @@
     python data_gen.py "书名" 100    # 只处理第 100 页及之后首次出现的术语
 
 输出：每本书的术语 JSON 保存到 processed/chunk/<book_name>/ 下，每个术语一个独立 JSON 文件。
-配置项在 config.toml 的 [model] 部分。
+配置项在 config.toml 的 [terms_gen] 部分。
 """
 
 import json
@@ -108,7 +108,7 @@ def _load_config():
     """从 config.toml 读取配置。"""
     data = _load_toml(config.CONFIG_TOML)
     paths = data.get("paths", {})
-    model_cfg = data.get("model", {})
+    model_cfg = data.get("terms_gen", {})
 
     processed_dir = os.path.abspath(
         os.path.join(config.PROJECT_ROOT, paths.get("processed_dir", ""))
@@ -121,9 +121,11 @@ def _load_config():
         "root_dir": config.PROJECT_ROOT,
         "processed_dir": processed_dir,
         "output_json": output_json,
+        "engine": str(model_cfg.get("engine", "api")).strip().lower(),
+        "local_model_dir": model_cfg.get("local_model_dir", ""),
         "api_base": model_cfg.get("api_base", "").rstrip("/"),
         "model": model_cfg.get("model", ""),
-        "api_key_env": model_cfg.get("api_key_env", "API-KEY"),
+        "api_key_env": model_cfg.get("api_key_env", "API-KEY-TERMS"),
         "max_tokens": model_cfg.get("max_tokens", 900),
         "temperature": model_cfg.get("temperature", 0.3),
         "top_p": model_cfg.get("top_p", 0.9),
@@ -412,8 +414,24 @@ def _build_repair_prompt(cfg, term, bad_json, reason, context, sources):
     return system, user
 
 
+def _call_local_model(cfg, messages):
+    """使用本地 HuggingFace 模型完成生成（engine=local 分支）。"""
+    from core.dataGen.termsGeneratorFactory import createTermsGenerator
+
+    generator = createTermsGenerator()
+    return generator.generateFromMessages(
+        messages=messages,
+        maxNewTokens=cfg["max_tokens"],
+        temperature=cfg["temperature"],
+        topP=cfg["top_p"],
+    )
+
+
 def _call_model(cfg, api_key, messages):
-    """调用 OpenAI 兼容接口。"""
+    """调用 OpenAI 兼容接口或本地推理（按 cfg['engine'] 分发）。"""
+    if str(cfg.get("engine", "api")).strip().lower() == "local":
+        return _call_local_model(cfg, messages)
+
     import requests
 
     url = f"{cfg['api_base']}{cfg['endpoint']}"
@@ -895,17 +913,23 @@ def _generate_for_book(book_name, cfg, api_key, start_page=None):
 
 def main():
     cfg = _load_config()
-    if not cfg["api_base"]:
-        print("config.toml 中未配置 model.api_base。")
-        return
-    if not cfg["model"]:
-        print("config.toml 中未配置 model.model。")
-        return
+    if cfg["engine"] != "local":
+        if not cfg["api_base"]:
+            print("config.toml 中未配置 terms_gen.api_base。")
+            return
+        if not cfg["model"]:
+            print("config.toml 中未配置 terms_gen.model。")
+            return
 
-    api_key = _load_env_value(cfg["root_dir"], cfg["api_key_env"])
-    if not api_key:
-        print("未找到 API Key，请检查 .env 或环境变量。")
-        return
+        api_key = _load_env_value(cfg["root_dir"], cfg["api_key_env"])
+        if not api_key:
+            print("未找到 API Key，请检查 .env 或环境变量。")
+            return
+    else:
+        if not cfg["local_model_dir"]:
+            print("config.toml 中未配置 terms_gen.local_model_dir。")
+            return
+        api_key = ""  # 本地推理不需要
 
     # 确定要处理的书目列表和起始页码
     start_page = None

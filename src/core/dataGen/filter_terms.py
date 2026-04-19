@@ -6,7 +6,7 @@
     python filter_terms.py "书名"              # 只过滤指定的书
 
 输出：过滤后的 all_filtered.json / map_filtered.json 保存到同目录。
-配置项在 config.toml 的 [model] 部分。
+配置项在 config.toml 的 [terms_gen] 部分。
 """
 
 import json
@@ -57,11 +57,11 @@ def _load_env_value(root_dir, key):
 def _load_config():
     """从 config.toml 读取模型配置。"""
     data = _load_toml(CONFIG_PATH)
-    model_cfg = data.get("model", {})
+    model_cfg = data.get("terms_gen", {})
     return {
         "api_base": model_cfg.get("api_base", "").rstrip("/"),
         "model": model_cfg.get("model", ""),
-        "api_key_env": model_cfg.get("api_key_env", "API-KEY"),
+        "api_key_env": model_cfg.get("api_key_env", "API-KEY-TERMS"),
         "request_timeout": model_cfg.get("request_timeout", 60),
         "endpoint": model_cfg.get("endpoint", "/chat/completions"),
         "temperature": model_cfg.get("temperature", 0.2),

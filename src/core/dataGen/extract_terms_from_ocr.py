@@ -7,7 +7,7 @@
     python extract_terms_from_ocr.py "书名" 100          # 从第 100 页开始处理指定的书
 
 输出：每本书的 all.json / map.json 保存到 processed/terms/<book_name>/ 目录。
-配置项在 config.toml 的 [ocr] 和 [model] 部分。
+配置项在 config.toml 的 [ocr] 和 [terms_gen] 部分。
 """
 
 import json
@@ -128,11 +128,13 @@ def _load_env_value(root_dir, key):
 def _load_config():
     """从 config.toml 读取模型配置。"""
     data = _load_toml(CONFIG_PATH)
-    model_cfg = data.get("model", {})
+    model_cfg = data.get("terms_gen", {})
     return {
+        "engine": str(model_cfg.get("engine", "api")).strip().lower(),
+        "local_model_dir": model_cfg.get("local_model_dir", ""),
         "api_base": model_cfg.get("api_base", "").rstrip("/"),
         "model": model_cfg.get("model", ""),
-        "api_key_env": model_cfg.get("api_key_env", "API-KEY"),
+        "api_key_env": model_cfg.get("api_key_env", "API-KEY-TERMS"),
         "request_timeout": model_cfg.get("request_timeout", 60),
         "endpoint": model_cfg.get("endpoint", "/chat/completions"),
         "temperature": model_cfg.get("temperature", 0.2),
@@ -227,8 +229,28 @@ def _estimate_tokens(text):
     return max(1, len(text) // 2)
 
 
+def _call_local_model(cfg, system, user):
+    """使用本地 HuggingFace 模型完成生成（engine=local 分支）。"""
+    from core.dataGen.termsGeneratorFactory import createTermsGenerator
+
+    generator = createTermsGenerator()
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+    return generator.generateFromMessages(
+        messages=messages,
+        maxNewTokens=cfg["max_tokens"],
+        temperature=cfg["temperature"],
+        topP=cfg["top_p"],
+    )
+
+
 def _call_model(cfg, api_key, system, user):
-    """调用 OpenAI 兼容接口。"""
+    """调用 OpenAI 兼容接口或本地推理（按 cfg['engine'] 分发）。"""
+    if str(cfg.get("engine", "api")).strip().lower() == "local":
+        return _call_local_model(cfg, system, user)
+
     import requests
 
     url = f"{cfg['api_base']}{cfg['endpoint']}"
@@ -539,17 +561,23 @@ def _extract_terms_for_book(book_name, cfg, api_key, start_page=None):
 
 def main():
     cfg = _load_config()
-    if not cfg["api_base"]:
-        print("config.toml 中未配置 model.api_base。")
-        return
-    if not cfg["model"]:
-        print("config.toml 中未配置 model.model。")
-        return
+    if cfg["engine"] != "local":
+        if not cfg["api_base"]:
+            print("config.toml 中未配置 terms_gen.api_base。")
+            return
+        if not cfg["model"]:
+            print("config.toml 中未配置 terms_gen.model。")
+            return
 
-    api_key = _load_env_value(config.PROJECT_ROOT, cfg["api_key_env"])
-    if not api_key:
-        print("未找到 API Key，请检查 .env 或环境变量。")
-        return
+        api_key = _load_env_value(config.PROJECT_ROOT, cfg["api_key_env"])
+        if not api_key:
+            print("未找到 API Key，请检查 .env 或环境变量。")
+            return
+    else:
+        if not cfg["local_model_dir"]:
+            print("config.toml 中未配置 terms_gen.local_model_dir。")
+            return
+        api_key = ""  # 本地推理不需要
 
     # 确定要处理的书目列表和起始页
     start_page = None
