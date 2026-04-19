@@ -4,7 +4,7 @@ export type EngineName = "local" | "api";
 
 export interface EnginesState {
   ocr: EngineName;
-  dataGen: EngineName;
+  terms: EngineName;
   rag: EngineName;
 }
 

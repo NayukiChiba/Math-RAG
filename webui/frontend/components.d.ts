@@ -48,6 +48,7 @@ declare module 'vue' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     LogViewer: typeof import('./src/components/LogViewer.vue')['default']
     MarkdownView: typeof import('./src/components/MarkdownView.vue')['default']
+    ModelEngineCard: typeof import('./src/components/ModelEngineCard.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ShortcutCard: typeof import('./src/components/ShortcutCard.vue')['default']
