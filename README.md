@@ -50,13 +50,15 @@ python main.py cli ingest data/raw/数学分析.pdf
 python main.py cli rag --query "什么是一致收敛？"
 ```
 
-### 4. 启动交互界面
+### 4. 启动 Web UI
 
 ```bash
-python main.py ui                          # 产品线 RAG WebUI（端口 7860）
-python main.py ui --port 7861 --share      # 指定端口并生成分享链接
-python main.py ui --research               # 研究线实验对比 WebUI（端口 7861）
+python main.py ui                          # 默认端口 7860，绑定 127.0.0.1
+python main.py ui --port 8080              # 自定义端口
+python main.py ui --host 0.0.0.0           # 允许外网访问
 ```
+
+首次使用需先构建前端（见下方「Web UI」章节）。Web UI 覆盖全部 17 个 CLI 子命令，支持流式 RAG 问答、PDF 上传、索引构建、研究线评测与报告浏览。
 
 ### 5. 查看所有可用命令
 
@@ -66,6 +68,44 @@ python main.py cli --help      # 产品线子命令列表
 python main.py research --help # 研究线子命令列表
 python main.py ui --help       # WebUI 选项
 ```
+
+## Web UI
+
+基于 **FastAPI + Vue 3 + Element Plus** 的一体化控制台，覆盖全部 CLI 子命令：
+
+- `/chat` — 流式 RAG 问答（WebSocket 打字机效果、KaTeX 公式、检索引用卡片）
+- `/ingest`、`/index` — PDF 上传与索引构建（实时日志）
+- `/research/*` — 14 个研究线命令的可视化入口（透传 CLI 参数）
+- `/reports`、`/figures`、`/stats` — 报告 / 图表 / 统计浏览
+- `/config` — `config.toml` 分段编辑
+- `/tasks` — 任务中心，查看所有长任务进度与日志
+
+### 构建前端
+
+```bash
+cd webui/frontend
+npm install
+npm run build            # 生成 webui/frontend/dist/
+```
+
+生产模式下，FastAPI 会自动挂载 `webui/frontend/dist/`，`python main.py ui` 即可单端口访问。
+
+### 开发模式
+
+```bash
+# Terminal A：后端
+python main.py ui                          # 监听 http://127.0.0.1:7860
+
+# Terminal B：前端开发服务器（带 HMR）
+cd webui/frontend
+npm run dev                                # 浏览器访问 http://localhost:5173
+```
+
+Vite 已配置将 `/api` 与 `/ws` 代理到 7860。
+
+### API 文档
+
+启动后访问 http://127.0.0.1:7860/docs 查看完整 OpenAPI 文档。
 
 ## 文档
 
@@ -92,7 +132,7 @@ npm run docs:preview  # 预览构建产物
 | `ingest`      | PDF 入库流水线             |
 | `build-index` | 重建检索语料与索引         |
 | `rag`         | RAG 问答（单条或批量）     |
-| `serve`       | 启动产品 WebUI（同 `ui`）  |
+| `serve`       | 启动 Web UI（同 `ui`）     |
 
 ```bash
 python main.py cli ingest data/raw/数学分析.pdf
@@ -118,7 +158,7 @@ python main.py cli rag --query "什么是一致收敛？"
 | `defense-figures`             | 生成答辩图表                       |
 | `add-missing-terms`           | 补充缺失术语                       |
 | `stats`                       | 统计与可视化                       |
-| `serve`                       | 研究线实验 WebUI（同 `ui --research`） |
+| `serve`                       | 启动 Web UI（同 `ui`）             |
 
 ```bash
 python main.py research eval-retrieval --visualize
@@ -154,7 +194,7 @@ Math-RAG/
 │   │   ├── config.py             # 统一配置入口
 │   │   ├── mathRag.py            # math-rag CLI 入口
 │   │   ├── cli/                  # 产品线子命令注册
-│   │   ├── answerGeneration/     # 提示模板、推理封装、RAG 管线、WebUI
+│   │   ├── answerGeneration/     # 提示模板、推理封装、RAG 管线
 │   │   ├── dataGen/              # OCR、术语抽取、结构化生成
 │   │   ├── retrieval/            # 语料构建、查询改写、多策略检索器
 │   │   ├── runners/              # 仅 RAG 问答编排
@@ -167,6 +207,9 @@ Math-RAG/
 │   │   ├── dataStat/             # 数据统计与可视化
 │   │   └── runners/              # 实验编排（experiments, evaluation, tools）
 │   └── (api/ 已移除)
+├── webui/                    # Web UI（FastAPI 后端 + Vue 3 前端）
+│   ├── backend/              # FastAPI 路由、任务管理、事件总线
+│   └── frontend/             # Vue 3 + Element Plus 前端源码与构建产物
 ├── main.py                   # 统一启动入口（推荐使用）
 ├── reports_generation/       # 报告、快评、答辩图表
 ├── tests/                    # 测试
@@ -195,7 +238,7 @@ Math-RAG/
 
 ### `src/core/answerGeneration`
 
-提示模板管理、多引擎推理封装（本地 / API）、RAG 端到端管线及 Gradio WebUI。
+提示模板管理、多引擎推理封装（本地 / API）、RAG 端到端管线（`RagPipeline` 同时提供同步 `query` 与异步 `queryStream`）。
 
 ## 研究线核心模块
 
