@@ -21,10 +21,10 @@ EngineName = Literal["local", "api"]
 
 
 class EnginesState(BaseModel):
-    """三处 engine 的当前值。"""
+    """三处 engine 的当前值（OCR / 术语生成 / RAG 回答）。"""
 
     ocr: EngineName
-    dataGen: EngineName
+    terms: EngineName
     rag: EngineName
 
 
@@ -32,7 +32,7 @@ class EnginesPatch(BaseModel):
     """只修改填入的字段；None 表示不动。"""
 
     ocr: EngineName | None = None
-    dataGen: EngineName | None = None
+    terms: EngineName | None = None
     rag: EngineName | None = None
 
 
@@ -90,28 +90,24 @@ def patchConfig(req: ConfigPatchRequest) -> dict[str, Any]:
 
 @router.get("/engines", response_model=EnginesState)
 def getEngines() -> EnginesState:
-    """读取 OCR / 数据生成 / RAG 回答当前各自使用的引擎。"""
+    """读取 OCR / 术语生成 / RAG 回答当前各自使用的引擎。"""
     data = getFullConfig()
     ocrEngine = _normalize(str(_dig(data, "ocr", "engine", default="local")))
-    # 术语生成（[model]）目前只实现 API 分支
-    dataGenEngine: EngineName = "api"
-    ragEngine = _normalize(str(_dig(data, "generation", "engine", default="api")))
-    return EnginesState(ocr=ocrEngine, dataGen=dataGenEngine, rag=ragEngine)
+    termsEngine = _normalize(str(_dig(data, "terms_gen", "engine", default="api")))
+    ragEngine = _normalize(str(_dig(data, "rag_gen", "engine", default="api")))
+    return EnginesState(ocr=ocrEngine, terms=termsEngine, rag=ragEngine)
 
 
 @router.patch("/engines", response_model=EnginesState)
 def patchEngines(req: EnginesPatch) -> EnginesState:
-    """批量切换 OCR / RAG 引擎（dataGen 固定 API，忽略）。"""
+    """批量切换 3 处引擎（仅写入传入字段）。"""
     if req.ocr is not None:
         _writeKey("ocr", "engine", req.ocr)
+    if req.terms is not None:
+        _writeKey("terms_gen", "engine", req.terms)
     if req.rag is not None:
-        _writeKey("generation", "engine", req.rag)
+        _writeKey("rag_gen", "engine", req.rag)
         _resetRagSingleton()
-    if req.dataGen is not None and req.dataGen != "api":
-        raise HTTPException(
-            status_code=400,
-            detail="术语结构化生成当前只支持 API 引擎",
-        )
     _clearConfigCache()
     return getEngines()
 
@@ -183,12 +179,24 @@ def _isAnySectionHeader(line: str) -> bool:
 
 
 def _tomlValue(value: Any) -> str:
-    """将 Python 值序列化为 TOML 右值。仅支持基本类型与一维数组。"""
+    """将 Python 值序列化为 TOML 右值。
+
+    - bool / int / float / 单行字符串：按常规处理
+    - 带换行的字符串：使用 TOML 多行基本字符串 \"\"\"...\"\"\"
+    - 一维数组：递归序列化
+    """
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (int, float)):
         return str(value)
     if isinstance(value, str):
+        if "\n" in value:
+            # 多行基本字符串：反斜杠需转义；若内部出现 """ 则把每个 " 改写为 \"
+            escaped = value.replace("\\", "\\\\")
+            if '"""' in escaped:
+                escaped = escaped.replace('"""', '\\"\\"\\"')
+            # 多行字符串开头若紧跟 """ 可以用前置换行提升可读性
+            return f'"""\n{escaped}"""'
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
         return f'"{escaped}"'
     if isinstance(value, list):
@@ -196,18 +204,39 @@ def _tomlValue(value: Any) -> str:
     raise ValueError(f"config 不支持的值类型: {type(value).__name__}")
 
 
+def _multilineQuote(valuePart: str) -> str | None:
+    """判断一行的值部分是否为多行基本/字面字符串的开头。返回闭合符或 None。"""
+    stripped = valuePart.lstrip()
+    for quote in ('"""', "'''"):
+        if stripped.startswith(quote):
+            rest = stripped[len(quote) :]
+            if quote in rest:
+                # 同一行内已闭合，不是多行
+                return None
+            return quote
+    return None
+
+
 def _replaceInSection(
     lines: list[str], section: str, updates: dict[str, Any]
 ) -> tuple[list[str], dict[str, Any]]:
-    """在指定 section 内替换已存在的 key；返回新行与尚未匹配的更新。"""
+    """在指定 section 内替换已存在的 key；返回新行与尚未匹配的更新。
+
+    能正确识别 TOML 多行字符串的范围（\"\"\"...\"\"\" 与 '''...'''），替换或保留时
+    都以整块为单位，避免遗留多余行。
+    """
     newLines: list[str] = []
     inSection = False
     remaining = dict(updates)
 
-    for line in lines:
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+
         if _isSectionHeader(line, section):
             inSection = True
             newLines.append(line)
+            i += 1
             continue
 
         if inSection and _isAnySectionHeader(line):
@@ -215,12 +244,35 @@ def _replaceInSection(
 
         if inSection and "=" in line and not line.lstrip().startswith("#"):
             key = line.split("=", 1)[0].strip()
+            valuePart = line.split("=", 1)[1]
+            closer = _multilineQuote(valuePart)
+
+            if closer is not None:
+                # 收集多行值直到闭合
+                blockLines = [line]
+                j = i + 1
+                while j < len(lines):
+                    blockLines.append(lines[j])
+                    if closer in lines[j]:
+                        j += 1
+                        break
+                    j += 1
+                if key in remaining:
+                    newValue = _tomlValue(remaining.pop(key))
+                    newLines.append(f"{key} = {newValue}\n")
+                else:
+                    newLines.extend(blockLines)
+                i = j
+                continue
+
             if key in remaining:
                 newValue = _tomlValue(remaining.pop(key))
                 newLines.append(f"{key} = {newValue}\n")
+                i += 1
                 continue
 
         newLines.append(line)
+        i += 1
 
     return newLines, remaining
 
