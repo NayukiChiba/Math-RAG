@@ -23,10 +23,20 @@ class ApiInference:
         temperature: float | None = None,
         topP: float | None = None,
         maxNewTokens: int | None = None,
+        scope: str = "rag",
     ):
-        genCfg = config.getGenerationConfig()
-        apiCfg = config.getApiConfig()
+        """初始化 API 客户端。
 
+        Args:
+            scope: 选择读取哪一处 API 配置。
+                - "rag"（默认）: RAG 回答生成 [rag_gen]
+                - "terms": 术语结构化生成 [terms_gen]
+                - "ocr": OCR 多模态 [ocr.api]（通常 apiOcr.py 自己构造 cfg，不走这里）
+        """
+        genCfg = config.getGenerationConfig()
+        apiCfg = config.getApiConfig(scope)
+
+        self.scope = scope
         self.temperature = (
             temperature if temperature is not None else genCfg["temperature"]
         )
@@ -57,7 +67,7 @@ class ApiInference:
         if not self.apiKey:
             raise ValueError(f"未找到 API 密钥，请在环境或 .env 文件中配置 {apiKeyEnv}")
 
-        print(" 初始化 API 推理客户端")
+        print(f" 初始化 API 推理客户端 [scope={scope}, model={self.modelName}]")
         self.client = OpenAI(
             api_key=self.apiKey,
             base_url=self.apiBase,

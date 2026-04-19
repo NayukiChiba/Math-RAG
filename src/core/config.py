@@ -233,13 +233,13 @@ def get_ocr_config():
 
 
 def _getLocalModelDir() -> str:
-    """从 config.toml 读取本地模型目录。"""
+    """从 config.toml 读取 RAG 回答的本地模型目录。"""
     try:
         data = _get_config_data()
     except Exception:
         return ""
 
-    gen_cfg = data.get("generation", {})
+    gen_cfg = data.get("rag_gen", {})
     # 优先读取 local_model_dir，向后兼容 qwen_model_dir
     modelDir = gen_cfg.get("local_model_dir", gen_cfg.get("qwen_model_dir", "")).strip()
 
@@ -256,7 +256,7 @@ QWEN_MODEL_DIR = LOCAL_MODEL_DIR
 
 def getGenerationConfig() -> dict:
     """
-    获取生成层相关配置
+    获取 RAG 回答生成相关配置 [rag_gen]
 
     Returns:
         dict，包含 engine, max_context_chars、max_chars_per_term、temperature、
@@ -276,7 +276,7 @@ def getGenerationConfig() -> dict:
     except Exception:
         return defaults
 
-    gen_cfg = data.get("generation", {})
+    gen_cfg = data.get("rag_gen", {})
     return {
         "engine": gen_cfg.get("engine", defaults["engine"]),
         "max_context_chars": gen_cfg.get(
@@ -291,26 +291,112 @@ def getGenerationConfig() -> dict:
     }
 
 
-def getApiConfig() -> dict:
-    """读取 RAG 生成层的 API 配置（优先从 [generation]，回退到 [model]）。"""
+def getApiConfig(scope: str = "rag") -> dict:
+    """读取某一处 LLM 调用的 API 配置。
+
+    Args:
+        scope:
+          - "rag"（默认）: RAG 回答生成 [rag_gen]
+          - "terms": 术语结构化生成 [terms_gen]
+          - "ocr": OCR 多模态 [ocr.api]
+    """
     try:
         data = _get_config_data()
     except Exception:
         data = {}
 
-    gen_cfg = data.get("generation", {})
-    model_cfg = data.get("model", {})
+    if scope == "terms":
+        terms_cfg = data.get("terms_gen", {})
+        return {
+            "api_base": terms_cfg.get("api_base", "https://api.deepseek.com/v1"),
+            "model": terms_cfg.get("model", "deepseek-chat"),
+            "api_key_env": terms_cfg.get("api_key_env", "API-KEY-TERMS"),
+            "stream": terms_cfg.get("stream", False),
+        }
 
-    # 优先从 [generation] 读取专属字段，否则回退到 [model]
+    if scope == "ocr":
+        ocr_api_cfg = data.get("ocr", {}).get("api", {})
+        return {
+            "api_base": ocr_api_cfg.get("api_base", "https://api.deepseek.com/v1"),
+            "model": ocr_api_cfg.get("model", "deepseek-vl2"),
+            "api_key_env": ocr_api_cfg.get("api_key_env", "API-KEY-OCR"),
+            "stream": False,
+        }
+
+    # 默认：rag，读取 [rag_gen]
+    rag_cfg = data.get("rag_gen", {})
     return {
-        "api_base": gen_cfg.get(
-            "api_base", model_cfg.get("api_base", "https://api.deepseek.com/v1")
+        "api_base": rag_cfg.get("api_base", "https://api.deepseek.com/v1"),
+        "model": rag_cfg.get("api_model", "deepseek-chat"),
+        "api_key_env": rag_cfg.get("api_key_env", "API-KEY-RAG"),
+        "stream": rag_cfg.get("api_stream", False),
+    }
+
+
+def getTermsModelConfig() -> dict:
+    """读取 [terms_gen] 段全部字段（含 engine、local_model_dir、API 参数及生成参数）。"""
+    defaults = {
+        "engine": "api",
+        "local_model_dir": "",
+        "api_base": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
+        "api_key_env": "API-KEY-TERMS",
+        "max_tokens": 900,
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "max_attempts": 5,
+        "request_timeout": 60,
+        "stream": True,
+        "min_definition_chars": 40,
+        "min_usage_chars": 10,
+        "min_applications_chars": 5,
+        "min_formula_count": 1,
+        "ocr_max_context_chars": 800,
+    }
+
+    try:
+        data = _get_config_data()
+    except Exception:
+        return defaults
+
+    terms_cfg = data.get("terms_gen", {}) if isinstance(data, dict) else {}
+    result = {}
+    for key, defaultVal in defaults.items():
+        result[key] = terms_cfg.get(key, defaultVal)
+    return result
+
+
+def getEmbeddingConfig() -> dict:
+    """读取向量 (embedding) 模型配置。
+
+    返回 {"local_model": <HF 模型名或本地目录>}。
+    字段来源：[retrieval].default_vector_model
+    """
+    try:
+        data = _get_config_data()
+    except Exception:
+        data = {}
+    ret_cfg = data.get("retrieval", {}) if isinstance(data, dict) else {}
+    return {
+        "local_model": ret_cfg.get("default_vector_model", "BAAI/bge-base-zh-v1.5"),
+    }
+
+
+def getRerankerConfig() -> dict:
+    """读取重排 (reranker) 模型配置。
+
+    返回 {"local_model": <HF 模型名或本地目录>}。
+    字段来源：[retrieval].default_reranker_model
+    """
+    try:
+        data = _get_config_data()
+    except Exception:
+        data = {}
+    ret_cfg = data.get("retrieval", {}) if isinstance(data, dict) else {}
+    return {
+        "local_model": ret_cfg.get(
+            "default_reranker_model", "BAAI/bge-reranker-v2-mixed"
         ),
-        "model": gen_cfg.get("api_model", model_cfg.get("model", "deepseek-chat")),
-        "api_key_env": gen_cfg.get(
-            "api_key_env", model_cfg.get("api_key_env", "API-KEY")
-        ),
-        "stream": gen_cfg.get("api_stream", False),
     }
 
 

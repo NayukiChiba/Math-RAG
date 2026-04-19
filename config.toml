@@ -22,7 +22,7 @@ model_output_json = "data/processed/ma_terms_model.json"
 # ── OCR ──────────────────────────────────────────────────────────────
 # engine = "local" 使用 pix2text 本地推理；"api" 使用多模态 AI（OpenAI 兼容 Vision API）
 [ocr]
-engine = "local"
+engine = "api"
 page_start = 0
 page_end = -1
 skip_existing = true
@@ -41,7 +41,7 @@ max_pages_per_term = 6
 [ocr.api]
 api_base = "https://api.deepseek.com/v1"
 model = "deepseek-vl2"
-api_key_env = "API-KEY"
+api_key_env = "API-KEY-OCR"
 max_tokens = 4000
 temperature = 0.1
 # Vision 提示词（引导模型输出 Markdown + LaTeX）
@@ -52,12 +52,15 @@ prompt = """请将图片中的内容完整转录为 Markdown 格式。要求：
 4. 不要输出其它解释，只输出 Markdown 内容"""
 
 
-# ── 术语结构化生成（[model]）─────────────────────────────────────────
-# 仅配置 API 连接；prompt 模板已挪到 src/core/dataGen/data_gen.py
-[model]
+# ── 术语结构化生成（[terms_gen]）─────────────────────────────────────
+# engine = "local" 使用本地 HuggingFace 模型；"api" 使用 OpenAI 兼容接口
+# prompt 模板已挪到 src/core/dataGen/data_gen.py
+[terms_gen]
+engine = "api"
+local_model_dir = ""
 api_base = "https://api.deepseek.com/v1"
 model = "deepseek-chat"
-api_key_env = "API-KEY"
+api_key_env = "API-KEY-TERMS"
 max_tokens = 900
 temperature = 0.3
 top_p = 0.9
@@ -71,13 +74,13 @@ min_formula_count = 1
 ocr_max_context_chars = 800
 
 
-# ── RAG 生成层 ───────────────────────────────────────────────────────
+# ── RAG 回答生成（[rag_gen]）─────────────────────────────────────────
 # engine = "api" 使用 OpenAI 兼容接口；"local" 使用本地 HuggingFace 模型
-[generation]
+[rag_gen]
 engine = "api"
 api_base = "https://api.deepseek.com/v1"
 api_model = "deepseek-chat"
-api_key_env = "API-KEY"
+api_key_env = "API-KEY-RAG"
 api_stream = true
 max_context_chars = 6000
 max_chars_per_term = 1200
@@ -88,6 +91,7 @@ local_model_dir = "../Qwen3.5-4B"
 
 
 # ── 检索 ─────────────────────────────────────────────────────────────
+# 向量模型与重排模型：直接填 HuggingFace 模型名（自动下载）或本地目录
 [retrieval]
 default_vector_model = "BAAI/bge-base-zh-v1.5"
 default_reranker_model = "BAAI/bge-reranker-v2-mixed"
