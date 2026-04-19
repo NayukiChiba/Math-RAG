@@ -96,7 +96,7 @@ python dataGen/extract_terms_from_ocr.py
 
 **输出**：`data/processed/chunk/<书名>/<term>.json`（每个术语一个文件）
 
-**配置**（`config.toml [model]`）：
+**配置**（`config.toml [terms_gen]`）：
 
 | 参数 | 说明 |
 |------|------|

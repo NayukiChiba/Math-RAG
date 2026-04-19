@@ -57,7 +57,7 @@
 
 ### `getGenerationConfig() -> dict`
 
-返回 `[generation]` section 的配置 dict。  
+返回 `[rag_gen]` section 的配置 dict。  
 包含字段：`temperature / top_p / max_new_tokens / qwen_model_dir / max_context_chars / max_chars_per_term`
 
 ### `getOutputController() -> OutputManager`

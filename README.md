@@ -267,7 +267,7 @@ Math-RAG/
 | `config.toml`           | 参数数据源（TOML 格式）        |
 | `src/core/config.py`    | Python 统一读取接口与路径常量 |
 
-常见配置段：`[paths]`、`[ocr]`、`[model]`、`[generation]`、`[retrieval]`。
+常见配置段：`[paths]`、`[ocr]`、`[terms_gen]`、`[rag_gen]`、`[retrieval]`、`[retrieval.embedding]`、`[retrieval.reranker]`。
 
 ## 开发与代码规范
 

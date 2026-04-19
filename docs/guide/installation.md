@@ -39,7 +39,8 @@ pip install -e ".[research]"
 编辑 `config.toml`，根据环境调整：
 
 - `[paths]`：数据目录（默认可不改）
-- `[model]`：本地 Qwen 模型路径
+- `[rag_gen]`：RAG 回答生成（API 或本地 HuggingFace 模型路径）
+- `[terms_gen]`：术语结构化生成（API 或本地模型路径）
 - `[ocr]`：OCR 设备与批次大小
 
 详细配置说明见 [配置说明](/guide/configuration)。

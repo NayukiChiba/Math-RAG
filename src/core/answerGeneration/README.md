@@ -16,7 +16,7 @@ answerGeneration/
 ├── promptTemplates.py      # RAG 提示模板
 ├── apiInference.py         # OpenAI 兼容 API 推理封装（含流式）
 ├── localInference.py       # HuggingFace 本地模型推理封装
-├── generatorFactory.py     # 按 [generation].engine 选择推理实例
+├── generatorFactory.py     # 按 [rag_gen].engine 选择推理实例
 ├── ragPipeline.py          # 端到端 RAG 流程（含 queryStream 异步流式）
 └── __init__.py
 ```
@@ -45,9 +45,9 @@ answerGeneration/
 两种推理实现，共享 `generate` / `generateFromMessages` / `generateBatch` 接口。
 `apiInference.ApiInference` 额外提供 `generateStreamFromMessages` 同步生成器，用于 Web UI 流式问答。
 
-通过 `generatorFactory.createGenerator()` 按 `[generation].engine` 自动选择（`"api"` 或 `"local"`）。
+通过 `generatorFactory.createGenerator()` 按 `[rag_gen].engine` 自动选择（`"api"` 或 `"local"`）。
 
-配置（`config.toml [generation]`）：
+配置（`config.toml [rag_gen]`）：
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
@@ -114,6 +114,6 @@ async for delta in pipeline.queryStream(query, retrievalResults):
 
 ## 前置条件
 
-1. `config.toml [generation]` 选择 engine，并配置对应参数
+1. `config.toml [rag_gen]` 选择 engine，并配置对应参数
 2. 构建检索索引（见 [retrieval/README.md](../retrieval/README.md)）
 3. 若 engine=api，需在 `.env` 中配置 `API-KEY`

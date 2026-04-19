@@ -32,13 +32,28 @@ mfr_batch_size = 8    # 公式识别批量大小
 render_dpi = 200      # PDF 渲染 DPI
 ```
 
-### `[model]` — 推理模型
+### `[terms_gen]` — 术语结构化生成
 
 ```toml
-[model]
+[terms_gen]
+engine = "api"   # "api" / "local"
 api_base = "https://api.deepseek.com/v1"
 model = "deepseek-chat"
+api_key_env = "API-KEY-TERMS"
+local_model_dir = ""
 temperature = 0.3
+```
+
+### `[rag_gen]` — RAG 回答生成
+
+```toml
+[rag_gen]
+engine = "api"   # "api" / "local"
+api_base = "https://api.deepseek.com/v1"
+api_model = "deepseek-chat"
+api_key_env = "API-KEY-RAG"
+local_model_dir = "../Qwen3.5-4B"
+temperature = 0.7
 ```
 
 ### `[retrieval]` — 检索参数
