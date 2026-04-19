@@ -25,7 +25,6 @@ visualization = [
 research = [
 	"matplotlib>=3.8",
 	"seaborn>=0.13",
-	"gradio>=4.0",
 	"scipy>=1.11",
 	"rouge-score>=0.1",
 	"nltk>=3.8",

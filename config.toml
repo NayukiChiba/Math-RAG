@@ -1,7 +1,9 @@
 # Math-RAG 全局配置（TOML）
+#
+# 仅保留常用可调项。完整默认值见 src/core/config.py 中的 defaults；
+# prompt 模板见 src/core/dataGen/data_gen.py::_default_prompts。
 
 [paths]
-# 目录路径均相对项目根目录
 raw_dir = "data/raw"
 processed_dir = "data/processed"
 ocr_dir = "data/processed/ocr"
@@ -10,393 +12,96 @@ chunk_dir = "data/processed/chunk"
 evaluation_dir = "data/evaluation"
 stats_dir = "data/stats"
 outputs_dir = "outputs"
-# 时间戳跑次根目录（评测原始 JSON、run_trace、exports）
 log_base_dir = "outputs/log"
 figures_dir = "outputs/figures"
-logs_dir = "outputs/log"
-# 定稿发布根目录（final_report、figures、conclusions、json 快照），无时间戳子目录
 reports_base_dir = "outputs/reports"
 rag_results_file = "outputs/rag_results.jsonl"
 model_output_json = "data/processed/ma_terms_model.json"
-# OCR 分页输出：processed/ocr/{书名}/pages/
-# 术语列表/映射：processed/terms/{书名}/all.json, map.json
-# 术语定义数据：processed/chunk/{书名}/{term}.json
 
+
+# ── OCR ──────────────────────────────────────────────────────────────
+# engine = "local" 使用 pix2text 本地推理；"api" 使用多模态 AI（OpenAI 兼容 Vision API）
 [ocr]
-# OCR 页码范围（页码从 0 开始，-1 表示不限制）
+engine = "local"
 page_start = 0
 page_end = -1
 skip_existing = true
-# 图像最大尺寸（宽, 高），用于限制内存占用
-max_image_size = [1280, 1280]
-# ---- 加速相关 ----
-# 推理设备："cuda" / "cpu"，留空自动选择
 device = "cuda"
-# 公式识别批量大小，GPU 上建议 8~16
 mfr_batch_size = 8
-# PDF 渲染 DPI，默认 300，降至 200 可加速约 30%
 render_dpi = 200
-# resized_shape：图像缩放宽度，768 精度最高，512 速度快约 30% 且质量损失很小
 resized_shape = 512
-# 是否检测行内公式（嵌在文本中的公式），关闭可加速 ~33%，独立公式仍保留
 text_contain_formula = true
-# 每次批量处理的页数（减少 PDF 重复打开），0 表示不分批
 batch_pages = 10
-# 多进程并行 worker 数，0 表示在主进程顺序处理（单GPU下建议保持0）
 ocr_workers = 0
-# 文本分块最大字符数
 max_page_chars = 1800
-# 术语最大长度
 max_term_len = 16
-# 术语提取最大 token 数
 term_max_tokens = 300
-# 每个术语最多关联的页数
 max_pages_per_term = 6
 
+[ocr.api]
+api_base = "https://api.deepseek.com/v1"
+model = "deepseek-vl2"
+api_key_env = "API-KEY"
+max_tokens = 4000
+temperature = 0.1
+# Vision 提示词（引导模型输出 Markdown + LaTeX）
+prompt = """请将图片中的内容完整转录为 Markdown 格式。要求：
+1. 保留原始段落结构
+2. 所有数学公式使用 LaTeX（行内 $...$，行间 $$...$$）
+3. 表格使用 Markdown 表格语法
+4. 不要输出其它解释，只输出 Markdown 内容"""
+
+
+# ── 术语结构化生成（[model]）─────────────────────────────────────────
+# 仅配置 API 连接；prompt 模板已挪到 src/core/dataGen/data_gen.py
 [model]
-# OpenAI 兼容接口配置
 api_base = "https://api.deepseek.com/v1"
 model = "deepseek-chat"
-# 你的 .env 使用 API-KEY，这里保持一致
 api_key_env = "API-KEY"
-# subject_label 从书名自动推断，无需手动配置
 max_tokens = 900
 temperature = 0.3
 top_p = 0.9
-max_retries = 2
 max_attempts = 5
+request_timeout = 60
+stream = true
 min_definition_chars = 40
 min_usage_chars = 10
 min_applications_chars = 5
 min_formula_count = 1
-# 请求控制
-endpoint = "/chat/completions"
-request_timeout = 60
-# rpm = 800
-# tpm = 40000
-retry_wait_seconds = 2
-clear_context_each_request = true
-# 流式输出
-stream = true
-# 起始索引（1-based）
-start_index = 1
-# 上下文最大字符数
 ocr_max_context_chars = 800
 
-# 提示词模板（占位符：{{term}} {{subject_label}} {{example}} {{reason}} {{bad_json}}）
-prompt_system = '''
-你是数学术语编纂助手。请为指定术语生成标准化 JSON。必须严格输出 JSON 对象，不要输出多余解释。
-'''
 
-prompt_user = '''
-术语：{{term}}
-学科：{{subject_label}}
-来源：{{sources}}
-上下文（OCR）：{{context}}
-要求：
-1) 输出字段必须包含：id, term, aliases, sense_id, subject, definitions, notation, formula, usage, applications, disambiguation, related_terms, sources, search_keys, lang, confidence。
-2) definitions 至少包含 2 条（strict + alternative），必要时再补充 informal，且每条定义包含 reference 字段（来源为上面的 sources）。
-3) 数学符号与公式必须使用 LaTeX。
-4) related_terms 至少 3 个。
-5) 仅输出 JSON 对象。
-6) 内容必须更具体，避免空泛表述。
-示例（格式参考，内容需针对当前术语生成）：
-{{example}}
-'''
-
-prompt_example = '''
-{
-  "id": "ma-柯西列",
-  "term": "柯西列",
-  "aliases": ["Cauchy 列"],
-  "sense_id": "1",
-  "subject": "数学分析",
-  "definitions": [
-    {
-      "type": "strict",
-      "text": "在度量空间 $(X,d)$ 中，序列 $\\{x_n\\}$ 称为柯西列，若对任意 $\\epsilon>0$，存在 $N$ 使得当 $m,n\\ge N$ 时，有 $d(x_m,x_n)<\\epsilon$。",
-      "conditions": "$(X,d)$ 为度量空间",
-      "notation": "$d(x_m,x_n)$",
-      "reference": "教材/讲义 第1页"
-    }
-  ],
-  "notation": "$d(x_m,x_n)$",
-  "formula": ["\\\\forall\\\\epsilon>0\\\\,\\\\exists N\\\\,\\\\forall m,n\\\\ge N:\\\\,d(x_m,x_n)<\\\\epsilon"],
-  "usage": "用于刻画序列在度量空间中的内在收敛性，不依赖极限点是否存在。",
-  "applications": "用于证明完备性与收敛性等价性质；在函数空间中用于一致收敛的判别。",
-  "disambiguation": "不同于一般收敛，柯西列只要求后项彼此接近。",
-  "related_terms": ["完备性", "收敛", "度量空间"],
-  "sources": ["教材/讲义 第1页"],
-  "search_keys": ["柯西列", "cauchy列", "cauchy"],
-  "lang": "zh",
-  "confidence": "medium"
-}
-'''
-
-prompt_repair_system = '''
-你是数学术语编纂助手。请修复并补全 JSON。必须严格输出 JSON 对象，不要输出多余解释。
-'''
-
-prompt_repair_user = '''
-术语：{{term}}
-学科：{{subject_label}}
-问题：{{reason}}
-请在保持结构完整的前提下补全内容，至少包含 1 条 strict 定义，并补齐公式、usage、applications、related_terms、sources。
-definitions 中每条定义必须包含 reference 字段。
-仅输出修复后的 JSON 对象。
-当前 JSON：
-{{bad_json}}
-'''
-
+# ── RAG 生成层 ───────────────────────────────────────────────────────
+# engine = "api" 使用 OpenAI 兼容接口；"local" 使用本地 HuggingFace 模型
 [generation]
-# RAG 生成层配置
-# 引擎选择： "api" 或 "local"
 engine = "api"
-
-# ---- API 推理配置（engine = "api" 时生效）----
-# OpenAI 兼容接口地址（DeepSeek / 通义千问等均可）
 api_base = "https://api.deepseek.com/v1"
 api_model = "deepseek-chat"
-# .env 中 API 密钥的变量名，与 [model] 复用同一个 key
 api_key_env = "API-KEY"
-# 是否开启流式输出（前端打字机效果需要 true）
-api_stream = false
-
-# 上下文总最大字符数
-# Qwen3.5-4B 支持 262K 上下文，中文约 1.5 char/token，可适当增大
+api_stream = true
 max_context_chars = 6000
-
-# 单条术语文本最大字符数，避免一条术语挤占整个上下文
 max_chars_per_term = 1200
-
-# 推理参数
-# 指令模式（非思考）通用任务推荐：temperature=0.7, top_p=0.8
 temperature = 0.7
 top_p = 0.8
-top_k = 20
-min_p = 0.0
-presence_penalty = 1.5
-# max_new_tokens: 本地模型最大生成 token 数
-# RTX 4060 (8GB) 建议 ≤512，显存充足可适当增大
-# API 模式不受此限制，由云端模型自行控制
 max_new_tokens = 512
-# 是否启用思考模式（true=默认开启，false=直接输出答案）
-# RAG 问答场景建议关闭思考模式，速度更快且输出格式更稳定
-enable_thinking = false
-# 本地模型目录（相对项目根目录）
 local_model_dir = "../Qwen3.5-4B"
 
+
+# ── 检索 ─────────────────────────────────────────────────────────────
 [retrieval]
-# 检索模块配置
-
-# 召回因子：检索 topK * recall_factor 用于融合（提升以增加召回率）
-recall_factor = 10
-# 高级检索每路召回数量
-advanced_recall_topk = 200
-# 重排序候选数量
-rerank_candidates = 100
-
-# 域外拒答阈值：当检索证据不足时直接回答“我不知道。”
-out_of_scope_score_threshold = 0.80
-# 当查询与检索术语几乎无重叠时，使用更严格阈值
-no_overlap_strict_score_threshold = 0.88
-# 查询与术语最小重叠字符数（用于判断术语相关性）
-overlap_min_chars = 2
-
-# RRF 参数
-rrf_k = 60
-rrf_min_k = 30
-rrf_max_k = 100
-
-# 融合权重（BM25, 向量）
+default_vector_model = "BAAI/bge-base-zh-v1.5"
+default_reranker_model = "BAAI/bge-reranker-v2-mixed"
+# 融合权重（BM25 主导，向量辅助）
 bm25_default_weight = 0.7
 vector_default_weight = 0.3
-# 重叠度阈值（高于此值使用平均权重）
-overlap_threshold = 0.5
-
-# BM25 查询难度阈值
-bm25_difficult_threshold_low = 0.5
-bm25_difficult_threshold_high = 2.0
-
+# 拒答阈值
+out_of_scope_score_threshold = 0.80
+no_overlap_strict_score_threshold = 0.88
+in_domain_relaxed_score_threshold = 0.45
+overlap_min_chars = 2
 # 查询改写
 rewrite_query_count = 3
 rewrite_max_terms = 10
-
-# 归一化方法：percentile / min_max / z_score
-default_normalization = "percentile"
-
-# 模型
-default_reranker_model = "BAAI/bge-reranker-v2-mixed"
-default_vector_model = "BAAI/bge-base-zh-v1.5"
-
-# 是否使用混合分词（词级 + 字符级）
-use_hybrid_tokenization = true
-
-# BM25 字符 n-gram 最大长度（0/1=仅字符级，2=+2-gram，3=+2-gram+3-gram）
-bm25_char_ngram_max = 3
-
-# 评测配置
+# 评测参数
 eval_num_queries = 20
 eval_topk = 10
-eval_hybrid_alpha = 0.85
-eval_hybrid_beta = 0.15
-
-# ── 报告 / 图表 / 快评（reports_generation 包）────────────────
-# 数据路径优先复用 [paths] 中的 stats_dir、processed_dir、evaluation_dir、figures_dir
-
-[reports_generation]
-# 答辩图输出子目录（位于 figures_dir 下）
-defense_output_subdir = "defense"
-defense_save_dpi = 200
-defense_matplotlib_font_size = 12
-# 留空字符串表示不注册该文件，仅用 fallback 字体列表
-defense_cjk_font_file = "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf"
-
-chunk_statistics_basename = "chunkStatistics.json"
-corpus_relpath = "retrieval/corpus.jsonl"
-queries_basename = "queries.jsonl"
-queries_full_basename = "queries_full.jsonl"
-golden_set_basename = "golden_set.jsonl"
-term_mapping_basename = "term_mapping.json"
-
-# generateReport：相对当前运行 json 目录（get_json_dir）的默认结果文件
-report_json_all_methods_relpath = "full_eval/all_methods.json"
-report_json_ablation_relpath = "ablation_study.json"
-report_json_significance_relpath = "significance_test.json"
-report_json_final_report_relpath = "final_report.md"
-report_json_comparison_relpath = "comparison_results.json"
-# Markdown 中引用图表时展示的路径前缀（应与 [paths].figures_dir 语义一致）
-report_doc_figures_display_prefix = "outputs/figures"
-report_case_examples_count = 3
-report_figure_save_pdf_dpi = 300
-report_figure_save_png_dpi = 200
-report_method_comparison_recall_ks = [1, 3, 5, 10]
-report_method_comparison_figsize = [10.0, 5.5]
-report_topk_ablation_figsize = [7.0, 4.5]
-report_alpha_sensitivity_figsize = [7.0, 4.5]
-report_subject_breakdown_figsize = [9.0, 5.0]
-report_chart_colors = ["#4472C4", "#ED7D31", "#A9D18E", "#FF6B6B", "#9B59B6"]
-report_chart_hatches = ["", "//", "\\\\", "xx", ".."]
-report_footer_note = "*本报告由 `reports_generation.reports.generateReport` 自动生成。定稿与图表见 `outputs/reports/`；原始跑次与完整 JSON 见 `outputs/log/<run_id>/`。*"
-
-fig_method_comparison_basename = "method_comparison"
-fig_topk_ablation_basename = "topk_ablation"
-fig_alpha_sensitivity_basename = "alpha_sensitivity"
-fig_subject_breakdown_basename = "subject_breakdown"
-
-chart_comparison_filename = "retrieval_comparison.png"
-chart_comparison_figsize = [14.0, 10.0]
-chart_comparison_save_dpi = 300
-chart_comparison_suptitle = "检索评测指标对比"
-chart_comparison_suptitle_fontsize = 16
-chart_recall_ks = [1, 3, 5, 10]
-chart_ndcg_ks = [3, 5, 10]
-
-viz_output_subdir = "visualizations"
-viz_figure_dpi = 100
-viz_savefig_dpi = 300
-viz_figure_figsize = [12.0, 8.0]
-
-defense_matplotlib_fallback_fonts = [
-    "SimHei",
-    "WenQuanYi Micro Hei",
-    "Noto Sans CJK SC",
-    "Noto Sans SC",
-    "DejaVu Sans",
-]
-report_matplotlib_fallback_fonts = [
-    "WenQuanYi Zen Hei",
-    "Noto Sans CJK SC",
-    "SimHei",
-    "Microsoft YaHei",
-    "PingFang SC",
-]
-chart_font_sans_serif = ["SimHei"]
-
-viz_windows_font_candidates = [
-    "/mnt/c/Windows/Fonts/msyh.ttc",
-    "/mnt/c/Windows/Fonts/msyhbd.ttc",
-    "/mnt/c/Windows/Fonts/msyhl.ttc",
-    "/mnt/c/Windows/Fonts/simhei.ttf",
-    "/mnt/c/Windows/Fonts/simsun.ttc",
-    "/mnt/c/Windows/Fonts/Deng.ttf",
-]
-viz_preferred_cn_fonts = [
-    "Noto Sans CJK SC",
-    "WenQuanYi Zen Hei",
-    "WenQuanYi Micro Hei",
-    "Microsoft YaHei",
-    "SimHei",
-    "Arial Unicode MS",
-    "Droid Sans Fallback",
-]
-
-report_subject_breakdown_subjects_zh = ["数学分析", "概率论", "高等代数"]
-report_subject_breakdown_labels_en = ["Math Analysis", "Probability", "Linear Algebra"]
-
-defense_palette = [
-    "#3B82F6",
-    "#8B5CF6",
-    "#10B981",
-    "#F59E0B",
-    "#EF4444",
-    "#EC4899",
-    "#06B6D4",
-    "#64748B",
-]
-defense_gradient_blues = ["#DBEAFE", "#93C5FD", "#60A5FA", "#3B82F6", "#2563EB", "#1D4ED8"]
-defense_gradient_multi = ["#3B82F6", "#8B5CF6", "#EC4899", "#EF4444", "#F59E0B", "#10B981"]
-
-[reports_generation.defense_colors]
-primary = "#3B82F6"
-secondary = "#8B5CF6"
-accent = "#10B981"
-warm = "#F59E0B"
-danger = "#EF4444"
-rose = "#EC4899"
-cyan = "#06B6D4"
-slate = "#64748B"
-
-[reports_generation.quick_eval]
-default_mode = "basic"
-basic_methods = ["bm25", "bm25plus", "hybrid_plus"]
-optimized_methods = [
-    "bm25_heavy",
-    "hybrid_more_recall",
-    "optimized_hybrid",
-    "optimized_rrf",
-    "optimized_advanced",
-    "extreme_rrf",
-]
-all_methods = [
-    "bm25",
-    "bm25plus",
-    "vector",
-    "hybrid_plus",
-    "hybrid_rrf",
-    "advanced",
-    "optimized_hybrid",
-    "hybrid_more_recall",
-    "bm25_heavy",
-    "bm25_ultra",
-    "optimized_rrf",
-    "extreme_rrf",
-    "optimized_advanced",
-    "advanced_no_rerank",
-    "advanced_more_rewrite",
-    "bm25plus_only",
-    "bm25plus_aggressive",
-    "vector_only",
-    "direct_lookup_hybrid",
-    "direct_lookup_rrf",
-    "direct_lookup_bm25_only",
-]
-
-[reports_generation.viz_filenames]
-book_distribution = "1_书籍术语分布.png"
-subject_distribution = "2_学科分布.png"
-field_coverage = "3_字段覆盖率.png"
-term_length = "4_长度分布.png"
-definition_type = "5_定义类型分布.png"
-dashboard = "0_综合统计面板.png"
-

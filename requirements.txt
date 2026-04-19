@@ -1,12 +1,14 @@
 faiss-cpu
-gradio
+fastapi
 httpx
 Jinja2
 matplotlib
 nltk
 numpy
+openai
 pix2text
 pypdf
+python-multipart
 rank_bm25
 Requests
 rouge_score
@@ -16,4 +18,5 @@ torch
 tqdm
 transformers
 pytest
-openai
+uvicorn[standard]
+websockets
