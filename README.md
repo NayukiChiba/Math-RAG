@@ -1,138 +1,129 @@
-# Math-RAG
+# MathRag
 
-面向数学术语与概念问答的检索增强生成（RAG）系统，基于本地 Qwen-Math 模型与多路检索策略。
+面向数学术语与概念问答的检索增强生成系统。
 
-## 项目定位
+MathRag 不是一个只返回“看起来像答案”的问答工具，而是一个把数学教材
+语料、检索策略、回答生成、评测分析和可视化界面串起来的完整工程。它
+支持从 PDF 教材入库开始，逐步完成术语抽取、检索语料构建、RAG 问答、
+检索评测、生成评测和论文图表产出。
 
-Math-RAG 的目标不是"只给出答案"，而是"给出可追溯答案"：
+## 项目特点
 
-1. 从教材语料中检索相关定义、定理与上下文片段。
-2. 基于检索证据进行生成。
-3. 输出可回溯来源的信息，支持实验复现与对比分析。
+- 面向数学场景：围绕术语、定义、定理和公式相关问答设计
+- 检索优先：支持 `BM25`、`BM25+`、`Vector`、`Hybrid`、`Hybrid+`
+  等多种策略
+- 生成可切换：同时支持本地模型推理和 OpenAI 兼容 API
+- 研究友好：内置查询集生成、检索评测、显著性检验和报告生成
+- 统一入口：通过 `python main.py` 管理产品线、研究线和 Web UI
+- 工程完整：包含测试、文档站点、答辩图表和前后端界面
 
-核心原则：
+## 适用场景
 
-1. 检索准确率优先。
-2. 实验流程可复现。
-3. 工程结构清晰、可维护。
+MathRag 适合下面几类工作：
 
-## 文档入口
+- 构建数学教材语料库并完成术语问答
+- 对比不同检索策略在数学场景下的效果
+- 做 RAG 课程设计、毕业设计或论文实验
+- 产出实验报告、可视化图表和答辩材料
 
-| 文档             | 路径                                         |
-| ---------------- | -------------------------------------------- |
-| 项目总文档       | [docs/project.md](docs/project.md)           |
-| Runners 模块说明 | [src/core/runners/README.md](src/core/runners/README.md) |
+## 系统主线
+
+仓库当前可以分为三条主线：
+
+### 1. 产品线
+
+面向日常使用，负责把原始教材变成可问答系统。
+
+典型流程：
+
+```text
+ingest -> build-index -> rag
+```
+
+主要能力：
+
+- PDF 入库
+- OCR 与术语抽取
+- 检索语料与索引构建
+- 单条或批量 RAG 问答
+
+### 2. 研究线
+
+面向实验与论文工作，负责评测、对比和报告产出。
+
+典型流程：
+
+```text
+generate-queries -> build-term-mapping -> eval-retrieval
+-> experiments -> eval-generation -> report
+```
+
+主要能力：
+
+- 评测查询集构建
+- 检索评测与快速评测
+- 生成质量评测
+- 显著性检验
+- 报告与答辩图表生成
+
+### 3. Web UI
+
+面向演示和可视化操作，后端使用 FastAPI，前端使用 Vue 3 +
+Element Plus。
+
+主要页面包括：
+
+- `/chat`：流式 RAG 问答
+- `/ingest`、`/index`：入库与索引构建
+- `/research/*`：研究线命令可视化入口
+- `/reports`、`/figures`、`/stats`：报告与图表浏览
+- `/config`：`config.toml` 在线编辑
+- `/tasks`：长任务进度与日志查看
 
 ## 快速开始
 
-### 1. 环境准备
+### 环境要求
+
+- Python 3.11+
+- Node.js 18+（仅 Web UI 前端和文档站点需要）
+- 推荐使用虚拟环境或 Conda 环境
+
+### 1. 安装依赖
 
 ```bash
-conda create -n MathRag python=3.11
-conda activate MathRag
 pip install -r requirements.txt
 pip install -e .
 ```
 
-安装完成后通过根目录入口 `python main.py` 统一启动所有功能。
-
-### 2. 一条命令跑通入库
+如果你要跑研究评测，建议补装研究依赖：
 
 ```bash
-python main.py cli ingest data/raw/数学分析.pdf
+pip install -e .[research]
 ```
 
-该命令默认执行：OCR → 术语抽取 → 结构化生成 → 检索语料/索引构建。
+### 2. 检查配置
 
-### 3. 一条命令进行问答
+项目主配置文件为 `config.toml`，常见配置包括：
 
-```bash
-python main.py cli rag --query "什么是一致收敛？"
-```
+- `[paths]`：数据与输出目录
+- `[ocr]`：OCR 引擎与参数
+- `[terms_gen]`：术语结构化生成参数
+- `[rag_gen]`：回答生成参数
+- `[retrieval]`：检索模型、融合权重和阈值
 
-### 4. 启动 Web UI
+如果使用 API 模式，请在 `.env` 或系统环境变量中设置
+`config.toml` 对应的 `api_key_env` 项。当前默认键名包括：
 
-```bash
-python main.py ui                          # 默认端口 7860，绑定 127.0.0.1
-python main.py ui --port 8080              # 自定义端口
-python main.py ui --host 0.0.0.0           # 允许外网访问
-```
+- `API-KEY-OCR`
+- `API-KEY-TERMS`
+- `API-KEY-RAG`
 
-首次使用需先构建前端（见下方「Web UI」章节）。Web UI 覆盖全部 17 个 CLI 子命令，支持流式 RAG 问答、PDF 上传、索引构建、研究线评测与报告浏览。
+如果使用本地模型，请把对应模块的 `engine` 改成 `local`，并设置本地模
+型目录。
 
-### 5. 查看所有可用命令
+### 3. 跑通最小产品流程
 
-```bash
-python main.py --help          # 顶层帮助（含快速示例）
-python main.py cli --help      # 产品线子命令列表
-python main.py research --help # 研究线子命令列表
-python main.py ui --help       # WebUI 选项
-```
-
-## Web UI
-
-基于 **FastAPI + Vue 3 + Element Plus** 的一体化控制台，覆盖全部 CLI 子命令：
-
-- `/chat` — 流式 RAG 问答（WebSocket 打字机效果、KaTeX 公式、检索引用卡片）
-- `/ingest`、`/index` — PDF 上传与索引构建（实时日志）
-- `/research/*` — 14 个研究线命令的可视化入口（透传 CLI 参数）
-- `/reports`、`/figures`、`/stats` — 报告 / 图表 / 统计浏览
-- `/config` — `config.toml` 分段编辑
-- `/tasks` — 任务中心，查看所有长任务进度与日志
-
-### 构建前端
-
-```bash
-cd webui/frontend
-npm install
-npm run build            # 生成 webui/frontend/dist/
-```
-
-生产模式下，FastAPI 会自动挂载 `webui/frontend/dist/`，`python main.py ui` 即可单端口访问。
-
-### 开发模式
-
-```bash
-# Terminal A：后端
-python main.py ui                          # 监听 http://127.0.0.1:7860
-
-# Terminal B：前端开发服务器（带 HMR）
-cd webui/frontend
-npm run dev                                # 浏览器访问 http://localhost:5173
-```
-
-Vite 已配置将 `/api` 与 `/ws` 代理到 7860。
-
-### API 文档
-
-启动后访问 http://127.0.0.1:7860/docs 查看完整 OpenAPI 文档。
-
-## 文档
-
-文档站点使用 [VitePress](https://vitepress.dev) 构建，通过 GitHub Actions 自动发布到 GitHub Pages。
-
-```bash
-npm install
-npm run docs:dev      # 本地开发预览（http://localhost:5173）
-npm run docs:build    # 构建静态站点
-npm run docs:preview  # 预览构建产物
-```
-
-| 目录 | 说明 |
-|------|------|
-| `docs/guide/` | 快速开始、安装、CLI 用法、配置 |
-| `docs/core/` | 产品线核心模块文档 |
-| `docs/research/` | 研究线评测与实验文档 |
-| `docs/reports/` | 报告与答辩图表生成 |
-
-## 产品线（`python main.py cli`）
-
-| 子命令        | 说明                       |
-| ------------- | -------------------------- |
-| `ingest`      | PDF 入库流水线             |
-| `build-index` | 重建检索语料与索引         |
-| `rag`         | RAG 问答（单条或批量）     |
-| `serve`       | 启动 Web UI（同 `ui`）     |
+先把 PDF 放进 `data/raw/`，然后执行：
 
 ```bash
 python main.py cli ingest data/raw/数学分析.pdf
@@ -140,150 +131,244 @@ python main.py cli build-index --rebuild
 python main.py cli rag --query "什么是一致收敛？"
 ```
 
-## 研究线（`python main.py research`）
+如果只想看入口帮助：
 
-论文实验、评测、报告生成等均通过研究线入口调用。
+```bash
+python main.py --help
+python main.py cli --help
+python main.py research --help
+python main.py ui --help
+```
 
-| 子命令                        | 说明                               |
-| ----------------------------- | ---------------------------------- |
-| `eval-retrieval`              | 正式检索评测（多方法对比）         |
-| `full-reports`                | 全量评测总控（日志→log，定稿→reports） |
-| `publish-reports`             | 从日志发布定稿到 outputs/reports/  |
-| `experiments`                 | 端到端对比实验                     |
-| `eval-generation`             | 生成质量评测                       |
-| `eval-generation-comparison`  | 生成质量对比                       |
-| `significance-test`           | 显著性检验                         |
-| `report`                      | 生成汇总报告                       |
-| `quick-eval`                  | 快速检索评测                       |
-| `defense-figures`             | 生成答辩图表                       |
-| `add-missing-terms`           | 补充缺失术语                       |
-| `stats`                       | 统计与可视化                       |
-| `serve`                       | 启动 Web UI（同 `ui`）             |
+## 常用命令
+
+### 顶层入口
+
+推荐统一通过 `main.py` 启动：
+
+```bash
+python main.py cli ...
+python main.py research ...
+python main.py ui
+```
+
+可编辑安装后，也可以继续使用兼容入口：
+
+```bash
+math-rag
+math-rag-research
+```
+
+### 产品线命令
+
+| 命令 | 说明 |
+| --- | --- |
+| `python main.py cli ingest <pdf>` | 执行 PDF 入库流水线 |
+| `python main.py cli build-index` | 单独构建或重建检索索引 |
+| `python main.py cli rag --query "..."` | 运行单条问答 |
+| `python main.py cli serve --port 7860` | 启动 Web UI |
+
+常见示例：
+
+```bash
+python main.py cli ingest data/raw/数学分析.pdf --skip-generation
+python main.py cli build-index --rebuild --skip-bm25
+python main.py cli rag --query "什么是柯西列？"
+python main.py cli rag --query-file data/evaluation/queries.txt
+```
+
+### 研究线命令
+
+| 命令 | 说明 |
+| --- | --- |
+| `generate-queries` | 生成评测查询集 |
+| `build-term-mapping` | 构建术语映射 |
+| `eval-retrieval` | 正式检索评测 |
+| `quick-eval` | 快速检索评测 |
+| `experiments` | 端到端实验 |
+| `eval-generation` | 生成质量评测 |
+| `eval-generation-comparison` | 生成质量对比 |
+| `significance-test` | 统计显著性检验 |
+| `report` | 生成最终报告 |
+| `full-reports` | 一次性跑完整评测流程 |
+| `publish-reports` | 从已有日志发布定稿 |
+| `defense-figures` | 生成答辩图表 |
+| `add-missing-terms` | 补充缺失术语 |
+| `stats` | 语料统计与可视化 |
+| `serve` | 启动研究线 Web UI |
+
+常见示例：
 
 ```bash
 python main.py research eval-retrieval --visualize
 python main.py research full-reports --retrieval-only
 python main.py research publish-reports --run-id 20260406_164049
+python main.py research serve --port 7861
 ```
 
-> **兼容说明**：若已安装本项目（`pip install -e .`），原有命令 `math-rag` 与 `math-rag-research` 仍然有效，但推荐统一使用 `python main.py`。
+## Web UI
 
-## 推荐流程
+### 构建前端
 
-**产品线（日常使用）：**
+```bash
+cd webui/frontend
+npm install
+npm run build
+```
+
+构建完成后会生成 `webui/frontend/dist/`，此时可以直接启动后端：
+
+```bash
+python main.py ui
+```
+
+默认地址：
 
 ```text
-ingest → build-index → rag / serve
+http://127.0.0.1:7860
 ```
 
-**研究线（论文实验）：**
+### 前端开发模式
+
+终端 A：
+
+```bash
+python main.py ui
+```
+
+终端 B：
+
+```bash
+cd webui/frontend
+npm install
+npm run dev
+```
+
+默认开发地址：
 
 ```text
-build-index → generate-queries → build-term-mapping
-  → eval-retrieval → experiments → eval-generation → report
+http://localhost:5173
 ```
 
-报告默认写入：`outputs/log/YYYYMMDD_HHMMSS/`。
+### OpenAPI 文档
+
+启动后访问：
+
+```text
+http://127.0.0.1:7860/docs
+```
+
+## 文档站点
+
+仓库内置 VitePress 文档站点，源码位于 `docs/`。
+
+本地预览：
+
+```bash
+cd docs
+npm install
+npm run docs:dev
+```
+
+构建静态文档：
+
+```bash
+cd docs
+npm run docs:build
+npm run docs:preview
+```
+
+常看入口：
+
+- `docs/index.md`
+- `docs/project.md`
+- `docs/guide/`
+- `docs/core/`
+- `docs/research/`
+- `docs/reports/`
 
 ## 项目结构
 
 ```text
-Math-RAG/
+MathRag/
+├── main.py                    # 统一启动入口
+├── config.toml                # 全局配置
+├── pyproject.toml             # 包配置与脚本入口
+├── requirements.txt           # 依赖列表
 ├── src/
-│   ├── core/                     # 产品线（RAG 核心）
-│   │   ├── config.py             # 统一配置入口
-│   │   ├── mathRag.py            # math-rag CLI 入口
-│   │   ├── cli/                  # 产品线子命令注册
-│   │   ├── answerGeneration/     # 提示模板、推理封装、RAG 管线
-│   │   ├── dataGen/              # OCR、术语抽取、结构化生成
-│   │   ├── retrieval/            # 语料构建、查询改写、多策略检索器
-│   │   ├── runners/              # 仅 RAG 问答编排
-│   │   └── utils/                # 通用工具（文件加载、输出管理）
-│   ├── research/                 # 研究线（论文实验/评测）
-│   │   ├── researchMain.py       # math-rag-research CLI 入口
-│   │   ├── cli/                  # 研究线子命令注册
-│   │   ├── evaluationData/       # 评测数据集生成
-│   │   ├── modelEvaluation/      # 检索评测 / 生成评测
-│   │   ├── dataStat/             # 数据统计与可视化
-│   │   └── runners/              # 实验编排（experiments, evaluation, tools）
-│   └── (api/ 已移除)
-├── webui/                    # Web UI（FastAPI 后端 + Vue 3 前端）
-│   ├── backend/              # FastAPI 路由、任务管理、事件总线
-│   └── frontend/             # Vue 3 + Element Plus 前端源码与构建产物
-├── main.py                   # 统一启动入口（推荐使用）
-├── reports_generation/       # 报告、快评、答辩图表
-├── tests/                    # 测试
-├── data/                     # 数据资产（产品与研究共用）
-├── docs/                     # 项目文档
-├── outputs/                  # 运行输出与日志
-├── config.toml               # 全局参数配置
-├── pyproject.toml            # 构建与工具链配置
-└── requirements.txt          # 依赖清单
+│   ├── core/                  # 产品线核心模块
+│   │   ├── answerGeneration/  # 提示模板、推理封装、RAG 管线
+│   │   ├── dataGen/           # OCR、术语抽取、结构化生成
+│   │   ├── retrieval/         # 语料构建、检索器、查询改写
+│   │   ├── runners/           # 产品线运行入口
+│   │   ├── utils/             # 通用工具
+│   │   └── cli/               # 产品线 CLI
+│   └── research/              # 研究线模块
+│       ├── evaluationData/    # 评测数据构建
+│       ├── modelEvaluation/   # 检索评测与生成评测
+│       ├── dataStat/          # 数据统计与可视化
+│       ├── runners/           # 实验编排
+│       └── cli/               # 研究线 CLI
+├── reports_generation/        # 报告、快评和答辩图表
+├── webui/                     # FastAPI 后端 + Vue 前端
+├── docs/                      # VitePress 文档站点
+├── tests/                     # 测试
+├── data/                      # 原始数据、处理中间数据、评测数据
+└── outputs/                   # 问答结果、实验日志、图表与报告
 ```
+
+## 关键目录与产物
+
+### 输入目录
+
+- `data/raw/`：原始 PDF 教材
+- `data/evaluation/`：评测查询、术语映射和金标准数据
+
+### 中间产物
+
+- `data/processed/ocr/`
+- `data/processed/terms/`
+- `data/processed/chunk/`
+- `data/processed/retrieval/`
+
+### 输出目录
+
+- `outputs/rag_results.jsonl`：问答结果
+- `outputs/log/`：实验过程日志
+- `outputs/reports/`：正式报告和图表
+- `outputs/figures/`：答辩或展示图表
 
 ## 架构约束
 
-- **导入方向**：`research` / `reports_generation` 可 `import core.*`；**禁止** `core` 反向依赖 `research` 或 `reports_generation`。
-- **安装**：`pip install .` 即可运行产品线；`pip install .[research]` 额外安装论文研究所需依赖。
+- `research` 和 `reports_generation` 可以依赖 `core`
+- `core` 不应反向依赖 `research` 或 `reports_generation`
+- 路径和默认值统一从 `config.toml` 与 `src/core/config.py` 读取
 
-## 产品线核心模块
+## 开发与测试
 
-### `src/core/dataGen`
-
-从教材 PDF 生成结构化术语数据：PDF → OCR → 术语抽取 → 结构化生成 → 过滤清洗。
-
-### `src/core/retrieval`
-
-语料构建、查询改写与多策略检索器：BM25 / BM25+ / Vector / Hybrid / HybridPlus / Reranker / Advanced。
-
-### `src/core/answerGeneration`
-
-提示模板管理、多引擎推理封装（本地 / API）、RAG 端到端管线（`RagPipeline` 同时提供同步 `query` 与异步 `queryStream`）。
-
-## 研究线核心模块
-
-### `src/research/modelEvaluation`
-
-检索评测（`retrievalEval/`）、生成质量评测（`generationEval/`）。
-
-### `src/research/evaluationData`
-
-评测查询集自动生成。
-
-### `src/research/dataStat`
-
-术语数据统计与论文级可视化图表。
-
-### `reports_generation/`
-
-快速检索评测、答辩图表、完整评测报告（Markdown + PDF/PNG 图表）。
-
-## 配置说明
-
-项目采用 `config.toml` + `src/core/config.py` 双层配置：
-
-| 文件                    | 职责                           |
-| ----------------------- | ------------------------------ |
-| `config.toml`           | 参数数据源（TOML 格式）        |
-| `src/core/config.py`    | Python 统一读取接口与路径常量 |
-
-常见配置段：`[paths]`、`[ocr]`、`[terms_gen]`、`[rag_gen]`、`[retrieval]`、`[retrieval.embedding]`、`[retrieval.reranker]`。
-
-## 开发与代码规范
-
-- 使用 **Ruff** 进行检查与格式化。
-- 路径统一通过 `src/core/config.py` 管理。
-- 提交信息遵循 `type(scope): 中文说明` 格式。
+代码格式与检查：
 
 ```bash
 ruff check .
 ruff format .
 ```
 
-可选启用 pre-commit：
+运行测试：
 
 ```bash
-pip install pre-commit
-pre-commit install
-pre-commit run -a
+pytest
 ```
+
+如果只想做基础检查，可以先跑 smoke tests：
+
+```bash
+pytest tests/smoke
+```
+
+## 当前仓库包含什么
+- 可直接运行的数学问答产品线
+- 面向论文实验的研究线工具链
+- 前后端一体化 Web UI
+- 文档站点
+- 实验报告、图表和测试代码
+
